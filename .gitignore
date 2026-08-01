@@ -42,3 +42,6 @@ next-env.d.ts
 
 # scratch API dumps
 /scratch
+
+# Claude Code personal overrides (project skills/settings are committed)
+.claude/settings.local.json
