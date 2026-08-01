@@ -146,6 +146,20 @@ model MatchSquad {
   grid        String? // "row:column"; null for substitutes
   minutes     Int? // null = named in the squad but did not appear
 
+  // Per-match statistics. Every one is nullable because absent and zero are
+  // different facts: an unused substitute did not score zero goals, they have no
+  // goals figure at all. The API sends null for most statistics for most
+  // players, and the UI must be able to tell the two apart.
+  //
+  // Float rather than Decimal for `rating`: it arrives as the string "7.2", and
+  // Prisma hands Decimal columns back as Decimal.js objects, which are awkward
+  // to compare and format for one decimal place of precision.
+  goals   Int?
+  assists Int?
+  yellow  Int?
+  red     Int?
+  rating  Float?
+
   judgements Judgement[]
 
   @@unique([matchId, playerId])

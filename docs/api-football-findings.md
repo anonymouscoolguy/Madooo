@@ -16,13 +16,24 @@ Re-run with `python3 scripts/verify_api.py`. It costs about 5 requests.
 | | |
 |---|---|
 | Plan | Free |
-| Quota | 100 requests/day |
+| Quota | 100 requests/day, **and roughly 10 per minute** |
 | Subscription ends | 2027-08-01 |
 | Base URL | `https://v3.football.api-sports.io` |
 | Auth header | `x-apisports-key` |
 
-There is no near-term expiry pressure. The constraint is the daily request
-count, not the calendar.
+There is no near-term expiry pressure. The constraints are the two request
+counts, not the calendar.
+
+**The per-minute limit is invisible until it fires.** Nothing in `/status` or in
+the response headers mentions it — `x-ratelimit-requests-remaining` tracks the
+daily quota only. It announces itself as an **HTTP 429** with
+`{"errors": {"rateLimit": "..."}}`, discovered when the first full-round sync
+died after two fixtures. The sync client therefore paces itself at one request
+every 6.5 seconds; a ten-fixture round takes about two minutes to pull.
+
+The daily counter is also **not monotonic across consecutive calls** — observed
+going 77, 75, 78, 76 during a single run. Treat it as approximate, and do not
+build anything that assumes it only ever decreases.
 
 ## The main trap: coverage flags are not entitlements
 
@@ -205,7 +216,8 @@ alongside our own primary keys, confined to the sync boundary.
 | Player match stats | 1 per fixture |
 
 **Full-season backfill:** 761 requests — 8 days at the free limit. This is the
-only place the free tier genuinely pinches.
+only place the free tier genuinely pinches. Pacing makes each day's 100 requests
+take about 11 minutes of wall clock, which is not the binding cost.
 
 **Development therefore syncs one or two gameweeks, not a season.** Twenty
 matches is ample to build against and costs 10–20 requests.
