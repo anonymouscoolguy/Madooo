@@ -10,15 +10,34 @@ conversation.
 
 ## Current state
 
-Scaffold exists and runs. API-Football is verified end to end. No database, no
-auth, no application code of our own yet.
+Scaffold runs, API-Football is verified, and the database exists with its schema
+migrated. No sync job, no auth, nothing user-facing yet.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
-- Pushed to `github.com:anonymouscoolguy/Madooo`, working directly on `main`
+- Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
+- Pushed to `github.com:anonymouscoolguy/Madooo`, now on a branch-and-PR flow
 - `npm run dev` serves the untouched starter page on port 3000
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
-  (gitignored) and are what the schema should be designed against
-- `.env.local` holds `API_FOOTBALL_KEY`
+  (gitignored) and are what the schema was designed against
+- `npm run db:check` proves the database layer works end to end
+- `.env.local` holds `API_FOOTBALL_KEY`, `DATABASE_URL` and `DATABASE_URL_DEV`;
+  `.env.example` documents the full set
+
+### How the database is addressed
+
+Two Neon branches, one connection string each — a branch is a separate endpoint,
+so no single URL can select between them. **Development is the default,
+always.** Production is reached only by setting `DATABASE_TARGET=production`,
+which should never exist on a development machine. This deliberately inverts
+Prisma's own default, where the plainly named `DATABASE_URL` wins and a stray
+`prisma migrate dev` would migrate production from a laptop.
+
+The direct (unpooled) URL that migrations need is derived from the pooled one by
+dropping `-pooler` from the hostname, so only two variables exist. Both endpoints
+are required: the app runs through the pooler, but Prisma's migration engine
+takes an advisory lock that pgbouncer in transaction mode does not support.
+
+All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
 
 ## Build order
 
@@ -29,8 +48,8 @@ Each step ends with something runnable and a commit. Do not run ahead.
 - [x] **1 — Scaffold and deploy target.** App scaffolded and on GitHub.
       *Deploying the empty app to Vercel is still outstanding, and worth doing
       before there is anything complicated to debug.*
-- [ ] **2 — Database and schema.** Neon project, Prisma schema, first migration.
-      Nothing user-facing.
+- [x] **2 — Database and schema.** Neon project, Prisma schema, first migration.
+      Verified by `npm run db:check`.
 - [ ] **3 — Sync job.** Pull one gameweek of the 2024 season into Postgres and
       inspect the rows directly. This is the first genuinely satisfying
       milestone.
@@ -43,22 +62,40 @@ Each step ends with something runnable and a commit. Do not run ahead.
 
 ## Next action
 
-**Step 2.** Blocked on one thing only: a Neon account and connection string.
+**Step 3 — the sync job.** Nothing blocks it. Pull one gameweek of the 2024
+season into Postgres and read the rows back.
 
-1. Create a free project at [neon.tech](https://neon.tech) — no card needed.
-2. Copy the **pooled** connection string.
-3. Add it to `.env.local` as `DATABASE_URL=...`.
+- Add `SEASON` to `.env.local` (`SEASON=2024`) and a config module that reads
+  it. `.env.example` already documents it; nothing reads it yet.
+- Add the injectable `now()` helper before anything needs it. It is cheap now
+  and painful to retrofit — see constraint 4 in `AGENTS.md`.
+- Write the mapper: API-Football JSON in, our schema out. This is the one
+  translation boundary, and the only code that ever sees their shape.
+- Fetch a single round, not a season. `/fixtures` costs 1 request for all 380
+  fixtures; lineups and player stats cost 1 each per fixture, so one gameweek is
+  roughly 20 requests against a 100/day budget.
+- Check the `errors` field on every response. Refusals arrive inside HTTP 200.
+- **Set up Vitest here**, against the captured payloads in `scratch/`. The
+  mapper is the first code in the project with a real assertion surface.
 
-Then, in order:
+Three things in the payloads that the mapper must get right, all recorded in
+[`api-football-findings.md`](api-football-findings.md): `rating` arrives as a
+string, `penalty.commited` is misspelled by the API, and most statistics are
+null. Only the first is currently mapped — see below.
 
-- Install Prisma, initialise it against Neon.
-- Design the schema from the payloads in `scratch/`, not from memory. The
-  entities are User, Team, Player, Match, MatchSquad (a player's involvement in
-  one match) and Judgement.
-- Key constraint to settle: one judgement per user per player per match, which
-  is a unique index rather than application logic.
-- Every entity sourced from the API carries an `apiFootballId` unique column
-  alongside our own primary key — their IDs stop at the sync boundary.
+### Carried over from step 2
+
+- **Per-match player statistics are not in the schema.** `MatchSquad` holds
+  `minutes`, `shirtNumber`, `position`, `isStarter` and `grid` only. Goals,
+  assists, cards and rating are all still unmapped. Adding them is a migration
+  plus a re-sync of the development gameweek.
+- **`Judgement.createdAt` uses `@default(now())`, which is database time** and
+  cannot be overridden. That collides with the injectable clock: a replayed
+  historical season would stamp diary entries with the real wall clock. Once the
+  clock helper exists, writes should pass `createdAt` explicitly.
+- **Nothing imports `src/lib/prisma.ts` from a route yet**, so `npm run build`
+  does not currently prove the generated client bundles. It was verified once
+  with a throwaway route; step 3 or 5 should give it a real consumer.
 
 ## Testing
 
@@ -79,12 +116,21 @@ sync mapper exists.
 ## Open decisions
 
 - **Hosting.** Vercel is the obvious default and nothing so far argues against
-  it. Not yet done.
-- **Branching.** Currently committing directly to `main`. A branch-and-PR flow
-  would add a review checkpoint where the whole diff can be read in one view,
-  which suits the learning goal — worth adopting for larger pieces such as the
-  sync job and auth. Would need `gh` installed (`brew install gh`).
+  it. Not yet done. When it happens, set `DATABASE_TARGET=production` and
+  `DATABASE_URL` there, and *not* `DATABASE_URL_DEV`.
+- **May we display the logos and photos we store?** `League.logo`, `Team.logo`
+  and `Player.photo` hold `media.api-sports.io` URLs. Storing a URL is inert;
+  rendering the image is the question, and club crests are trademarks that
+  API-Football redistributes under arrangements that may not extend to us. Their
+  terms and FAQ pages refuse automated fetches, so this needs reading by hand.
+  **Answer before step 6 renders any of them.** Also bears on the `sharp` note
+  in `AGENTS.md`, since Next's image optimiser is what would proxy them.
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
+
+Settled by step 2:
+
+- **Branching.** Adopted. `gh` 2.97.0 is installed and work lands as
+  `slice/*` branches merged by squash, so `main` keeps one commit per slice.
 
 ## Notes for a fresh session
 
@@ -94,3 +140,9 @@ sync mapper exists.
 - The free tier serves seasons 2022–2024 only. Development is `SEASON=2024`.
 - Quota is 100 requests/day and is not generous during backfills. Sync one or
   two gameweeks in development, never a whole season.
+- Prisma is on 7.x, which differs from most writing about it: `.env` is not
+  loaded automatically (`prisma.config.ts` does it), a driver adapter is
+  mandatory, and the generator is `prisma-client` writing TypeScript into
+  `src/generated/` — build output, gitignored, recreated by `npm run db:generate`.
+- `npm run db:check` is the fastest way to confirm the database still works. It
+  refuses to run against production and cleans up after itself.
