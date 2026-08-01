@@ -19,6 +19,10 @@ Product rules settled so far:
 - **Any player in the matchday squad can be judged, including unused
   substitutes.** A diary is a private judgement, so it needs no justification
   in minutes played.
+- **Logos and player photos are stored but never displayed.** `League.logo`,
+  `Team.logo` and `Player.photo` keep API-Football's `media.api-sports.io` URLs
+  so the option stays open, but nothing renders them. Storing a URL is inert;
+  rendering club crests is a trademark question we have not cleared.
 
 ## Working with the author
 
@@ -45,10 +49,7 @@ deep in the JS/TS ecosystem. Working on this project is partly a way to learn it
 3. **One translation boundary.** The sync job is the only code that sees
    API-Football's JSON shape. It maps their payloads onto our schema. Everything
    else reads our schema, so a provider change touches one place.
-4. **`now()` is injectable.** Time comes from one helper that development can
-   override, so a finished historical season can be replayed as though it were
-   live. Retrofitting this is painful; it is cheap up front.
-5. **Every API-Football response must have its `errors` field checked.** The API
+4. **Every API-Football response must have its `errors` field checked.** The API
    reports refusals inside HTTP 200 bodies, so status-code-only error handling
    silently turns a refusal into "no results".
 
@@ -73,10 +74,7 @@ Decided:
   security holes
 - Data source: API-Football, using `/fixtures`, `/fixtures/lineups` and
   `/fixtures/players`
-
-Still open — do not assume:
-
-- Hosting (Vercel is the likely default)
+- Hosting on **Vercel**
 
 ## Conventions
 
@@ -91,5 +89,6 @@ Still open — do not assume:
 
 `npm audit` reports high-severity issues in `postcss` and `sharp`. Both are
 transitive dependencies of Next itself, and npm's suggested fix downgrades Next
-to version 9. Do not run `npm audit fix --force`. Re-evaluate before launch,
-particularly `sharp` once remote player images are being optimised.
+to version 9. Do not run `npm audit fix --force`. Re-evaluate before launch.
+`sharp` matters less than it looks: nothing renders remote images, so Next's
+image optimiser never proxies `media.api-sports.io`.

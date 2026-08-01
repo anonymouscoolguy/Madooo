@@ -38,7 +38,9 @@ dropping `-pooler` from the hostname, so only two variables exist. Both endpoint
 are required: the app runs through the pooler, but Prisma's migration engine
 takes an advisory lock that pgbouncer in transaction mode does not support.
 
-All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
+All of this lives in [`src/lib/env.ts`](../src/lib/env.ts). A deployed
+environment therefore needs `DATABASE_TARGET=production` and `DATABASE_URL`
+set, and must *not* have `DATABASE_URL_DEV`.
 
 ## Build order
 
@@ -46,57 +48,44 @@ Each step ends with something runnable and a commit. Do not run ahead.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
-- [x] **1 — Scaffold and deploy target.** App scaffolded and on GitHub.
-      *Deploying the empty app to Vercel is still outstanding, and worth doing
-      before there is anything complicated to debug.*
+- [x] **1 — Scaffold.** App scaffolded and on GitHub.
 - [x] **2 — Database and schema.** Neon project, Prisma schema, first migration.
       Verified by `npm run db:check`.
 - [ ] **3 — Sync job.** Pull one gameweek of the 2024 season into Postgres and
       inspect the rows directly. This is the first genuinely satisfying
       milestone.
-- [ ] **4 — Auth.** Clerk wired up. Success looks like logging in and seeing
+- [ ] **4 — Deploy to Vercel.** Get the app onto real hosting while it is still
+      small enough that a deployment problem is the only problem.
+- [ ] **5 — Auth.** Clerk wired up. Success looks like logging in and seeing
       your own email on screen. Nothing more.
-- [ ] **5 — The core loop.** Pick a match, see both squads, tag players
+- [ ] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
-- [ ] **6 — Diary and player views.** Both are queries over what step 5 already
+- [ ] **7 — Diary and player views.** Both are queries over what step 6 already
       wrote; no new concepts.
 
 ## Remarks that might be important
 
-**Step 3 — the sync job.** Nothing blocks it. Pull one gameweek of the 2024
-season into Postgres and read the rows back.
-
-- Add `SEASON` to `.env.local` (`SEASON=2024`) and a config module that reads
-  it. `.env.example` already documents it; nothing reads it yet.
-- Add the injectable `now()` helper before anything needs it. It is cheap now
-  and painful to retrofit — see constraint 4 in `AGENTS.md`.
-- Write the mapper: API-Football JSON in, our schema out. This is the one
-  translation boundary, and the only code that ever sees their shape.
-- Fetch a single round, not a season. `/fixtures` costs 1 request for all 380
-  fixtures; lineups and player stats cost 1 each per fixture, so one gameweek is
-  roughly 20 requests against a 100/day budget.
-- Check the `errors` field on every response. Refusals arrive inside HTTP 200.
-- **Set up Vitest here**, against the captured payloads in `scratch/`. The
-  mapper is the first code in the project with a real assertion surface.
-
-Three things in the payloads that the mapper must get right, all recorded in
-[`api-football-findings.md`](api-football-findings.md): `rating` arrives as a
-string, `penalty.commited` is misspelled by the API, and most statistics are
-null. Only the first is currently mapped — see below.
-
 ### Carried over from step 2
 
+- **`SEASON` is documented in `.env.example` but nothing reads it yet**, and it
+  is absent from `.env.local`. There is no config module for it.
+- **Three payload gotchas the mapper will meet**, all recorded in
+  [`api-football-findings.md`](api-football-findings.md): `rating` arrives as a
+  string, `penalty.commited` is misspelled by the API, and most statistics are
+  null. Only `rating` is currently mapped.
 - **Per-match player statistics are not in the schema.** `MatchSquad` holds
   `minutes`, `shirtNumber`, `position`, `isStarter` and `grid` only. Goals,
   assists, cards and rating are all still unmapped. Adding them is a migration
   plus a re-sync of the development gameweek.
-- **`Judgement.createdAt` uses `@default(now())`, which is database time** and
-  cannot be overridden. That collides with the injectable clock: a replayed
-  historical season would stamp diary entries with the real wall clock. Once the
-  clock helper exists, writes should pass `createdAt` explicitly.
 - **Nothing imports `src/lib/prisma.ts` from a route yet**, so `npm run build`
   does not currently prove the generated client bundles. It was verified once
-  with a throwaway route; step 3 or 5 should give it a real consumer.
+  with a throwaway route, and has had no real consumer since.
+
+## Long-term remarks
+
+Standing constraints that were agreed explicitly, cannot be read off the code,
+and outlive any one slice. Each names what would resolve it. A high bar — an
+empty list is the expected state.
 
 ## Testing
 
@@ -116,22 +105,7 @@ sync mapper exists.
 
 ## Open decisions
 
-- **Hosting.** Vercel is the obvious default and nothing so far argues against
-  it. Not yet done. When it happens, set `DATABASE_TARGET=production` and
-  `DATABASE_URL` there, and *not* `DATABASE_URL_DEV`.
-- **May we display the logos and photos we store?** `League.logo`, `Team.logo`
-  and `Player.photo` hold `media.api-sports.io` URLs. Storing a URL is inert;
-  rendering the image is the question, and club crests are trademarks that
-  API-Football redistributes under arrangements that may not extend to us. Their
-  terms and FAQ pages refuse automated fetches, so this needs reading by hand.
-  **Answer before step 6 renders any of them.** Also bears on the `sharp` note
-  in `AGENTS.md`, since Next's image optimiser is what would proxy them.
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
-
-Settled by step 2:
-
-- **Branching.** Adopted. `gh` 2.97.0 is installed and work lands as
-  `slice/*` branches merged by squash, so `main` keeps one commit per slice.
 
 ## Notes for a fresh session
 

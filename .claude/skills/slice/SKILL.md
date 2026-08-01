@@ -1,6 +1,6 @@
 ---
 name: slice
-description: Run one vertical build slice end to end. `/slice start` branches, implements a plan already agreed in plan mode, self-reviews the diff and updates the roadmap; `/slice finish` pushes, squash-merges into main and deletes the branch. Use when working through a step in docs/roadmap.md.
+description: Run one vertical build slice end to end. `/slice start` branches, implements a plan already agreed in plan mode, self-reviews the diff and updates the roadmap; `/slice finish` squash-merges into main, pushes main and deletes the branch. Use when working through a step in docs/roadmap.md.
 ---
 
 # Slice
@@ -47,8 +47,8 @@ exists to prevent.
 
 Test:
 
-- Pure functions with a real payload as input. The sync mapper and the `now()`
-  helper are the cases that exist so far.
+- Pure functions with a real payload as input. The sync mapper is the case that
+  exists so far.
 
 Do not test:
 
@@ -64,19 +64,13 @@ truth; recollection is not.
 
 **3. Implement.**
 
-Before writing any Next-specific code, read the relevant guide in
-`node_modules/next/dist/docs/`. This Next version has breaking changes against
-training data — file conventions, APIs and directory structure may all differ.
-Guessing here produces code that looks right and does not run.
+Read the relevant guide in `node_modules/next/dist/docs/` before writing any
+Next-specific code — the rule at the top of `AGENTS.md`, applied here because
+this is the moment it binds.
 
-Hold the non-negotiables from `AGENTS.md` while writing:
-
-- `SEASON` comes from the environment. No year literal, anywhere.
-- No API-Football call on page load. Only the sync job talks to the provider.
-- Only the sync job sees provider JSON shape. One translation boundary.
-- `now()` comes from the injectable helper.
-- Every API-Football response has its `errors` field checked — refusals arrive
-  inside HTTP 200 bodies.
+Hold the non-negotiables in `AGENTS.md` while writing. Step 7 reads the diff for
+breaches of them, but that is a backstop, not the place they are meant to be
+caught.
 
 **4. Run the gate.** All of these, not a subset:
 
@@ -120,7 +114,6 @@ three fixes ago and the files you forgot you touched. Check for:
 - A hardcoded season year.
 - Any API-Football call reachable from a page render.
 - An unchecked `errors` field on a provider response.
-- Direct `Date.now()` / `new Date()` instead of the injectable helper.
 - Provider JSON shape leaking past the sync boundary.
 
 Fix trivial findings. Report substantive ones rather than silently rewriting the
@@ -147,19 +140,57 @@ Update all of these that moved:
 - **Current state** — what now exists that did not before.
 - The **Build order** checkbox for this step.
 - **Remarks that might be important** — see below.
+- **Long-term remarks** — see below. Most slices add nothing here.
 - **Open decisions** — move anything this slice settled out of the list, and add
   anything it opened.
 - **Last updated** date.
 
-**On "Remarks that might be important":** record what the next slice would want
-to know and could not recover from the code — a gotcha hit along the way, a
+**On "Remarks that might be important":** record what *this* slice turned up
+that the *next* one will want in front of it — a gotcha hit along the way, a
 shortcut taken deliberately, something left unmapped, a constraint discovered in
 a payload. Facts and carry-overs, in other words.
+
+Whether it could be recovered from the code is not the test. Plenty of it could
+be, given enough reading; the point of the remark is that the next slice does
+not have to go looking. The test is only whether this slice's context makes the
+next one's work go differently. If nothing does, write nothing — an empty
+section is a true statement, and padding it buries the entries that matter.
+
+**On "Long-term remarks":** a far higher bar, and a different one. An entry
+qualifies only if all three hold:
+
+1. It was **explicitly agreed with the author**. Not inferred, not assumed
+   because it seemed sensible while implementing.
+2. It **cannot be derived from the code**. If reading the repo would tell you,
+   the repo is already the better record.
+3. It **outlives the next slice**. It shapes work several steps away, or it
+   constrains everything until something specific changes.
+
+Each entry names its own exit: `<remark>, can be resolved when X is
+implemented`. That clause is what makes the section prunable — an entry is
+removed on the evidence of X existing, rather than on someone's judgement that
+it feels stale. An entry nobody can write an exit clause for is not a long-term
+remark; it is an open decision, and belongs in that section instead.
+
+The two remark sections differ deliberately on point 2. A slice remark is a
+convenience for the next slice, so being recoverable from the code does not
+disqualify it. A long-term remark is asking for permanent space in a file every
+fresh session reads, so it has to be something the code can never tell you.
+
+**Most slices add nothing here.** Adding an entry is close to a decision in its
+own right; if it was not discussed with the author, it does not go in.
 
 **Do not plan the next slice here.** No task lists, no ordering, no "first do X
 then Y". Planning happens in plan mode, with the author, at the start of the
 next slice — a plan written now would be written blind and would quietly become
 the plan by default.
+
+The tell is grammatical: a remark states what *is* true, so it survives being
+read a month later. A plan uses imperatives — "add X", "set up Y", "fetch Z" —
+and a heading naming the next step is usually a task list about to happen. Two
+things that are never remarks: restatements of the `AGENTS.md` non-negotiables,
+which are already binding, and anything already recorded elsewhere in the
+roadmap.
 
 **10. Stop.**
 
@@ -179,7 +210,7 @@ Do not treat the questions as an approval signal or as a cue to run `finish`.
 
 ## Phase: finish
 
-Push, merge, delete. Nothing else — the slice was finished in `start`.
+Merge, push, delete. Nothing else — the slice was finished in `start`.
 
 ### Preconditions
 
@@ -189,21 +220,25 @@ Push, merge, delete. Nothing else — the slice was finished in `start`.
 
 ### Steps
 
-**1. Push, merge, delete.**
+**1. Merge, push, delete.**
 
 ```
-git push -u origin HEAD                   # the working-state commits, preserved on the remote
 git switch main
-git pull
+git pull --ff-only
 git merge --squash slice/<name>
 git commit                                # one readable commit for the whole slice
 git push
 git branch -D slice/<name>
-git push origin --delete slice/<name>
 ```
 
-Squash deliberately: the branch keeps the every-working-state commits, `main`
-keeps one readable commit per slice.
+The slice branch is never pushed. It exists so that work in progress can be
+committed freely without `main` ever holding a broken state; once the squash
+commit lands, it has no further job. Nothing else consumes it — there is no PR
+in this flow — so pushing it would only be to delete it again.
+
+`--ff-only` on the pull is deliberate. `main` should only ever move forward by
+these squash commits, so if it cannot fast-forward, something has gone wrong and
+the merge should stop rather than quietly manufacture a merge commit.
 
 The squash commit message is the only lasting record of the slice, so write it
 properly — what the slice does and anything deliberately left out. Neither is
@@ -211,7 +246,9 @@ recoverable from the individual commits. No `Co-Authored-By` trailer.
 
 `branch -D`, not `-d`: a squash merge leaves no merge ancestry, so git does not
 believe the branch is merged and `-d` refuses it. That refusal is not a warning
-worth heeding here — the commits are on the remote branch either way.
+worth heeding here — the squash commit on `main` contains every change the
+branch made. Only the intermediate commits go, and they are the part that was
+never meant to last.
 
 **2. Stop and hand back.**
 
