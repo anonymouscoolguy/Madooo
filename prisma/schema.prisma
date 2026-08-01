@@ -1,0 +1,186 @@
+// Madooo's schema.
+//
+// Designed against the captured payloads in scratch/ — fixtures_2024.json,
+// lineup_1208021.json and players_1208021.json — rather than from memory.
+//
+// Two rules from AGENTS.md shape it:
+//   - The season is configuration. Match.season is a column, never a literal.
+//   - API-Football's IDs stop at the sync boundary. Everything sourced from
+//     them carries apiFootballId alongside our own primary key.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+
+  // Strips file extensions from the generated imports, which Next's bundler
+  // needs in order to resolve them.
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JudgementTag {
+  MVP
+  STANDOUT
+  FLOP
+}
+
+model League {
+  id            Int     @id @default(autoincrement())
+  apiFootballId Int     @unique
+  name          String
+  country       String
+  logo          String?
+
+  matches Match[]
+}
+
+model Team {
+  id            Int     @id @default(autoincrement())
+  apiFootballId Int     @unique
+  name          String
+  logo          String?
+
+  // Back-relations. Prisma requires both ends of every relation to be declared
+  // and will not generate a client otherwise. These hold no foreign key and
+  // produce no column — they exist so the relation can be traversed from this
+  // side, the way Django hands you `team.matchlineup_set` for free.
+  homeMatches   Match[]       @relation("HomeTeam")
+  awayMatches   Match[]       @relation("AwayTeam")
+  matchLineups  MatchLineup[]
+  squadEntries  MatchSquad[]
+}
+
+model Player {
+  id            Int     @id @default(autoincrement())
+  apiFootballId Int     @unique
+  // The full name, from /fixtures/players. The lineups endpoint abbreviates it
+  // to "A. Onana", which is not what a diary should show.
+  name          String
+  photo         String?
+
+  squadEntries MatchSquad[]
+}
+
+model Match {
+  id            Int @id @default(autoincrement())
+  apiFootballId Int @unique
+
+  leagueId Int
+  league   League @relation(fields: [leagueId], references: [id])
+  season   Int
+  round    String // "Regular Season - 1"
+
+  kickoff       DateTime // ISO 8601 with an explicit UTC offset in the payload
+  status        String // status.short, e.g. "FT"
+  statusElapsed Int?
+
+  venueApiFootballId Int?
+  venueName          String?
+  venueCity          String?
+  referee            String?
+
+  homeTeamId Int
+  homeTeam   Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId Int
+  awayTeam   Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  homeGoals         Int?
+  awayGoals         Int?
+  homeHalftimeGoals Int?
+  awayHalftimeGoals Int?
+
+  syncedAt DateTime @updatedAt
+
+  lineups      MatchLineup[]
+  squadEntries MatchSquad[] // ~40 rows, 20 per side
+
+  @@index([leagueId, season, round])
+  @@index([kickoff])
+}
+
+/// One team's shape in one match. From /fixtures/lineups.
+model MatchLineup {
+  id      Int   @id @default(autoincrement())
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId  Int
+  team    Team  @relation(fields: [teamId], references: [id])
+
+  formation          String? // "4-2-3-1"
+  coachApiFootballId Int?
+  coachName          String?
+
+  // The kit worn in this match — hex without the leading "#", e.g. "ea0000".
+  // Two kits because the goalkeeper never matches the outfield players; three
+  // parts each because they describe a drawable player chip: shirt fill, the
+  // number printed on it, and the outline. Per-match rather than per-team,
+  // since home and away kits differ.
+  kitPlayerPrimary     String?
+  kitPlayerNumber      String?
+  kitPlayerBorder      String?
+  kitGoalkeeperPrimary String?
+  kitGoalkeeperNumber  String?
+  kitGoalkeeperBorder  String?
+
+  @@unique([matchId, teamId])
+}
+
+/// A player's involvement in one match — precisely the set a user may judge.
+/// Includes unused substitutes: a diary is a private judgement and needs no
+/// justification in minutes played.
+model MatchSquad {
+  id       Int    @id @default(autoincrement())
+  matchId  Int
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId   Int
+  team     Team   @relation(fields: [teamId], references: [id])
+  playerId Int
+  player   Player @relation(fields: [playerId], references: [id])
+
+  shirtNumber Int?
+  position    String? // "G" | "D" | "M" | "F"
+  isStarter   Boolean @default(false)
+  grid        String? // "row:column"; null for substitutes
+  minutes     Int? // null = named in the squad but did not appear
+
+  judgements Judgement[]
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  clerkId   String   @unique
+  email     String?
+  createdAt DateTime @default(now())
+
+  judgements Judgement[]
+}
+
+model Judgement {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Pointing at MatchSquad rather than at (player, match) means the unique
+  // constraint below delivers "one judgement per user per player per match"
+  // *and* makes it structurally impossible to judge someone who was not in the
+  // squad. One constraint, two guarantees.
+  matchSquadId Int
+  matchSquad   MatchSquad @relation(fields: [matchSquadId], references: [id], onDelete: Cascade)
+
+  // Both nullable: a note with no tag is a valid judgement. A CHECK constraint
+  // added by hand in the initial migration requires at least one of them.
+  tag  JudgementTag?
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, matchSquadId])
+  @@index([userId, createdAt])
+}
