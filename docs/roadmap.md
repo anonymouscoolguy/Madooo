@@ -15,7 +15,8 @@ migrated. No sync job, no auth, nothing user-facing yet.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
-- Pushed to `github.com:anonymouscoolguy/Madooo`, now on a branch-and-PR flow
+- Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
+  squash-merged into `main`
 - `npm run dev` serves the untouched starter page on port 3000
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
@@ -60,7 +61,7 @@ Each step ends with something runnable and a commit. Do not run ahead.
 - [ ] **6 — Diary and player views.** Both are queries over what step 5 already
       wrote; no new concepts.
 
-## Next action
+## Remarks that might be important
 
 **Step 3 — the sync job.** Nothing blocks it. Pull one gameweek of the 2024
 season into Postgres and read the rows back.
