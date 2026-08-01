@@ -173,6 +173,18 @@ def main() -> None:
             player = starters[0]["player"]
             print(f"        first player object -> {json.dumps(player)}")
 
+    print(f"\n[5] Player match stats for fixture {fixture_id}")
+    stats = api_get(key, "fixtures/players", fixture=fixture_id)
+    dump(f"players_{fixture_id}", stats)
+
+    for team in stats.get("response", []):
+        players = team.get("players", [])
+        appeared = [
+            p for p in players
+            if (p["statistics"][0].get("games", {}).get("minutes") or 0) > 0
+        ]
+        print(f"      {team['team']['name']}: {len(players)} listed, {len(appeared)} played")
+
     print("\nDone. Inspect scratch/ for the full payloads.")
     print(f"Set SEASON={season} for development.")
 

@@ -132,22 +132,63 @@ Useful details:
   design effort.
 - **Coach identity** comes free with the lineup, should we ever want it.
 
+### `GET /fixtures/players?fixture={id}` — identity and participation
+
+69 KB per fixture, two entries (one per team), 20 players each — the matchday
+squad, which is exactly the set a user may judge.
+
+```json
+{
+  "player": { "id": 526, "name": "André Onana",
+              "photo": "https://media.api-sports.io/football/players/526.png" },
+  "statistics": [{
+    "games": { "minutes": 90, "number": 24, "position": "G",
+               "rating": "7.2", "captain": false, "substitute": false },
+    "goals": { "total": null, "conceded": 0, "assists": 0, "saves": 2 },
+    "cards": { "yellow": 0, "red": 0 },
+    "shots": {...}, "passes": {...}, "tackles": {...}, "duels": {...},
+    "dribbles": {...}, "fouls": {...}, "penalty": {...}, "offsides": null
+  }]
+}
+```
+
+In the sample fixture, 16 of 20 players per side had minutes above zero.
+
+**This endpoint supersedes `/players/squads`.** It returns the *full* player name
+and photo, unlike the lineup endpoint's abbreviated `"A. Onana"`. Since only
+players in a matchday squad are judgeable, the squads endpoint has nothing to
+add — 20 requests per season and an entire sync path avoided.
+
+Three things to handle carefully:
+
+- **`rating` is a string** (`"7.2"`), not a number. Parse it explicitly; do not
+  let it reach the database as text.
+- **`penalty.commited` is misspelled** in the API. Map it to a correctly spelled
+  column at the sync boundary and never repeat the typo inland.
+- **Most statistics are `null`** for most players. Every stat column must be
+  nullable, and the UI must treat absent and zero as different things.
+
 ---
 
-## Known gaps in the data
+## Division of labour between endpoints
 
-**Player names are abbreviated.** `"A. Onana"`, `"A. Garnacho"` — initial plus
-surname. Adequate in a lineup list, poor on a player profile, and useless for
-search. Full names and photos require `GET /players/squads?team={id}`: 20
-requests, once per season. Cheap and worth doing.
+| Need | Source |
+|---|---|
+| Full name, photo, minutes, stats | `/fixtures/players` |
+| Formation, pitch grid, coach, kit colours | `/fixtures/lineups` |
+| Kickoff, venue, referee, score, status | `/fixtures` |
+
+Both per-fixture endpoints are needed: only `/fixtures/lineups` carries `grid`
+and formation, and only `/fixtures/players` carries full names and minutes.
+
+## Other notes
 
 **Lineups do not say who actually played.** `substitutes` lists the bench, not
-who came on. Minutes played would require `GET /fixtures/players?fixture={id}`
-(one extra call per fixture), which also carries goals, cards and a rating.
+who came on; `/fixtures/players` answers this via `games.minutes`.
 
-This does **not** block anything: users may rate bench players, since a diary is
-a private judgement. Minutes are context, not a gate — "played 4 minutes" beside
-a FLOP tag is informative. Still undecided, and cheap either way.
+This blocks nothing regardless: users may rate unused substitutes, since a diary
+is a private judgement needing no justification in minutes. Minutes are context,
+not a gate.
 
 **Stable integer IDs on every entity** — fixture `1208021`, team `33`, player
 `526`, venue `556`, coach `1993`. These become `apiFootballId` unique columns
@@ -160,13 +201,11 @@ alongside our own primary keys, confined to the sync boundary.
 | Operation | Cost |
 |---|---|
 | All fixtures for a season | 1 |
-| Squads (full names, photos) | 20 |
 | Lineups | 1 per fixture |
-| Player match stats *(optional)* | 1 per fixture |
+| Player match stats | 1 per fixture |
 
-**Full-season backfill:** 401 requests, or 781 with player stats. At 100/day
-that is 5 days, or 8 with stats. This is the only place the free tier genuinely
-pinches.
+**Full-season backfill:** 761 requests — 8 days at the free limit. This is the
+only place the free tier genuinely pinches.
 
 **Development therefore syncs one or two gameweeks, not a season.** Twenty
 matches is ample to build against and costs 10–20 requests.
@@ -185,8 +224,6 @@ played, which is fixed and small.
 
 ## Still open
 
-- Whether to fetch `/fixtures/players` for minutes played. Leaning yes:
-  backfilling history later is far more painful than fetching it now.
 - Timing of the paid-tier purchase. Buy one to two weeks before launch, not on
   launch day — response shapes and rate-limit headers may differ, and that is
   better discovered while nothing depends on it.

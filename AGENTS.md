@@ -63,15 +63,16 @@ Decided:
 
 - Next 16 (App Router, Turbopack), React 19, TypeScript
 - Tailwind 4
-- Postgres as the datastore
-- Data source: API-Football (api-sports.io)
+- Postgres on **Neon**, accessed through **Prisma**
+- Auth via **Clerk** — managed rather than hand-rolled, because this holds real
+  users' accounts and hand-rolled session handling is where beginners ship
+  security holes
+- Data source: API-Football, using `/fixtures`, `/fixtures/lineups` and
+  `/fixtures/players`
 
 Still open — do not assume:
 
 - Hosting (Vercel is the likely default)
-- Postgres host (Neon or Supabase)
-- ORM (Prisma proposed)
-- Auth (a managed provider is preferred over hand-rolled; Clerk or Supabase Auth)
 
 ## Conventions
 
