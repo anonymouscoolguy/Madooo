@@ -18,7 +18,7 @@ type Prisma = (typeof import('../src/lib/prisma'))['prisma']
 // Sentinels for this script's throwaway rows. Negative ids because every real
 // API-Football id is positive, so these can never collide with synced data.
 const FIXTURE_IDS = [-1, -2, -3]
-const FIXTURE_CLERK_IDS = ['db-check-user', 'check-user']
+const FIXTURE_CLERK_ID = 'db-check-user'
 
 /**
  * Removes this script's rows. Idempotent, and run both before and after the
@@ -27,7 +27,7 @@ const FIXTURE_CLERK_IDS = ['db-check-user', 'check-user']
  */
 async function removeFixtures(prisma: Prisma) {
   const apiFootballId = { in: FIXTURE_IDS }
-  await prisma.user.deleteMany({ where: { clerkId: { in: FIXTURE_CLERK_IDS } } })
+  await prisma.user.deleteMany({ where: { clerkId: FIXTURE_CLERK_ID } })
   await prisma.match.deleteMany({ where: { apiFootballId } })
   await prisma.player.deleteMany({ where: { apiFootballId } })
   await prisma.team.deleteMany({ where: { apiFootballId } })
@@ -149,6 +149,8 @@ async function main() {
     data: {
       apiFootballId: -1,
       leagueId: league.id,
+      // Not a season literal in the sense AGENTS.md forbids — 1900 is a
+      // sentinel that cannot collide with a real one, not configuration.
       season: 1900,
       round: 'Check Round - 1',
       kickoff: new Date('1900-01-01T00:00:00Z'),
@@ -173,7 +175,7 @@ async function main() {
       }),
     ),
   )
-  const user = await prisma.user.create({ data: { clerkId: FIXTURE_CLERK_IDS[0] } })
+  const user = await prisma.user.create({ data: { clerkId: FIXTURE_CLERK_ID } })
   pass('fixture graph written')
 
   try {
