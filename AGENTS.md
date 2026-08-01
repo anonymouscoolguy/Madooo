@@ -57,6 +57,10 @@ entitlement and the per-endpoint request costs, are in
 [`docs/api-football-findings.md`](docs/api-football-findings.md). Development
 runs on `SEASON=2024`.
 
+**Start here:** [`docs/roadmap.md`](docs/roadmap.md) records what is built, what
+is next, and which decisions are still open. Read it before proposing work, and
+update it when something lands.
+
 ## Stack
 
 Decided:
