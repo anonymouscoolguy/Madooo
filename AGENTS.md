@@ -14,6 +14,12 @@ as dated, diary-like entries.
 Scope: Premier League only to start, other top leagues afterwards. Diaries are
 **private** — single-user, no sharing, no public profiles, no moderation.
 
+Product rules settled so far:
+
+- **Any player in the matchday squad can be judged, including unused
+  substitutes.** A diary is a private judgement, so it needs no justification
+  in minutes played.
+
 ## Working with the author
 
 The author is fluent in Python and reads other languages comfortably, but is not
@@ -42,6 +48,14 @@ deep in the JS/TS ecosystem. Working on this project is partly a way to learn it
 4. **`now()` is injectable.** Time comes from one helper that development can
    override, so a finished historical season can be replayed as though it were
    live. Retrofitting this is painful; it is cheap up front.
+5. **Every API-Football response must have its `errors` field checked.** The API
+   reports refusals inside HTTP 200 bodies, so status-code-only error handling
+   silently turns a refusal into "no results".
+
+Verified facts about the data source, including the free tier's real season
+entitlement and the per-endpoint request costs, are in
+[`docs/api-football-findings.md`](docs/api-football-findings.md). Development
+runs on `SEASON=2024`.
 
 ## Stack
 
