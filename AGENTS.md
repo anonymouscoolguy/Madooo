@@ -62,6 +62,13 @@ runs on `SEASON=2024`.
 is next, and which decisions are still open. Read it before proposing work, and
 update it when something lands.
 
+**Before writing code:** [`docs/architecture.md`](docs/architecture.md) records
+how the system works, by subsystem — database, sync, auth and routing, design
+tokens, the app shell, build and deploy. Read the section you are about to touch
+first. It exists so the roadmap can stay a record of progress rather than
+accumulating everything ever learned; keep facts on the correct side of that
+line.
+
 **Anything that renders:** [`docs/design/`](docs/design/) is the design source of
 truth — `foundations.md` holds the tokens (colour, type, spacing, elevation,
 motion, states, icons) and the rules about when each applies, alongside the

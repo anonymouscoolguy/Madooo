@@ -1,6 +1,6 @@
 ---
 name: slice
-description: Run one vertical build slice end to end. `/slice start` branches, implements a plan already agreed in plan mode, self-reviews the diff and updates the roadmap; `/slice finish` squash-merges into main, pushes main and deletes the branch. Use when working through a step in docs/roadmap.md.
+description: Run one vertical build slice end to end. `/slice start` branches, implements a plan already agreed in plan mode, self-reviews the diff and updates the docs; `/slice finish` squash-merges into main, pushes main and deletes the branch. Use when working through a step in docs/roadmap.md.
 ---
 
 # Slice
@@ -16,7 +16,9 @@ Read the argument to decide which phase to run:
 - anything else, or no argument → say which phases exist and stop.
 
 `start` assumes [`docs/roadmap.md`](../../../docs/roadmap.md) has been read this
-session. If it has not, read it first.
+session. If it has not, read it first. Read the sections of
+[`docs/architecture.md`](../../../docs/architecture.md) covering the subsystems
+this slice touches before implementing.
 
 ---
 
@@ -129,32 +131,55 @@ convention exists over naming it. Do not explain general programming logic.
 This is not optional garnish. Learning the ecosystem is half the point of the
 project, and this is the moment the code is still fresh.
 
-**9. Update `docs/roadmap.md`, as the last step of this phase.**
+**9. Update the docs, as the last step of this phase.**
 
-Last deliberately: the roadmap describes the slice as built, which is only known
-once the diff has been read. It commits on this branch, so it lands with the
+Last deliberately: the docs describe the slice as built, which is only known
+once the diff has been read. They commit on this branch, so they land with the
 slice rather than as a stray commit on `main` afterwards.
 
-Update all of these that moved:
+Two files, and the split between them is what keeps either readable. **The
+roadmap holds what is true about the *project's progress*; the architecture file
+holds what is true about the *system*.** A fact that will still be true after
+step 8 ships is not roadmap material.
 
-- **Current state** — what now exists that did not before.
+In [`docs/roadmap.md`](../../../docs/roadmap.md), update all of these that moved:
+
+- **Current state** — what now exists that did not before. Do not restate the
+  Build order entry in prose; one of the two is enough.
 - The **Build order** checkbox for this step.
-- **Remarks that might be important** — see below.
 - **Long-term remarks** — see below. Most slices add nothing here.
 - **Open decisions** — move anything this slice settled out of the list, and add
   anything it opened.
 - **Last updated** date.
 
-**On "Remarks that might be important":** record what *this* slice turned up
-that the *next* one will want in front of it — a gotcha hit along the way, a
-shortcut taken deliberately, something left unmapped, a constraint discovered in
-a payload. Facts and carry-overs, in other words.
+**In [`docs/architecture.md`](../../../docs/architecture.md), prune before you
+add.** In that order, always — the pruning pass is what stops the file growing
+by pure accretion, and doing it second turns it into a formality nobody performs.
 
-Whether it could be recovered from the code is not the test. Plenty of it could
-be, given enough reading; the point of the remark is that the next slice does
-not have to go looking. The test is only whether this slice's context makes the
-next one's work go differently. If nothing does, write nothing — an empty
-section is a true statement, and padding it buries the entries that matter.
+1. **Delete what this slice made false.** Every section it touched, read for
+   claims the diff contradicts.
+2. **Delete what has done its job.** An entry earns its place by changing how
+   the *next* piece of work goes. Once the thing it was warning about has been
+   built, or the decision it explained has been superseded, it is history — and
+   git holds history better than a file every session reads.
+3. **Then add**, filing each new fact under the subsystem heading it belongs to,
+   beside its neighbours. Never append a section named after this slice. If a
+   new fact amends an existing entry, rewrite that entry in the present tense
+   rather than adding a sentence beginning "Since 6.1…" — a chronology of
+   amendments is the thing this structure exists to avoid.
+
+What earns an entry: a gotcha hit along the way, a shortcut taken deliberately,
+something left unmapped, a constraint discovered in a payload, a toolchain
+behaviour the source does not show. Whether it could be recovered from the code
+is not the test; plenty of it could be, given enough reading, and the point is
+that the next slice does not have to go looking. The test is whether it makes
+later work go differently. If nothing does, write nothing — padding buries the
+entries that matter.
+
+Two things that are never entries: restatements of the `AGENTS.md`
+non-negotiables, which are already binding, and anything already recorded in
+`foundations.md` or `api-football-findings.md`, which are the sources for what
+they cover. Link to them instead.
 
 **On "Long-term remarks":** a far higher bar, and a different one. An entry
 qualifies only if all three hold:
@@ -172,25 +197,25 @@ removed on the evidence of X existing, rather than on someone's judgement that
 it feels stale. An entry nobody can write an exit clause for is not a long-term
 remark; it is an open decision, and belongs in that section instead.
 
-The two remark sections differ deliberately on point 2. A slice remark is a
-convenience for the next slice, so being recoverable from the code does not
-disqualify it. A long-term remark is asking for permanent space in a file every
-fresh session reads, so it has to be something the code can never tell you.
+Long-term remarks and architecture entries differ deliberately on point 2. An
+architecture entry is a convenience — it saves the next slice a read of the
+code — so being recoverable from the code does not disqualify it. A long-term
+remark constrains work that has not been planned yet, so it has to be something
+the code can never tell you.
 
 **Most slices add nothing here.** Adding an entry is close to a decision in its
 own right; if it was not discussed with the author, it does not go in.
 
-**Do not plan the next slice here.** No task lists, no ordering, no "first do X
-then Y". Planning happens in plan mode, with the author, at the start of the
-next slice — a plan written now would be written blind and would quietly become
-the plan by default.
+**Do not plan the next slice in either file.** No task lists, no ordering, no
+"first do X then Y". Planning happens in plan mode, with the author, at the
+start of the next slice — a plan written now would be written blind and would
+quietly become the plan by default.
 
 The tell is grammatical: a remark states what *is* true, so it survives being
 read a month later. A plan uses imperatives — "add X", "set up Y", "fetch Z" —
-and a heading naming the next step is usually a task list about to happen. Two
-things that are never remarks: restatements of the `AGENTS.md` non-negotiables,
-which are already binding, and anything already recorded elsewhere in the
-roadmap.
+and a heading naming the next step is usually a task list about to happen. That
+last tell applies to `architecture.md` headings too: they name subsystems, never
+slices.
 
 **10. Stop.**
 

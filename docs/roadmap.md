@@ -4,7 +4,11 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-02 (step 6.1b; the responsive shell)
+How the system *works* is not here. That is
+[`architecture.md`](architecture.md), organised by subsystem: read the section
+you are about to touch before writing code in it.
+
+**Last updated:** 2026-08-02 (docs split; roadmap and architecture separated)
 
 ---
 
@@ -13,14 +17,10 @@ conversation.
 Real football is in the database and behind a login, inside the frame the
 designs ask for: the 2024 season's full fixture list, one gameweek hydrated down
 to individual players, and `/fixtures` server-rendering the first twenty
-fixtures out of Neon on every request for a signed-in user. It sits in an app
-shell — fixed sidebar, fixed top bar, scrolling content — alongside Players,
-Teams and Diary, which exist as placeholders. `/` is a public landing page and
-is the one screen still on scaffold styling.
-
-The shell is responsive as of 6.1b: at `md` (768px) and up it is the layout the
-designs show, and below it the sidebar becomes a drawer over the content, opened
-from a menu button in the top bar.
+fixtures out of Neon on every request for a signed-in user. It sits in a
+responsive app shell alongside Players, Teams and Diary, which exist as
+placeholders. `/` is a public landing page and is the one screen still on
+scaffold styling.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -31,6 +31,8 @@ from a menu button in the top bar.
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
+- `npm run sync -- --round 1` fills the database from API-Football; `npm test`
+  runs Vitest over the mapper
 - Visual designs exist in a Claude Design project, handed off into
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
@@ -39,121 +41,9 @@ from a menu button in the top bar.
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
-- `npm run sync -- --round 1` fills the database from API-Football; `npm test`
-  runs Vitest over the mapper
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
   `DATABASE_URL_DEV` and four Clerk variables; `.env.example` documents the full
   set
-
-### How the database is addressed
-
-Two Neon branches, one connection string each — a branch is a separate endpoint,
-so no single URL can select between them. **Development is the default,
-always.** Production is reached only by setting `DATABASE_TARGET=production`,
-which should never exist on a development machine. This deliberately inverts
-Prisma's own default, where the plainly named `DATABASE_URL` wins and a stray
-`prisma migrate dev` would migrate production from a laptop.
-
-The direct (unpooled) URL that migrations need is derived from the pooled one by
-dropping `-pooler` from the hostname, so only two variables exist. Both endpoints
-are required: the app runs through the pooler, but Prisma's migration engine
-takes an advisory lock that pgbouncer in transaction mode does not support.
-
-All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
-
-**The Vercel deployment reads the development branch**, by decision, until a
-production branch is worth filling. So of the database variables it sets
-`DATABASE_URL_DEV` and nothing else — no `DATABASE_TARGET`, no `DATABASE_URL` —
-and the default above carries it to the right place with no code involved.
-(It also carries `SEASON` and the four Clerk variables.) Pointing a deployment
-at the dev branch by putting the dev connection string in `DATABASE_URL` would
-work equally well and label it a lie; this way the variable names stay true.
-
-Switching to production later means creating the Neon branch, running
-`prisma migrate deploy` against its direct endpoint, syncing it, then setting
-`DATABASE_TARGET=production` and `DATABASE_URL` on Vercel's production
-environment and removing `DATABASE_URL_DEV` there. Preview deployments should
-keep pointing at development.
-
-`API_FOOTBALL_KEY` is deliberately absent from Vercel. Nothing may call
-API-Football during a page render, and withholding the key makes any code that
-tries fail loudly rather than quietly spend the day's quota.
-
-### What the sync job does
-
-`npm run sync -- --round 1` costs 21 requests: one for the season's whole
-fixture list, then two per fixture for lineups and player statistics.
-
-The provider boundary is [`src/lib/api-football/`](../src/lib/api-football/) —
-raw types, a thin client, and a pure mapper. [`src/lib/sync.ts`](../src/lib/sync.ts)
-turns mapped objects into rows, and [`scripts/sync.ts`](../scripts/sync.ts) is
-the CLI. Nothing under `src/app/` imports any of it.
-
-**Every write is an upsert on a natural key, and nothing is ever deleted.**
-`Judgement` cascades off `MatchSquad`, so rewriting squad rows by deleting them
-would destroy a user's diary on the next sync. Re-running the sync has been
-verified to leave `MatchSquad` ids untouched and a judgement written against one
-intact.
-
-### How auth is wired
-
-Clerk owns identity; the database owns the `User` row. The two meet in exactly
-one place, [`src/lib/auth.ts`](../src/lib/auth.ts), where `requireDbUser()`
-upserts on `clerkId` and returns our own row. Get-or-create on first sight
-rather than a signup webhook, so no public URL is involved and a laptop behaves
-like the deployment.
-
-**Sign-in and sign-up are modals on the landing page, not routes.** There is no
-`/sign-in` page, so both the proxy and `requireDbUser()` send a signed-out
-visitor to `/`, where the buttons are. Clerk's `auth.protect()` is deliberately
-unused: with no sign-in URL to go to it redirects to Clerk's hosted account
-portal on another domain.
-
-`src/proxy.ts` — Next 16's name for what used to be `middleware.ts` — runs
-`clerkMiddleware()` on every matched request and redirects signed-out visitors
-away from each of the four signed-in destinations. That redirect is an
-optimistic check. The check that guards data is `requireDbUser()` itself,
-because Next's own guidance is that a proxy may run separately from the render,
-and because a check placed in a layout would not re-run on client-side
-navigation.
-
-`src/app/(app)/layout.tsx` calls it, which is what provisions the row for
-everything below it. Since 6.1 nothing there renders anything from the result —
-Clerk supplies the name in the sidebar — so the call is now purely the upsert
-plus the redirect. Server Actions render no layout, so anything that writes will
-have to call `requireDbUser()` itself; the upsert is idempotent and memoised per
-request with React's `cache()`, so the duplication costs one indexed lookup.
-
-### How the design tokens work
-
-[`foundations.md`](design/foundations.md) is the source; `globals.css` is the
-only file in the project allowed to hold a hex or a raw px. It has two tiers —
-base tokens that never change, semantic tokens that say what a colour is *for* —
-and product code names only the second.
-
-**Theming is one `light-dark()` call per semantic token.** That single mechanism
-covers both requirements at once: with `color-scheme: light dark` on `:root` the
-app follows the operating system, and once step 8.1 writes `data-theme` the
-attribute wins, because `[data-theme]` also sets `color-scheme`. Resolution
-happens where a variable is *used*, not where it is declared, so the attribute
-re-points any subtree.
-
-**The corollary is a rule: no `dark:` utilities anywhere.** A `dark:` class
-keys off `prefers-color-scheme`, so it would be a second theming mechanism that
-disagrees with the first the moment the toggle exists. The landing page still
-has some; it is the one screen not yet converted.
-
-Tailwind gets the tokens through `@theme inline` — `inline` is required, not
-stylistic, because only it makes `bg-surface` emit `var(--surface)` rather than
-copying the value into a variable of Tailwind's own that would not re-point.
-Spacing is deliberately not tokenised: foundations' scale *is* Tailwind's
-default 4px scale, so `--sp-6` is `p-4` and inventing tokens would give every
-value two names. Frame sizes stay plain variables, used as `w-(--sidebar-w)`.
-
-The type scale is ten `@utility` classes rather than font-size tokens, because
-each role in foundations is a set of five properties — family, size, weight,
-line-height, tracking — and a `text-title` that left the weight to the caller
-would be a different design.
 
 ## Build order
 
@@ -187,13 +77,11 @@ says when it has nothing to show is part of the slice, not a later pass.
         with Players, Teams and Diary as siblings behind placeholders, and the
         signed-in identity moved into the sidebar's foot. The search field was
         deliberately left out — a box that does nothing is worse than no box —
-        which leaves the top bar empty until 8.1 and 8.2 fill it. Desktop only:
-        the shell had no narrow-width behaviour at all, which 6.1b added.
+        which leaves the top bar empty until 8.1 and 8.2 fill it.
   - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
-        drawer below `md`, opened from a menu button in the top bar and closed by
-        Escape, the backdrop or any nav item. Nothing at `md` and above changed.
-        The rules it was written against are now a `### Responsive` section in
-        `foundations.md`, which had none.
+        drawer below `md`. Nothing at `md` and above changed. The rules it was
+        written against are now a `### Responsive` section in `foundations.md`,
+        which had none.
   - [ ] **6.2 — The fixtures page.** Fixture cards with venue, score and team
         badges; the league tab row; the matchday pager. A match with no squad
         rows is visibly not openable.
@@ -221,157 +109,6 @@ says when it has nothing to show is part of the slice, not a later pass.
   - [ ] **8.1 — Dark-mode toggle.** The moon icon in the top bar. Until it
         lands, the app follows the operating system and offers no choice.
   - [ ] **8.2 — Search.** Matches, teams and players.
-
-## Remarks that might be important
-
-### Carried over from step 3
-
-- **API-Football has an undocumented per-minute limit**, found the hard way when
-  a full round died after two fixtures with an HTTP 429. The client now paces
-  itself at one request every 6.5s, so a ten-fixture round takes about two
-  minutes to pull. The daily counter in the response headers is also not
-  monotonic — it was seen going 77, 75, 78, 76 in one run. Both are recorded in
-  [`api-football-findings.md`](api-football-findings.md).
-- **`prisma migrate dev` left a stale generated client**, and `tsc --noEmit`
-  passed anyway: TypeScript only rejects unknown properties on object *literals*,
-  and the write data was a variable. The failure surfaced at runtime as "Unknown
-  argument `goals`". Run `npm run db:generate` after any schema change.
-- **`penalty.commited` and the wider statistics block are still unmapped**, by
-  choice. `MatchSquad` carries `minutes`, `goals`, `assists`, `yellow`, `red` and
-  `rating`; shots, passes, tackles, duels, dribbles and fouls are parsed by
-  nothing. The API's misspelling is reproduced only in
-  [`types.ts`](../src/lib/api-football/types.ts) and corrected at the boundary.
-- **The mapper's tests read the payloads in `scratch/`**, which is gitignored.
-  A fresh clone has no fixtures and `npm test` will fail with a message saying
-  to re-run `scripts/verify_api.py` (about 5 requests). This is why `npm test`
-  is not part of the Vercel build and must not become part of one: every
-  deployment builds from a fresh clone, so the tests would fail every time.
-
-### Carried over from step 4
-
-- **`npm run build` is `prisma generate && next build`, and has to be.**
-  `src/generated/` is gitignored build output, so a fresh checkout has no client
-  and `next build` type-checks `src/lib/prisma.ts` straight into a missing
-  module. The consequence worth knowing: **`prisma generate` now needs a
-  database URL in the environment**, because
-  [`prisma.config.ts`](../prisma.config.ts) calls `migrationDatabaseUrl()` at
-  module load. A build with no `DATABASE_URL_DEV` fails before Next starts.
-- **Pages that read the database need `export const dynamic = 'force-dynamic'`.**
-  Next prerenders at build time by default, which would freeze the data into the
-  deployment and, worse, prove only that the *build container* could reach Neon.
-  `cacheComponents` is off, so the older route-segment config is the mechanism
-  that applies; the newer `use cache` model does not.
-- **Scheduling the sync is an unsolved problem, not an unstarted one.** The
-  client paces at one request every 6.5s, so a round takes about two minutes —
-  past a serverless function's timeout. A cron route needs chunking or
-  resumability first, so sync deliberately remains a local CLI.
-- **`public/next.svg` and `public/vercel.svg` are now unreferenced.** Left in
-  place; they cost nothing and deleting them was not what this slice was for.
-
-### Carried over from step 5
-
-- **Next 16 renamed `middleware.ts` to `proxy.ts`, and almost every Clerk guide
-  still says otherwise.** The file lives at `src/proxy.ts` — alongside `app`,
-  not at the repo root. Clerk's current quickstart has caught up; most
-  third-party writing and most model training data has not. The same applies to
-  `<ClerkProvider>`, which now belongs inside `<body>` rather than wrapped
-  around `<html>`.
-- **Tailwind 4 and Clerk share a cascade via a named layer.** `globals.css`
-  declares `@layer theme, base, clerk, components, utilities;` *before* the
-  Tailwind import, because layer order is fixed by first appearance — declared
-  after, `clerk` would append last and outrank every utility class. The
-  matching `cssLayerName: 'clerk'` is on `<ClerkProvider>`. There is no
-  `tailwind.config.js` to configure this from; v4 is CSS-first.
-- **`User.email` is nullable and the code respects that.** Google always
-  supplies a verified address, so in practice it is populated — but the schema
-  permits an account without one and nothing coerces it. Since 6.1 nothing
-  renders it: the sidebar shows Clerk's name instead.
-- **The app shell holds `{children}` behind an `await`.** Fine at this size, but
-  the session read is a top-level await in a layout, so it delays the first
-  streamed chunk for the whole segment. Next's guide describes pushing that into
-  a nested component behind `<Suspense>` if it ever matters.
-- **Clerk is on a development instance.** Its keys work on Vercel, but sessions
-  are capped and Clerk's components show a development badge.
-- **The Neon connection strings pin `sslmode=verify-full`.** Surfaced as a
-  runtime warning from `pg` 8.22, which currently treats the `sslmode=require`
-  Neon hands out as `verify-full` but will adopt libpq's weaker meaning in v9 —
-  encrypt without verifying who answered. Nothing about the connection changed;
-  the parameter now says what was already happening, so the v9 upgrade cannot
-  quietly downgrade it. Unrelated to auth, found while testing this slice.
-
-### Carried over from step 6.1b
-
-- **`foundations.md` now has a `### Responsive` section, and it is binding.**
-  Read it before writing markup, the same way the rest of the file is. It fixes
-  the breakpoints as Tailwind's defaults, states that chrome changes arrangement
-  rather than scaling, and explains why utilities are written unprefixed-then-
-  `md:`. (The standing gap it does *not* close is under Long-term remarks.)
-- **`--row-h-lg` finally has a viewport.** It was defined as "Touch rows" with no
-  statement of when a row is a touch row. It now means: the same rows, below
-  `md`. Anything tappable in later slices follows `h-(--row-h-lg) md:h-(--row-h)`.
-- **`inert` on `<main>` replaces a focus-trap library**, and the resize listener
-  in `app-frame.tsx` exists solely to stop it stranding: widening past `md` with
-  the drawer open would otherwise leave the desktop layout inert and unusable
-  with no visible cause. Any future overlay that uses `inert` needs the same
-  escape hatch.
-- **`app-frame.tsx` holds the only copy of the breakpoint written in JavaScript**
-  (`FRAME_BREAKPOINT`, 48rem). It is duplicated from the `md:` classes because
-  `inert` cannot be driven by a media query. Moving the frame breakpoint means
-  changing both.
-- **Server components can be handed to client components as props, and stay on
-  the server.** `layout.tsx` passes `<Sidebar />` into `AppFrame` rather than
-  letting `AppFrame` import it, which is what keeps the sidebar and its Clerk
-  `<UserButton>` off the client bundle. The same move is available whenever a
-  later slice needs client state wrapped around server-rendered UI.
-- **Closing the drawer on navigation is a click handler, not a URL watcher.**
-  `react-hooks/set-state-in-effect` rejects the effect version outright, and it
-  is also wrong: tapping the already-active nav item navigates nowhere, so there
-  would be no URL change to react to. `drawer-context.ts` carries the close
-  function down to `NavItem` instead.
-- **The icon subset font got smaller while gaining a glyph** — 27 icons at
-  5.6 kB became 28 at 5.4 kB. Google regenerated the upstream font between
-  fetches. The size in these notes is therefore a rough figure, not a fixed one.
-
-### Carried over from step 6.1
-
-- **`next/font/google` has no entry for Material Symbols at all**, and the full
-  variable font is 3.96 MB. What works instead: Google's `css2` endpoint accepts
-  `icon_names=` *together with* an axis selector, and returns only those glyphs
-  with the FILL axis intact — around 5.5 kB for the whole vocabulary in
-  [`icon-names.ts`](../src/components/icon-names.ts). `npm run icons` fetches it
-  into `src/app/fonts/`, which is **committed**: unlike `src/generated/` it is
-  build input, and a fresh clone must build without reaching Google.
-  - **`icon_names` must be sorted alphabetically**, and axis names lowercase
-    first then uppercase (`opsz,wght,FILL,GRAD`). Either wrong gives a bare
-    `400: Invalid selector` naming neither. This cost most of the time the icon
-    work took.
-  - The script sends a browser User-Agent on purpose. Google serves the old
-    static `Material Icons` font to clients it does not recognise, and that font
-    silently has no FILL axis.
-- **Lightning CSS polyfills `light-dark()` rather than passing it through**, into
-  a pair of `--lightningcss-light` / `--lightningcss-dark` toggle variables. It
-  gets the cascade right — the `[data-theme]` rules are emitted after the
-  `prefers-color-scheme` media query, so forcing a theme beats the OS — but the
-  compiled CSS looks nothing like the source, which is worth knowing before
-  debugging a colour in devtools.
-- **The base stylesheet styles every `<a>`**, so chrome links need
-  `no-underline` and an explicit colour or they render as blue underlined prose
-  links. `NavItem` does this; anything else linking outside body copy will have
-  to.
-- **`createRouteMatcher` is deprecated by Clerk**, with "use resource-based auth
-  checks instead" as the guidance. The dev server says so on every boot. This
-  app is already resource-based — `requireDbUser()` is the real guard and the
-  proxy check is documented as optimistic — so removing the matcher would cost
-  little, but it is a behaviour change (the bounce moves from the edge to the
-  render) and was not part of this slice.
-- **The fixtures list is still the old markup on new tokens.** Cards, badges,
-  the league tab row and the matchday pager are 6.2, and the four stat tiles and
-  per-fixture counts are 6.6. The page currently says "first 20 fixtures"
-  because that is what it does.
-- **The `(app)` route group is invisible to the proxy.** `src/proxy.ts` lists
-  the four destinations one by one, because there is no shared URL segment to
-  match on. A fifth destination has to be added there as well as to the sidebar,
-  or it ships unprotected.
 
 ## Long-term remarks
 
@@ -404,11 +141,10 @@ empty list is the expected state.
 
 ## Testing
 
-**Vitest is set up.** `npm test` runs 19 tests over the sync mapper, reading the
-real captured payloads from `scratch/` at runtime — never JSON invented for the
-test. If the same author writes the mapper and its fixture from one
-misunderstanding, they agree with each other and both are wrong. The API
-response is ground truth; recollection is not.
+**Vitest is set up**, running over the sync mapper against the real captured
+payloads — never JSON invented for the test. The mechanics, and why `npm test`
+must stay out of the Vercel build, are in
+[`architecture.md`](architecture.md#the-mappers-tests-read-scratch-which-is-gitignored).
 
 - **Playwright** later, for one flow only: log in → tag a player → see it in the
   diary.
@@ -453,28 +189,3 @@ response is ground truth; recollection is not.
   Google OAuth credentials, which a production one may not. Promoting it means
   creating a Google Cloud project and an OAuth client, and swapping the keys on
   Vercel. Same timing as the API tier — before launch, not on launch day.
-
-## Notes for a fresh session
-
-- Read [`api-football-findings.md`](api-football-findings.md) before touching
-  anything that talks to API-Football. It records what the API *does*, which
-  differs from what its own metadata advertises.
-- The free tier serves seasons 2022–2024 only. Development is `SEASON=2024`.
-- Quota is 100 requests/day *and* about 10 per minute, and is not generous
-  during backfills. Sync one or two gameweeks in development, never a whole
-  season. `npm run sync -- --round 1 --limit 2` is the cheap way to try it.
-- Prisma is on 7.x, which differs from most writing about it: `.env` is not
-  loaded automatically (`prisma.config.ts` does it), a driver adapter is
-  mandatory, and the generator is `prisma-client` writing TypeScript into
-  `src/generated/` — build output, gitignored, recreated by `npm run db:generate`.
-- `npm run db:check` is the fastest way to confirm the database still works. It
-  refuses to run against production and cleans up after itself.
-- To reproduce what Vercel does, `rm -rf src/generated && npm run build`. Only
-  that proves the build regenerates the client rather than leaning on a stale
-  local copy. `/fixtures`, `/players`, `/teams` and `/diary` should all appear as
-  `ƒ` (dynamic) in the route summary — even the placeholders, because the shell
-  layout reads the session. `/` is `○` (static) and should stay that way, since
-  the landing page reads no database.
-- `rm -rf .next` after renaming or moving a route. Next writes typed-route
-  definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail
-  citing files that no longer exist.
