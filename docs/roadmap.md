@@ -4,16 +4,19 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-02 (step 5; design handoff landed in `design/`)
+**Last updated:** 2026-08-02 (step 6.1; the app shell and the design tokens)
 
 ---
 
 ## Current state
 
-Real football is in the database and behind a login: the 2024 season's full
-fixture list, one gameweek hydrated down to individual players, and
-`/dashboard` server-rendering the first twenty fixtures out of Neon on every
-request for a signed-in user. `/` is a public landing page.
+Real football is in the database and behind a login, inside the frame the
+designs ask for: the 2024 season's full fixture list, one gameweek hydrated down
+to individual players, and `/fixtures` server-rendering the first twenty
+fixtures out of Neon on every request for a signed-in user. It sits in an app
+shell — fixed sidebar, fixed top bar, scrolling content — alongside Players,
+Teams and Diary, which exist as placeholders. `/` is a public landing page and
+is the one screen still on scaffold styling.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -28,8 +31,10 @@ request for a signed-in user. `/` is a public landing page.
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
-  fixtures page as intended. Nothing is implemented yet — step 6.1 is where the
-  tokens first become CSS
+  fixtures page as intended. The tokens are now CSS, in
+  [`src/app/globals.css`](../src/app/globals.css)
+- Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
+  subset is committed and refreshed by `npm run icons`
 - `npm run sync -- --round 1` fills the database from API-Football; `npm test`
   runs Vitest over the mapper
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
@@ -102,16 +107,49 @@ portal on another domain.
 
 `src/proxy.ts` — Next 16's name for what used to be `middleware.ts` — runs
 `clerkMiddleware()` on every matched request and redirects signed-out visitors
-away from `/dashboard(.*)`. That redirect is an optimistic check. The check that
-guards data is `requireDbUser()` itself, because Next's own guidance is that a
-proxy may run separately from the render, and because a check placed in a layout
-would not re-run on client-side navigation.
+away from each of the four signed-in destinations. That redirect is an
+optimistic check. The check that guards data is `requireDbUser()` itself,
+because Next's own guidance is that a proxy may run separately from the render,
+and because a check placed in a layout would not re-run on client-side
+navigation.
 
-`/dashboard/layout.tsx` calls it to render the email in the header, which is
-what provisions the row for everything below it. Server Actions render no
-layout, so anything that writes will have to call `requireDbUser()` itself; the
-upsert is idempotent and memoised per request with React's `cache()`, so the
-duplication costs one indexed lookup.
+`src/app/(app)/layout.tsx` calls it, which is what provisions the row for
+everything below it. Since 6.1 nothing there renders anything from the result —
+Clerk supplies the name in the sidebar — so the call is now purely the upsert
+plus the redirect. Server Actions render no layout, so anything that writes will
+have to call `requireDbUser()` itself; the upsert is idempotent and memoised per
+request with React's `cache()`, so the duplication costs one indexed lookup.
+
+### How the design tokens work
+
+[`foundations.md`](design/foundations.md) is the source; `globals.css` is the
+only file in the project allowed to hold a hex or a raw px. It has two tiers —
+base tokens that never change, semantic tokens that say what a colour is *for* —
+and product code names only the second.
+
+**Theming is one `light-dark()` call per semantic token.** That single mechanism
+covers both requirements at once: with `color-scheme: light dark` on `:root` the
+app follows the operating system, and once step 8.1 writes `data-theme` the
+attribute wins, because `[data-theme]` also sets `color-scheme`. Resolution
+happens where a variable is *used*, not where it is declared, so the attribute
+re-points any subtree.
+
+**The corollary is a rule: no `dark:` utilities anywhere.** A `dark:` class
+keys off `prefers-color-scheme`, so it would be a second theming mechanism that
+disagrees with the first the moment the toggle exists. The landing page still
+has some; it is the one screen not yet converted.
+
+Tailwind gets the tokens through `@theme inline` — `inline` is required, not
+stylistic, because only it makes `bg-surface` emit `var(--surface)` rather than
+copying the value into a variable of Tailwind's own that would not re-point.
+Spacing is deliberately not tokenised: foundations' scale *is* Tailwind's
+default 4px scale, so `--sp-6` is `p-4` and inventing tokens would give every
+value two names. Frame sizes stay plain variables, used as `w-(--sidebar-w)`.
+
+The type scale is ten `@utility` classes rather than font-size tokens, because
+each role in foundations is a set of five properties — family, size, weight,
+line-height, tracking — and a `text-title` that left the weight to the caller
+would be a different design.
 
 ## Build order
 
@@ -140,12 +178,12 @@ says when it has nothing to show is part of the slice, not a later pass.
       row is created on first sight.
 - [ ] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
-  - [ ] **6.1 — App shell.** The sidebar, top bar and shared design tokens.
-        `/dashboard` becomes `/fixtures`, labelled Fixtures in the sidebar,
-        with Players, Teams and Diary as siblings behind placeholders. The
-        signed-in identity moves from the dashboard header into the sidebar's
-        foot. The search field is not part of this — a box that does nothing is
-        worse than no box.
+  - [x] **6.1 — App shell.** Done. The sidebar, top bar and shared design
+        tokens. `/dashboard` became `/fixtures` inside an `(app)` route group,
+        with Players, Teams and Diary as siblings behind placeholders, and the
+        signed-in identity moved into the sidebar's foot. The search field was
+        deliberately left out — a box that does nothing is worse than no box —
+        which leaves the top bar empty until 8.1 and 8.2 fill it.
   - [ ] **6.2 — The fixtures page.** Fixture cards with venue, score and team
         badges; the league tab row; the matchday pager. A match with no squad
         rows is visibly not openable.
@@ -234,14 +272,14 @@ says when it has nothing to show is part of the slice, not a later pass.
   after, `clerk` would append last and outrank every utility class. The
   matching `cssLayerName: 'clerk'` is on `<ClerkProvider>`. There is no
   `tailwind.config.js` to configure this from; v4 is CSS-first.
-- **`User.email` is nullable and the code respects that**, so the header can
-  read "no email on file". Google always supplies a verified address, so in
-  practice it is populated — but the schema permits an account without one and
-  nothing coerces it.
-- **The dashboard header holds `{children}` behind an `await`.** Fine at this
-  size, but the session read is a top-level await in a layout, so it delays the
-  first streamed chunk for the whole segment. Next's guide describes pushing
-  that into a nested component behind `<Suspense>` if it ever matters.
+- **`User.email` is nullable and the code respects that.** Google always
+  supplies a verified address, so in practice it is populated — but the schema
+  permits an account without one and nothing coerces it. Since 6.1 nothing
+  renders it: the sidebar shows Clerk's name instead.
+- **The app shell holds `{children}` behind an `await`.** Fine at this size, but
+  the session read is a top-level await in a layout, so it delays the first
+  streamed chunk for the whole segment. Next's guide describes pushing that into
+  a nested component behind `<Suspense>` if it ever matters.
 - **Clerk is on a development instance.** Its keys work on Vercel, but sessions
   are capped and Clerk's components show a development badge.
 - **The Neon connection strings pin `sslmode=verify-full`.** Surfaced as a
@@ -250,6 +288,47 @@ says when it has nothing to show is part of the slice, not a later pass.
   encrypt without verifying who answered. Nothing about the connection changed;
   the parameter now says what was already happening, so the v9 upgrade cannot
   quietly downgrade it. Unrelated to auth, found while testing this slice.
+
+### Carried over from step 6.1
+
+- **`next/font/google` has no entry for Material Symbols at all**, and the full
+  variable font is 3.96 MB. What works instead: Google's `css2` endpoint accepts
+  `icon_names=` *together with* an axis selector, and returns only those glyphs
+  with the FILL axis intact — 5.6 kB for the whole vocabulary in
+  [`icon-names.ts`](../src/components/icon-names.ts). `npm run icons` fetches it
+  into `src/app/fonts/`, which is **committed**: unlike `src/generated/` it is
+  build input, and a fresh clone must build without reaching Google.
+  - **`icon_names` must be sorted alphabetically**, and axis names lowercase
+    first then uppercase (`opsz,wght,FILL,GRAD`). Either wrong gives a bare
+    `400: Invalid selector` naming neither. This cost most of the time the icon
+    work took.
+  - The script sends a browser User-Agent on purpose. Google serves the old
+    static `Material Icons` font to clients it does not recognise, and that font
+    silently has no FILL axis.
+- **Lightning CSS polyfills `light-dark()` rather than passing it through**, into
+  a pair of `--lightningcss-light` / `--lightningcss-dark` toggle variables. It
+  gets the cascade right — the `[data-theme]` rules are emitted after the
+  `prefers-color-scheme` media query, so forcing a theme beats the OS — but the
+  compiled CSS looks nothing like the source, which is worth knowing before
+  debugging a colour in devtools.
+- **The base stylesheet styles every `<a>`**, so chrome links need
+  `no-underline` and an explicit colour or they render as blue underlined prose
+  links. `NavItem` does this; anything else linking outside body copy will have
+  to.
+- **`createRouteMatcher` is deprecated by Clerk**, with "use resource-based auth
+  checks instead" as the guidance. The dev server says so on every boot. This
+  app is already resource-based — `requireDbUser()` is the real guard and the
+  proxy check is documented as optimistic — so removing the matcher would cost
+  little, but it is a behaviour change (the bounce moves from the edge to the
+  render) and was not part of this slice.
+- **The fixtures list is still the old markup on new tokens.** Cards, badges,
+  the league tab row and the matchday pager are 6.2, and the four stat tiles and
+  per-fixture counts are 6.6. The page currently says "first 20 fixtures"
+  because that is what it does.
+- **The `(app)` route group is invisible to the proxy.** `src/proxy.ts` lists
+  the four destinations one by one, because there is no shared URL segment to
+  match on. A fifth destination has to be added there as well as to the sidebar,
+  or it ships unprotected.
 
 ## Long-term remarks
 
@@ -296,6 +375,19 @@ response is ground truth; recollection is not.
   season" and no such concept exists. The obvious reading is matches in which
   this user has recorded at least one judgement, which makes it a query rather
   than a new column, but it has not been agreed. Needed by 6.6.
+- **The sidebar's avatar contradicts the design.** The foot is Clerk's
+  `<UserButton showName />`, chosen because its menu is the only way to sign
+  out. Its avatar is the Google profile photo, or a coloured gradient when there
+  is none, and `foundations.md` forbids both photography and gradients. The
+  design draws a grey circle with the user's initials. Replacing it means either
+  restyling Clerk's internals or rendering our own chip and finding somewhere
+  else for sign-out. Not urgent, but it is a knowing breach rather than an
+  oversight.
+- **The landing page `/` is still on scaffold styling** — `zinc-*` palette
+  classes, `rounded-full` buttons, `dark:` utilities. Left out of 6.1 by
+  decision to keep that slice to the signed-in shell. Nothing depends on it, but
+  it means the app currently speaks two visual languages and is the only place a
+  `dark:` utility survives.
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
 - **Clerk production instance.** A development instance uses Clerk's shared
   Google OAuth credentials, which a production one may not. Promoting it means
@@ -319,6 +411,10 @@ response is ground truth; recollection is not.
   refuses to run against production and cleans up after itself.
 - To reproduce what Vercel does, `rm -rf src/generated && npm run build`. Only
   that proves the build regenerates the client rather than leaning on a stale
-  local copy. `/dashboard` should appear as `ƒ` (dynamic) in the route summary;
-  `/` is `○` (static) and should stay that way, since the landing page reads no
-  database.
+  local copy. `/fixtures`, `/players`, `/teams` and `/diary` should all appear as
+  `ƒ` (dynamic) in the route summary — even the placeholders, because the shell
+  layout reads the session. `/` is `○` (static) and should stay that way, since
+  the landing page reads no database.
+- `rm -rf .next` after renaming or moving a route. Next writes typed-route
+  definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail
+  citing files that no longer exist.

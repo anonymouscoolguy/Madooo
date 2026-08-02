@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
  * says `middleware.ts`; that convention is deprecated here.
  *
  * Two jobs: `clerkMiddleware()` reads the session cookie so that `auth()` works
- * during rendering, and the callback bounces signed-out visitors off `/dashboard`.
+ * during rendering, and the callback bounces signed-out visitors off the app.
  *
  * The redirect goes to `/` rather than to a sign-in page, because there is no
  * sign-in page — the form is a modal on the landing page. Clerk's own
@@ -20,7 +20,18 @@ import { NextResponse } from 'next/server'
  * render. The check that actually guards data is `requireDbUser()` in
  * `src/lib/auth.ts`, which every reader of user data goes through.
  */
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)'])
+/**
+ * Every destination in the sidebar, listed one by one rather than matched by a
+ * shared prefix: the `(app)` route group these live in is invisible in the URL,
+ * so there is no path segment to match on. A new destination has to be added
+ * here as well as to the sidebar, or it is left unprotected.
+ */
+const isProtectedRoute = createRouteMatcher([
+  '/fixtures(.*)',
+  '/players(.*)',
+  '/teams(.*)',
+  '/diary(.*)',
+])
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isProtectedRoute(req)) return

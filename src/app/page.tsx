@@ -1,7 +1,7 @@
 import { SignInButton, SignUpButton } from '@clerk/nextjs'
 
 /**
- * Public, and deliberately touches no database — so unlike `/dashboard` it can
+ * Public, and deliberately touches no database — so unlike `/fixtures` it can
  * be prerendered at build time and needs no `dynamic` export.
  *
  * Clerk's buttons are client components, imported straight into this server

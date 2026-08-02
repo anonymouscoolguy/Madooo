@@ -7,27 +7,438 @@
 
 @import "tailwindcss";
 
+/* ==========================================================================
+   Tokens — the whole of docs/design/foundations.md, and the only file in the
+   project allowed to contain a hex or a raw px value.
+
+   Two tiers, and the distinction matters:
+     - base tokens are raw material and never change between themes;
+     - semantic tokens say what a colour is *for*, and re-point.
+   Product code only ever names the second tier.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Neutral ramp ------------------------------------------------------ */
+  --gray-0: #ffffff;
+  --gray-1: #f8f8f8;
+  --gray-2: #eeeeee;
+  --gray-3: #dddddd;
+  --gray-4: #cccccc;
+  --gray-5: #b0b0b0;
+  --gray-6: #999999;
+  --gray-7: #595959;
+  --gray-8: #333333;
+  --gray-85: #2b2b2b;
+  --gray-90: #212121;
+  --gray-9: #000000;
+
+  /* Values foundations gives only inside the dark column of its semantic
+     table, named here so every semantic below resolves token-to-token rather
+     than dropping a bare hex into the middle of a light-dark() call. */
+  --gray-d-sunken: #191919;
+  --gray-d-border: #3d3d3d;
+  --gray-d-border-strong: #5c5c5c;
+
+  /* --- Accents ----------------------------------------------------------- */
+  --accent-blue: #4285f4;
+  --accent-red: #db4437;
+  --accent-yellow: #f4b400;
+  --accent-green: #0f9d58;
+  --accent-purple: #ab47bc;
+  --accent-cyan: #00acc1;
+  --link-blue: #1155cc;
+
+  /* --- Tinted pairs ------------------------------------------------------
+     Inks are darkened accents, so the label passes contrast on white. The raw
+     accent survives as --*-mark, used only for a glyph on an inverse surface. */
+  --green-bg: #e3f3ea;
+  --green-ink: #0b7d46;
+  --red-bg: #fbe6e4;
+  --red-ink: #c5372c;
+  --yellow-bg: #fdf3d9;
+  --yellow-ink: #a17400;
+  --blue-bg: #e6effd;
+  --blue-ink: #1155cc;
+
+  /* Their dark-theme counterparts: lighter ink, near-black tint. */
+  --green-dark: #4bcf8b;
+  --green-dark-bg: #12331f;
+  --red-dark: #f28b82;
+  --red-dark-bg: #3a1c19;
+  --yellow-dark: #fdd663;
+  --yellow-dark-bg: #3a2f0d;
+  --blue-dark: #8ab4f8;
+  --blue-dark-bg: #16243d;
+
+  /* --- Theming -----------------------------------------------------------
+     Every semantic below is one light-dark() call, which resolves against the
+     *used* colour-scheme of whatever element consumes it. That single mechanism
+     covers both requirements at once:
+
+       - with `light dark` here, the app follows the operating system, which is
+         what it should do until step 8.1 ships a toggle;
+       - once it does, setting data-theme forces the choice, and because the
+         resolution happens where the variable is used rather than where it is
+         declared, the attribute re-points an entire subtree — exactly what
+         foundations claims for it.
+
+     The corollary, and it is a rule: **no `dark:` utilities anywhere.** A
+     `dark:` class would be a second theming mechanism keyed off a different
+     signal, and the two would disagree the moment the toggle exists. */
+  color-scheme: light dark;
+
+  --page: light-dark(var(--gray-1), var(--gray-90));
+  --surface: light-dark(var(--gray-0), var(--gray-90));
+  --surface-alt: light-dark(var(--gray-1), var(--gray-85));
+  --surface-sunken: light-dark(var(--gray-2), var(--gray-d-sunken));
+  --surface-header: light-dark(var(--gray-2), var(--gray-8));
+  --surface-inverse: light-dark(var(--gray-9), var(--gray-0));
+
+  --border: light-dark(var(--gray-3), var(--gray-d-border));
+  --border-strong: light-dark(var(--gray-5), var(--gray-d-border-strong));
+  --border-focus: light-dark(var(--gray-9), var(--gray-0));
+
+  --text: light-dark(var(--gray-9), var(--gray-0));
+  --text-muted: light-dark(var(--gray-7), var(--gray-4));
+  --text-faint: var(--gray-6);
+  --text-inverse: light-dark(var(--gray-0), var(--gray-90));
+
+  --link: light-dark(var(--link-blue), var(--blue-dark));
+  --link-hover: light-dark(var(--gray-9), var(--gray-0));
+
+  --overlay: light-dark(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.7));
+
+  --standout: light-dark(var(--green-ink), var(--green-dark));
+  --standout-bg: light-dark(var(--green-bg), var(--green-dark-bg));
+  --flop: light-dark(var(--red-ink), var(--red-dark));
+  --flop-bg: light-dark(var(--red-bg), var(--red-dark-bg));
+  --mvp: light-dark(var(--yellow-ink), var(--yellow-dark));
+  --mvp-bg: light-dark(var(--yellow-bg), var(--yellow-dark-bg));
+  --info: light-dark(var(--link-blue), var(--blue-dark));
+  --info-bg: light-dark(var(--blue-bg), var(--blue-dark-bg));
+
+  --standout-mark: var(--accent-green);
+  --flop-mark: var(--accent-red);
+  --mvp-mark: var(--accent-yellow);
+
+  /* --- Frame -------------------------------------------------------------
+     Not handed to Tailwind below: these are used as `w-(--sidebar-w)` and
+     friends, which keeps foundations' own names visible in the markup instead
+     of translating them into a scale that would mean nothing to a reader of
+     the design. */
+  --sidebar-w: 232px;
+  --rail-w: 56px;
+  --container: 1120px;
+
+  /* Control heights, from foundations' table. */
+  --row-h: 36px;
+  --row-h-lg: 44px;
+  --control-h: 32px;
+  --control-h-lg: 40px;
+
+  --border-w: 1px;
+  --border-w-strong: 2px;
+
+  /* A 2px ring in --border-focus with a 2px surface-coloured gap, so it stays
+     legible against whatever it sits on. */
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--border-focus);
+
+  /* --- Motion ------------------------------------------------------------ */
+  --dur-1: 80ms;
+  --dur-2: 140ms;
+  --dur-3: 220ms;
+  --dur-4: 320ms;
 }
+
+/* What step 8.1's toggle will write. Setting colour-scheme rather than a pile
+   of colour overrides is the whole trick: every light-dark() above re-resolves,
+   and so do the browser's own form controls and scrollbars. */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   Handing the tokens to Tailwind.
+
+   `inline` rather than plain `@theme` is required, not stylistic: it makes
+   `bg-surface` emit `background-color: var(--surface)` instead of copying the
+   value through a second variable of Tailwind's own. Only the first re-resolves
+   inside a [data-theme] subtree.
+   ========================================================================== */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Fonts. next/font hashes the real family name at build time, so it can only
+     be reached through the variable it declares on <html>. */
+  --font-sans: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "Roboto Mono", monospace;
+
+  /* Surfaces and ink. Named without a `text-` prefix where foundations' own
+     swatch sheet does the same ("Muted", "Faint"), so the utility reads
+     `text-muted` rather than `text-text-muted`. */
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-header: var(--surface-header);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-inverse: var(--text-inverse);
+
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-overlay: var(--overlay);
+
+  --color-standout: var(--standout);
+  --color-standout-bg: var(--standout-bg);
+  --color-flop: var(--flop);
+  --color-flop-bg: var(--flop-bg);
+  --color-mvp: var(--mvp);
+  --color-mvp-bg: var(--mvp-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  --color-standout-mark: var(--standout-mark);
+  --color-flop-mark: var(--flop-mark);
+  --color-mvp-mark: var(--mvp-mark);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Radius, elevation and easing are declared straight into the theme rather than
+   into :root above, because unlike the colours they are not indirections — they
+   are the values. A plain @theme (no `inline`) also publishes each one as a
+   :root variable, so `var(--radius-md)` still works in hand-written CSS. */
+@theme {
+  /* Near-square by intent. There is no 12px or 16px "friendly" radius, and
+     --radius-pill is Tailwind's own `rounded-full`, which is why it is absent
+     here — it belongs to Tags and pill Tabs only. */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  /* The border is the primary separator; shadow means "this floats". Dark
+     deepens every alpha, because a soft shadow is invisible on near-black —
+     light-dark() resolves per element, so one declaration covers both. */
+  --shadow-1: 0 1px 2px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.6));
+  --shadow-2:
+    0 1px 3px light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.7)),
+    0 2px 8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5));
+  --shadow-3: 0 8px 24px light-dark(rgb(0 0 0 / 0.18), rgb(0 0 0 / 0.8));
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0, 1);
+  --ease-in: cubic-bezier(0.3, 0, 1, 1);
+}
+
+/* Spacing is deliberately absent above. Foundations' scale — 2, 4, 6, 8, 12,
+   16, 20, 24, 32, 40, 48, 64 — *is* Tailwind's default 4px scale, so --sp-1 is
+   p-0.5, --sp-4 is p-2, --sp-6 is p-4, --sp-8 is p-6, --sp-12 is p-16.
+   Defining parallel tokens would give every value two names. */
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  body {
+    background-color: var(--page);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+  }
+
+  ::selection {
+    background-color: light-dark(var(--gray-3), var(--gray-8));
+    color: light-dark(var(--gray-9), var(--gray-0));
+  }
+
+  /* Foundations is absolute about this: all durations collapse to zero. The
+     motion inventory is three items long, so nothing of meaning is lost. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ==========================================================================
+   The type scale.
+
+   Each role is one class carrying all five properties foundations gives it —
+   weight, size, line-height, family, tracking — because they are a set, and a
+   `text-title` that left the weight to the caller would be a different design.
+   `@utility` rather than a plain class so that variants still compose
+   (`md:text-title`).
+   ========================================================================== */
+
+@utility text-display {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+@utility text-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+@utility text-heading {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+@utility text-body-lg {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
+}
+
+@utility text-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+@utility text-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+@utility text-caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+/* Uppercase is part of the role, not a decision left to the caller: caps appear
+   in exactly two places, the three verdict words and micro-labels. */
+@utility text-caps {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The two monospaced roles. If it is a number you can add up, it is one of
+   these — scores, tallies, shirt numbers, dates, minute marks. */
+@utility text-stat {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+@utility text-data {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+/* Written as `focus-visible:focus-ring`, so it appears for a keyboard and not
+   for a mouse. Focus is never removed — foundations says so outright. */
+@utility focus-ring {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The standard hover transition: colour crossfades only, never opacity, never
+   a transform. */
+@utility t-hover {
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--dur-2);
+  transition-timing-function: var(--ease-standard);
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  /* Material Symbols are written as ligature text — <span class="icon">groups
+     </span> — which is why `liga` has to be on, and why the font loads with
+     `display: block`. Get either wrong and the literal word renders. */
+  .icon {
+    display: inline-block;
+    flex: none;
+    font-family: var(--font-material-symbols);
+    font-size: var(--icon-size, 20px);
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: "liga";
+    /* FILL 1 means "on", and nothing else fills: an applied verdict, the active
+       nav item, a favourited player. */
+    font-variation-settings: "FILL" var(--icon-fill, 0);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  .icon-filled {
+    --icon-fill: 1;
+  }
+
+  /* The sizes foundations lists: 14 in badges and micro-labels, 16 in chips,
+     18 in buttons and fields, 20 default, 22 for large icon buttons. */
+  .icon-xs {
+    --icon-size: 14px;
+  }
+  .icon-sm {
+    --icon-size: 16px;
+  }
+  .icon-md {
+    --icon-size: 18px;
+  }
+  .icon-lg {
+    --icon-size: 22px;
+  }
 }
