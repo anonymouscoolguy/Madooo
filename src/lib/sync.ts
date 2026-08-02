@@ -26,17 +26,16 @@ import {
 import type { RawFixture, RawLineup, RawPlayerStats } from './api-football/types'
 import { prisma } from './prisma'
 
+// Re-exported so `scripts/sync.ts` keeps its single import site. The definition
+// lives in `rounds.ts` because pages need it too and may not import this file.
+export { roundLabel } from './rounds'
+
 /**
  * Premier League. Not a season literal — the season is configuration and comes
  * from `season()`. Scope is Premier-League-only for now by product decision; a
  * second league becomes a parameter here when one is added.
  */
 export const PREMIER_LEAGUE_ID = 39
-
-/** "1" and "Regular Season - 1" both mean the same round. */
-export function roundLabel(round: string): string {
-  return /^\d+$/.test(round.trim()) ? `Regular Season - ${round.trim()}` : round
-}
 
 /**
  * Run `work` over `items` a few at a time.

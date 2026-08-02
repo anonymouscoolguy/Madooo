@@ -70,6 +70,14 @@ The inks are darkened versions of the raw accents so the label passes contrast o
 
 `--standout-mark #0f9d58`, `--flop-mark #db4437`, `--mvp-mark #f4b400` are the same in both themes.
 
+### Club colours are the one sanctioned exception to the no-hex rule
+
+A club's colour is a fact about the club, not a decision about the interface, so no semantic token could ever express it — there is no "Chelsea blue" in this system and there must not be. Club colours therefore live in the database, on `Team.colour`, and reach the DOM through an inline `style` on the crest chip. Product code still holds no hex.
+
+The chip's ink is picked by contrast against that colour and is `--gray-0` or `--gray-9` — **base tokens, not `--text-inverse`**. The chip sits on a fixed colour, so its ink must not move with the theme; the neutral ramp never changes across themes, which is exactly the guarantee this needs.
+
+Nothing else may claim this exception.
+
 ### Theming
 Light is the default and needs no attribute. Dark is `data-theme="dark"` on `<html>` (or any container — it re-points semantics on any subtree). Only semantics re-point; base tokens never change.
 

@@ -21,13 +21,17 @@ import { NextResponse } from 'next/server'
  * `src/lib/auth.ts`, which every reader of user data goes through.
  */
 /**
- * Every destination in the sidebar, listed one by one rather than matched by a
- * shared prefix: the `(app)` route group these live in is invisible in the URL,
- * so there is no path segment to match on. A new destination has to be added
- * here as well as to the sidebar, or it is left unprotected.
+ * Every route inside the `(app)` group, listed one by one rather than matched by
+ * a shared prefix: the route group is invisible in the URL, so there is no path
+ * segment to match on. Anything added under `(app)` has to be added here too, or
+ * it ships unprotected.
+ *
+ * Note that this is longer than the sidebar: `/matches/[id]` is a destination
+ * with no nav item, reached only from a fixture card.
  */
 const isProtectedRoute = createRouteMatcher([
   '/fixtures(.*)',
+  '/matches(.*)',
   '/players(.*)',
   '/teams(.*)',
   '/diary(.*)',

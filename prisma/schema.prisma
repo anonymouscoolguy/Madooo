@@ -43,6 +43,19 @@ model Team {
   name          String
   logo          String?
 
+  // The design puts a three-letter code on a club-coloured rectangle where a
+  // crest would go. Neither field comes from API-Football, which publishes no
+  // codes and no club colours — they are ours, entered by hand and keyed to
+  // apiFootballId by `npm run db:seed-teams`. Nullable because a team arrives
+  // from a sync before anyone has assigned it an identity, and a club with no
+  // identity falls back rather than failing.
+  //
+  // `colour` keeps its leading "#", unlike MatchLineup's kit hexes. Those are
+  // stored as the provider sends them; this one is ours and is consumed
+  // directly as a CSS colour.
+  code   String? // "MUN" — the official Premier League abbreviation
+  colour String? // "#da2128"
+
   // Back-relations. Prisma requires both ends of every relation to be declared
   // and will not generate a client otherwise. These hold no foreign key and
   // produce no column — they exist so the relation can be traversed from this

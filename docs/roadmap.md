@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-02 (docs split; roadmap and architecture separated)
+**Last updated:** 2026-08-02 (6.2 — the fixtures page)
 
 ---
 
@@ -16,11 +16,12 @@ you are about to touch before writing code in it.
 
 Real football is in the database and behind a login, inside the frame the
 designs ask for: the 2024 season's full fixture list, one gameweek hydrated down
-to individual players, and `/fixtures` server-rendering the first twenty
-fixtures out of Neon on every request for a signed-in user. It sits in a
-responsive app shell alongside Players, Teams and Diary, which exist as
-placeholders. `/` is a public landing page and is the one screen still on
-scaffold styling.
+to individual players, and `/fixtures` drawn as the design asks — a card per
+fixture with venue, crest chips, score and date, under a league row and a
+matchday pager, server-rendered out of Neon on every request. A fixture with a
+squad opens a match page; one without does not. It sits in a responsive app
+shell alongside Players, Teams and Diary, which exist as placeholders. `/` is a
+public landing page and is the one screen still on scaffold styling.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -31,8 +32,9 @@ scaffold styling.
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
-- `npm run sync -- --round 1` fills the database from API-Football; `npm test`
-  runs Vitest over the mapper
+- `npm run sync -- --round 1` fills the database from API-Football;
+  `npm run db:seed-teams` writes the club codes and colours the provider does not
+  publish; `npm test` runs Vitest over the mapper and the pages' pure helpers
 - Visual designs exist in a Claude Design project, handed off into
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
@@ -82,9 +84,12 @@ says when it has nothing to show is part of the slice, not a later pass.
         drawer below `md`. Nothing at `md` and above changed. The rules it was
         written against are now a `### Responsive` section in `foundations.md`,
         which had none.
-  - [ ] **6.2 — The fixtures page.** Fixture cards with venue, score and team
-        badges; the league tab row; the matchday pager. A match with no squad
-        rows is visibly not openable.
+  - [x] **6.2 — The fixtures page.** Done. Fixture cards with venue, score and
+        crest chips; the league row; the matchday pager, with the matchday in the
+        URL so the page stays a server component. A match with no squad rows says
+        "No squad yet" and does not navigate. `/matches/[id]` exists as a stub for
+        6.3 to fill. The stat tiles and the per-card verdict counts are not here —
+        they are 6.6, deliberately last.
   - [ ] **6.3 — Match page.** Both squads, read-only: starters, substitutes,
         shirt numbers, positions.
   - [ ] **6.4 — Tagging.** A Server Action writing `Judgement`. Tapping the
@@ -120,9 +125,10 @@ empty list is the expected state.
   without a reference.** The export from Claude Design carries no breakpoints and
   no mobile mockups; both reference screenshots are ~2060px captures. 6.1b agreed
   the frame's rules and wrote them into `foundations.md`'s `### Responsive`
-  section, but that settles the frame alone. The fixture card, the squad list,
-  the tag controls and the stat tiles each still have to be resolved at narrow
-  width by judgement, against those rules rather than against a drawing.
+  section, but that settles the frame alone. 6.2 resolved the fixture card the
+  same way. The squad list, the tag controls and the stat tiles each still have
+  to be resolved at narrow width by judgement, against those rules rather than
+  against a drawing.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 
@@ -152,14 +158,12 @@ must stay out of the Vercel build, are in
 
 ## Open decisions
 
-- **Where team codes and club colours come from.** The design puts a three-letter
-  code on a club-coloured rectangle where a crest would go — a substitute for
-  crests, not a step towards them, so `Team.logo` still renders nowhere. Neither
-  field is in the schema. Two known problems: the screenshots show `MAN` for both
-  Manchester clubs, so the codes have to distinguish them; and API-Football does
-  not publish club colours at all. `MatchLineup` does carry kit colours, but
-  those are the kit worn in one match — possibly a third kit in a colour the club
-  is not known by — so they describe a shirt, not an identity. Needed by 6.2.
+- **The club colours have no authority behind them.** Settled in 6.2: codes and
+  colours are columns on `Team`, seeded by `npm run db:seed-teams`. The codes are
+  the league's own abbreviations, which is a defensible external standard. The
+  colours are not — each is that club's commonly published primary, entered by
+  hand and never checked against anything. They are the one part of the seed
+  table meant to be edited on sight, and a wrong one is wrong quietly.
 - **What "watched" counts.** The first tile on `/fixtures` reads "WATCHED 14 this
   season" and no such concept exists. The obvious reading is matches in which
   this user has recorded at least one judgement, which makes it a query rather

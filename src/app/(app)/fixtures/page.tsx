@@ -1,5 +1,9 @@
 import { season } from '@/lib/env'
-import { prisma } from '@/lib/prisma'
+import { defaultRound, fixturesForRound, listRounds } from '@/lib/fixtures'
+import { roundNumber } from '@/lib/rounds'
+import { FixtureCard } from '@/components/fixture-card'
+import { LeagueTabs } from '@/components/league-tabs'
+import { MatchdayPager } from '@/components/matchday-pager'
 import { PageHeader } from '@/components/page-header'
 
 /**
@@ -13,56 +17,75 @@ import { PageHeader } from '@/components/page-header'
 export const dynamic = 'force-dynamic'
 
 /**
- * A fixed zone rather than the server's. Vercel runs in UTC and a laptop does
- * not, so without this the same kickoff renders as two different local times —
- * and, for a late one, two different dates.
+ * The selected matchday lives in the URL — `/fixtures?matchday=6` — rather than
+ * in React state, and that one choice is what keeps this whole page a server
+ * component. The pager is two `<Link>`s, no JavaScript ships, and a matchday can
+ * be linked to, bookmarked and reached with the back button.
+ *
+ * Two Next specifics. `searchParams` is a **Promise** and has to be awaited:
+ * Next 15 made request-time inputs async so rendering can start before the
+ * request is fully parsed, and reading it synchronously is deprecated.
+ * `PageProps<'/fixtures'>` is a globally available helper that derives the prop
+ * types from the route literal, so the path and its types cannot drift apart.
  */
-const kickoffFormat = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/London',
-})
-
-export default async function Fixtures() {
+export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>) {
   const currentSeason = season()
+  const { matchday } = await searchParams
 
-  const matches = await prisma.match.findMany({
-    where: { season: currentSeason },
-    orderBy: { kickoff: 'asc' },
-    take: 20,
-    include: { homeTeam: true, awayTeam: true },
-  })
+  const rounds = await listRounds(currentSeason)
+
+  if (rounds.length === 0) {
+    return (
+      <>
+        <PageHeader title="Fixtures">
+          Pick a league and matchday, then open any fixture to rate the players.
+        </PageHeader>
+        {/* Said out loud rather than rendered as an empty list: a deployment
+            pointed at the wrong database should look broken, not merely quiet. */}
+        <p className="text-body text-muted">No fixtures in the database for this season.</p>
+      </>
+    )
+  }
+
+  // A repeated `?matchday=` gives an array; take the first rather than refusing,
+  // since a malformed parameter falls through to the default anyway.
+  const requested = Number(Array.isArray(matchday) ? matchday[0] : matchday)
+  let index = rounds.findIndex((round) => roundNumber(round.round) === requested)
+
+  if (index === -1) {
+    // Only asked when the URL says nothing usable, so paging through the season
+    // does not pay for it on every click.
+    const fallback = await defaultRound(currentSeason)
+    index = Math.max(
+      0,
+      rounds.findIndex((round) => round.round === fallback),
+    )
+  }
+
+  const current = rounds[index]
+  const fixtures = await fixturesForRound(currentSeason, current.round)
 
   return (
     <>
       <PageHeader title="Fixtures">
-        Premier League {currentSeason}/{currentSeason + 1} — first 20 fixtures
+        Pick a league and matchday, then open any fixture to rate the players.
       </PageHeader>
 
-      {matches.length === 0 ? (
-        // Said out loud rather than rendered as an empty list: a deployment
-        // pointed at the wrong database should look broken, not merely quiet.
-        <p className="text-body text-muted">No fixtures in the database for this season.</p>
+      {/* Stacked below `md` — the tabs and the pager together need more width
+          than a phone has, and wrapping them keeps both at full size rather than
+          squeezing either. */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <LeagueTabs />
+        <MatchdayPager rounds={rounds} index={index} />
+      </div>
+
+      {fixtures.length === 0 ? (
+        <p className="text-body text-muted">No fixtures on this matchday.</p>
       ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {matches.map((match) => (
-            <li key={match.id} className="flex items-baseline justify-between gap-4 py-3">
-              <span className="text-body">
-                {match.homeTeam.name} v {match.awayTeam.name}
-              </span>
-              {/* Monospaced because both halves are counted, not spoken: a score
-                  you could add up, and a date. */}
-              <span className="shrink-0 text-right text-data text-muted">
-                {/* null goals means the match has no result recorded, not that
-                    it finished goalless. */}
-                {match.homeGoals === null || match.awayGoals === null
-                  ? match.status
-                  : `${match.homeGoals}–${match.awayGoals}`}
-                <span className="ml-3">{kickoffFormat.format(match.kickoff)}</span>
-              </span>
+        <ul className="flex flex-col gap-4">
+          {fixtures.map((match) => (
+            <li key={match.id}>
+              <FixtureCard match={match} />
             </li>
           ))}
         </ul>

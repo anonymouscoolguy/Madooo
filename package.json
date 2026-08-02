@@ -14,6 +14,7 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:check": "tsx scripts/db-check.ts",
+    "db:seed-teams": "tsx scripts/seed-team-identity.ts",
     "icons": "tsx scripts/fetch-icon-font.ts",
     "sync": "tsx scripts/sync.ts",
     "test": "vitest run"

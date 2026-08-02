@@ -62,6 +62,30 @@ data was a variable. The failure surfaced at runtime as "Unknown argument
 `npm run db:check` is the fastest way to confirm the database still works end to
 end. It refuses to run against production and cleans up after itself.
 
+### Two columns are seeded by hand and never synced
+
+`Team.code` and `Team.colour` — the three-letter abbreviation and the club colour
+the design puts where a crest would go. API-Football publishes neither, so
+[`scripts/seed-team-identity.ts`](../scripts/seed-team-identity.ts) holds the
+table, keyed by API-Football id, and `npm run db:seed-teams` writes it. Run it
+after any sync that introduces a club.
+
+- **It only ever `update`s.** A club that is not already in the database means
+  the sync has not run, not that there is a row to invent.
+- **The provider's spelling of the name is a guard, not a value.** The script
+  refuses to write to a row whose stored name does not match its table, so an id
+  typed wrong paints nothing rather than painting some other club.
+- **The sync cannot undo it**, because `upsertTeams` lists its update columns one
+  by one rather than spreading an object. That narrow list is now load-bearing:
+  widening it to a spread would blank both columns on the next sync.
+- Codes are the league's own abbreviations, not the first three letters of the
+  name. The reference screenshots draw `MAN` on both Manchester clubs and `AST`
+  on Aston Villa; a badge whose only job is to identify a club has to be able to.
+- Both are nullable and both have a fallback, in
+  [`src/lib/teams/identity.ts`](../src/lib/teams/identity.ts). An unseeded club
+  gets a neutral grey chip, which reads as missing data rather than as a wrong
+  fact about the club.
+
 ### The connection strings pin `sslmode=verify-full`
 
 Surfaced as a runtime warning from `pg` 8.22, which currently treats the
@@ -111,12 +135,32 @@ tackles, duels, dribbles and fouls are parsed by nothing. The API's misspelling
 is reproduced only in [`types.ts`](../src/lib/api-football/types.ts) and
 corrected at the boundary.
 
-### The mapper's tests read `scratch/`, which is gitignored
+### Anything a page needs from a round string lives in `src/lib/rounds.ts`
 
-`npm test` runs 19 Vitest tests over the sync mapper, reading the real captured
-payloads at runtime — never JSON invented for the test. If the same author writes
-the mapper and its fixture from one misunderstanding, they agree with each other
-and both are wrong. The API response is ground truth; recollection is not.
+`Match.round` holds API-Football's own label, `"Regular Season - 1"`, and the
+fixtures page has to order and display it. It may not get that from
+[`sync.ts`](../src/lib/sync.ts), which imports the provider client — constraint
+#2 is about the import graph, not about intent. So `roundLabel` moved out to
+[`rounds.ts`](../src/lib/rounds.ts) and the sync re-exports it for the CLI.
+
+The general shape: **when a page and the sync need the same pure function, it
+moves to a third module and both import it.** Dependencies point into the shared
+module; nothing ever points out of the sync.
+
+The provider's vocabulary still stops at the boundary in the place that counts —
+URLs carry `?matchday=6`, not the label.
+
+### The tests read `scratch/`, which is gitignored
+
+`npm test` runs Vitest over the sync mapper and over the pure helpers the pages
+use, reading the real captured payloads at runtime — never JSON invented for the
+test. If the same author writes the code and its fixture from one
+misunderstanding, they agree with each other and both are wrong. The API response
+is ground truth; recollection is not.
+
+That rule pays out beyond the mapper. `dates.ts` was written against remembered
+month abbreviations and the payload disagreed: `en-GB` renders September as
+`Sept`, four letters where every other month gets three.
 
 The consequence: a fresh clone has no fixtures and `npm test` fails with a
 message saying to re-run `scripts/verify_api.py` (about 5 requests). **This is
@@ -159,10 +203,19 @@ itself, because Next's own guidance is that a proxy may run separately from the
 render, and because a check placed in a layout would not re-run on client-side
 navigation.
 
-**The `(app)` route group is invisible to the proxy.** `src/proxy.ts` lists the
-four destinations one by one, because there is no shared URL segment to match on.
-A fifth destination has to be added there as well as to the sidebar, or it ships
-unprotected.
+**The `(app)` route group is invisible to the proxy.** `src/proxy.ts` lists every
+route inside it one by one, because there is no shared URL segment to match on.
+Anything added under `(app)` has to be added there too, or it ships unprotected.
+The list is already longer than the sidebar — `/matches/[id]` has no nav item and
+is reached only from a fixture card — so "did I add the nav item?" is not the
+question to check it against.
+
+**Screen state that survives a reload belongs in the URL, not in React state.**
+`/fixtures?matchday=6` is why that page is still a server component: the pager is
+two `<Link>`s, no JavaScript ships, and the matchday can be linked to and reached
+with the back button. `searchParams` is a Promise in Next 16 and has to be
+awaited; `PageProps<'/fixtures'>` derives the prop types from the route literal,
+so a path and its types cannot drift apart.
 
 `src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
 row for everything below it. Nothing there renders anything from the result —
@@ -247,8 +300,21 @@ the rest of the file.
   compiled CSS looks nothing like the source, which is worth knowing before
   debugging a colour in devtools.
 - **The base stylesheet styles every `<a>`**, so chrome links need `no-underline`
-  and an explicit colour or they render as blue underlined prose links. `NavItem`
-  does this; anything else linking outside body copy will have to.
+  and an explicit colour or they render as blue underlined prose links. `NavItem`,
+  `FixtureCard` and the matchday pager all do this. One class is enough despite
+  `a:hover` having the higher specificity, because the utilities layer is
+  declared after `base` and layer order beats specificity.
+- **Club colour is the only colour in product code that is not a token**, and
+  `foundations.md` records the exception under Colour. It arrives from
+  `Team.colour` as an inline style on the crest chip; the chip's ink is picked by
+  WCAG luminance and is `--gray-0` or `--gray-9` — base tokens, because the chip
+  sits on a fixed colour and its ink must not flip with the theme.
+- **Every date the app renders goes through
+  [`src/lib/dates.ts`](../src/lib/dates.ts)**, pinned to `Europe/London`. Vercel
+  runs in UTC and a laptop does not, so an unpinned formatter renders one kickoff
+  as two different times and, late enough, two different dates. It builds its
+  output from `formatToParts` rather than `format` so the month can be cut to
+  three letters — see the `Sept` finding above.
 
 ### The icon font is a subset, fetched by script
 
@@ -318,11 +384,11 @@ applies; the newer `use cache` model does not.
 
 To reproduce what Vercel does: `rm -rf src/generated && npm run build`. Only that
 proves the build regenerates the client rather than leaning on a stale local copy.
-`/fixtures`, `/players`, `/teams` and `/diary` should all appear as `ƒ` (dynamic)
-in the route summary — even the placeholders, because the shell layout reads the
-session. `/` is `○` (static) and should stay that way, since the landing page
-reads no database.
+Every route under `(app)` should appear as `ƒ` (dynamic) in the route summary —
+even the placeholders, because the shell layout reads the session. `/` is `○`
+(static) and should stay that way, since the landing page reads no database.
 
-`rm -rf .next` after renaming or moving a route. Next writes typed-route
-definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail citing
-files that no longer exist.
+`rm -rf .next` after adding, renaming or moving a route. Next writes typed-route
+definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail — either
+citing files that no longer exist, or rejecting `PageProps<'/new/[route]'>` as not
+satisfying `AppRoutes` for a route that plainly does exist.
