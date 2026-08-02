@@ -4,7 +4,7 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-02 (step 5)
+**Last updated:** 2026-08-02 (step 5; steps 6–8 re-sliced against the designs)
 
 ---
 
@@ -24,6 +24,9 @@ request for a signed-in user. `/` is a public landing page.
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
+- Visual designs exist in a Claude Design project. Screenshots of the feed page
+  are in [`design/screenshots/`](design/screenshots/); the project's own
+  markdown handoff is still to come and will land alongside them
 - `npm run sync -- --round 1` fills the database from API-Football; `npm test`
   runs Vitest over the mapper
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
@@ -111,6 +114,12 @@ duplication costs one indexed lookup.
 
 Each step ends with something runnable and a commit. Do not run ahead.
 
+Steps 6 to 8 are cut into slices, each its own branch and squash-merge. The
+designs are what cut them: the sidebar asks for five destinations where the
+roadmap had three, and several tiles and counts in the feed have no data behind
+them yet. **Every slice owns its own empty state** — what its screen says when
+it has nothing to show is part of the slice, not a later pass.
+
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
 - [x] **1 — Scaffold.** App scaffolded and on GitHub.
@@ -128,8 +137,38 @@ Each step ends with something runnable and a commit. Do not run ahead.
       row is created on first sight.
 - [ ] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
-- [ ] **7 — Diary and player views.** Both are queries over what step 6 already
-      wrote; no new concepts.
+  - [ ] **6.1 — App shell.** The sidebar, top bar and shared design tokens.
+        `/dashboard` becomes `/feed`, with Players, Teams and Diary as siblings
+        behind placeholders. The signed-in identity moves from the dashboard
+        header into the sidebar's foot. The search field is not part of this —
+        a box that does nothing is worse than no box.
+  - [ ] **6.2 — The feed.** Fixture cards with venue, score and team badges;
+        the league tab row; the matchday pager. A match with no squad rows is
+        visibly not openable.
+  - [ ] **6.3 — Match page.** Both squads, read-only: starters, substitutes,
+        shirt numbers, positions.
+  - [ ] **6.4 — Tagging.** A Server Action writing `Judgement`. Tapping the
+        active tag clears it.
+  - [ ] **6.5 — Notes.** Free text on any player, on the same row as the tag.
+        A note with no tag is valid; clearing both deletes the row.
+  - [ ] **6.6 — Counts.** The four stat tiles and the per-fixture
+        "N verdicts · N notes" footer. Last deliberately, so the aggregates are
+        read against real judgements rather than against zeroes.
+- [ ] **7 — Diary, players and teams.** Queries over what step 6 wrote, plus the
+      two destinations the sidebar adds.
+  - [ ] **7.1 — Diary.** Judgements reverse-chronological, dated, grouped by
+        match.
+  - [ ] **7.2 — Player profile.** One player's judgements across matches,
+        linked from every squad list.
+  - [ ] **7.3 — Players index.** The sidebar's Players destination, linking
+        into 7.2.
+  - [ ] **7.4 — Teams.** A team index and a team profile carrying the user's
+        verdicts on that club's players. The one slice here likely to want
+        splitting in two.
+- [ ] **8 — Chrome.** In the design, needed by nothing above it.
+  - [ ] **8.1 — Dark-mode toggle.** The moon icon in the top bar. Until it
+        lands, the app follows the operating system and offers no choice.
+  - [ ] **8.2 — Search.** Matches, teams and players.
 
 ## Remarks that might be important
 
@@ -241,6 +280,18 @@ response is ground truth; recollection is not.
 
 ## Open decisions
 
+- **Where team codes and club colours come from.** The design puts a three-letter
+  code on a club-coloured rectangle where a crest would go — a substitute for
+  crests, not a step towards them, so `Team.logo` still renders nowhere. Neither
+  field is in the schema. Two known problems: the screenshots show `MAN` for both
+  Manchester clubs, so the codes have to distinguish them; and API-Football does
+  not publish club colours at all. `MatchLineup` does carry kit colours, but
+  those are the kit worn in one match — possibly a third kit in a colour the club
+  is not known by — so they describe a shirt, not an identity. Needed by 6.2.
+- **What "watched" counts.** The feed's first tile reads "WATCHED 14 this
+  season" and no such concept exists. The obvious reading is matches in which
+  this user has recorded at least one judgement, which makes it a query rather
+  than a new column, but it has not been agreed. Needed by 6.6.
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
 - **Clerk production instance.** A development instance uses Clerk's shared
   Google OAuth credentials, which a production one may not. Promoting it means
