@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-02 (6.2 — the fixtures page)
+**Last updated:** 2026-08-02 (8.1 — the dark-mode toggle)
 
 ---
 
@@ -21,7 +21,11 @@ fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
 squad opens a match page; one without does not. It sits in a responsive app
 shell alongside Players, Teams and Diary, which exist as placeholders. `/` is a
-public landing page and is the one screen still on scaffold styling.
+public landing page, now on the same tokens as everything else.
+
+Every screen renders in light or dark. Light is the default for everyone — the
+app no longer follows the operating system — and the top bar's toggle switches
+it, remembered across visits. Clerk's own modals follow it too.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -79,7 +83,7 @@ says when it has nothing to show is part of the slice, not a later pass.
         with Players, Teams and Diary as siblings behind placeholders, and the
         signed-in identity moved into the sidebar's foot. The search field was
         deliberately left out — a box that does nothing is worse than no box —
-        which leaves the top bar empty until 8.1 and 8.2 fill it.
+        and is still 8.2's to add.
   - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
         drawer below `md`. Nothing at `md` and above changed. The rules it was
         written against are now a `### Responsive` section in `foundations.md`,
@@ -111,8 +115,12 @@ says when it has nothing to show is part of the slice, not a later pass.
         verdicts on that club's players. The one slice here likely to want
         splitting in two.
 - [ ] **8 — Chrome.** In the design, needed by nothing above it.
-  - [ ] **8.1 — Dark-mode toggle.** The moon icon in the top bar. Until it
-        lands, the app follows the operating system and offers no choice.
+  - [x] **8.1 — Dark-mode toggle.** Done, and taken out of order on purpose:
+        it puts every screen through a second theme while there are three of
+        them rather than a dozen. The moon icon in the top bar, light-first for
+        everyone, remembered in `localStorage` and restored before first paint.
+        The landing page came onto tokens with it, and Clerk's appearance
+        variables were pointed at ours.
   - [ ] **8.2 — Search.** Matches, teams and players.
 
 ## Long-term remarks
@@ -180,14 +188,21 @@ must stay out of the Vercel build, are in
   head of the sidebar, so on a narrow screen it is inside the closed drawer and
   the top bar is a menu button on an otherwise empty 56px rail. Putting the
   wordmark in the top bar below `md` is the obvious answer and was deliberately
-  left out of 6.1b, which was scoped to the drawer. It interacts with 8.1 and
-  8.2, which add the theme toggle and the search field to that same bar and will
-  have to decide what a narrow top bar holds.
-- **The landing page `/` is still on scaffold styling** — `zinc-*` palette
-  classes, `rounded-full` buttons, `dark:` utilities. Left out of 6.1 by
-  decision to keep that slice to the signed-in shell. Nothing depends on it, but
-  it means the app currently speaks two visual languages and is the only place a
-  `dark:` utility survives.
+  left out of 6.1b, which was scoped to the drawer. 8.1 has since put the theme
+  toggle in that bar without settling it; 8.2's search field is the other half,
+  and whichever of them is built last should decide what a narrow top bar holds.
+- **The inverse surface has no hover step.** The landing page's "Create an
+  account" is the app's first filled button — `bg-surface-inverse`, black on
+  light and white on dark — and `foundations.md`'s hover rule is "surfaces
+  darken one step", which has nothing below it to darken to and no semantic
+  token for one. It currently has no hover state at all. Needed properly by the
+  tag controls in 6.4, which are the next filled things.
+- **Clerk's `colorNeutral` and `colorShadow` are unbound.** Every other
+  appearance variable is a `var(--…)` pointing at our tokens, but Clerk derives
+  alpha shades from those two in JavaScript and cannot interpolate a `var()`.
+  Its greys and shadows are therefore still Clerk's own in both themes. Whether
+  that is visible enough to be worth solving is a thing to look at with the user
+  menu open in dark.
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
 - **Clerk production instance.** A development instance uses Clerk's shared
   Google OAuth credentials, which a production one may not. Promoting it means

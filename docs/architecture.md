@@ -251,17 +251,23 @@ only file in the project allowed to hold a hex or a raw px. It has two tiers —
 base tokens that never change, semantic tokens that say what a colour is *for* —
 and product code names only the second.
 
-**Theming is one `light-dark()` call per semantic token.** That single mechanism
-covers both requirements at once: with `color-scheme: light dark` on `:root` the
-app follows the operating system, and once step 8.1 writes `data-theme` the
-attribute wins, because `[data-theme]` also sets `color-scheme`. Resolution
-happens where a variable is *used*, not where it is declared, so the attribute
-re-points any subtree.
+**Theming is one `light-dark()` call per semantic token**, and the whole of the
+switch is `color-scheme`. `:root` declares `light`, so light is what every user
+gets; `[data-theme="dark"]` on `<html>` declares `dark`, and because
+`light-dark()` resolves where a variable is *used* rather than where it is
+declared, that one attribute re-points every semantic in the subtree below it —
+along with the browser's own scrollbars and form controls. Nothing else changes.
 
-**The corollary is a rule: no `dark:` utilities anywhere.** A `dark:` class keys
-off `prefers-color-scheme`, so it would be a second theming mechanism that
-disagrees with the first the moment the toggle exists. The landing page still has
-some; it is the one screen not yet converted.
+**The app does not follow the operating system.** It did until the toggle
+existed; the decision is that a diary opens light unless its owner has said
+otherwise, and `foundations.md` says the same in its own words. The consequence
+worth knowing is that `prefers-color-scheme` no longer appears anywhere in the
+compiled CSS, so it is not a signal anything can be keyed off any more.
+
+**The corollary is a rule: no `dark:` utilities anywhere**, and as of the toggle
+the repo contains none. A `dark:` class keys off `prefers-color-scheme`, the one
+signal this stylesheet has stopped listening to, so it would disagree with the
+user's actual choice rather than merely duplicating it.
 
 Tailwind gets the tokens through `@theme inline` — `inline` is required, not
 stylistic, because only it makes `bg-surface` emit `var(--surface)` rather than
@@ -293,12 +299,20 @@ the rest of the file.
   after, `clerk` would append last and outrank every utility class. The matching
   `cssLayerName: 'clerk'` is on `<ClerkProvider>`. There is no
   `tailwind.config.js` to configure this from; v4 is CSS-first.
+- **Clerk follows the theme because its `appearance.variables` are `var(--…)`
+  references, not colours.** Clerk writes them onto its own elements, so they
+  resolve in the DOM, under the same `data-theme` as everything else, and
+  re-resolve when it flips — no React state syncing Clerk to the app. Passing
+  resolved values would freeze its modals in whichever theme was current when
+  the layout rendered. `colorNeutral` and `colorShadow` are deliberately left
+  unbound: Clerk derives alpha shades from those two in JavaScript, and a
+  `var()` is a string it cannot interpolate.
 - **Lightning CSS polyfills `light-dark()` rather than passing it through**, into
-  a pair of `--lightningcss-light` / `--lightningcss-dark` toggle variables. It
-  gets the cascade right — the `[data-theme]` rules are emitted after the
-  `prefers-color-scheme` media query, so forcing a theme beats the OS — but the
-  compiled CSS looks nothing like the source, which is worth knowing before
-  debugging a colour in devtools.
+  a pair of `--lightningcss-light` / `--lightningcss-dark` toggle variables set
+  on `:root` and again on each `[data-theme]` rule. The cascade works out because
+  those rules come after `:root` at equal specificity, so the later one wins —
+  there is no media query in the output at all. The compiled CSS looks nothing
+  like the source, which is worth knowing before debugging a colour in devtools.
 - **The base stylesheet styles every `<a>`**, so chrome links need `no-underline`
   and an explicit colour or they render as blue underlined prose links. `NavItem`,
   `FixtureCard` and the matchday pager all do this. One class is enough despite
@@ -358,6 +372,30 @@ item.
   letting `AppFrame` import it, which is what keeps the sidebar and its Clerk
   `<UserButton>` off the client bundle. The same move is available whenever a
   later slice needs client state wrapped around server-rendered UI.
+- **The theme toggle holds no React state**, and that is what keeps it free of
+  the usual persisted-preference problems. `data-theme` on `<html>` is the
+  state, CSS is the only reader, and the click handler reads the current theme
+  back off the DOM. A `useState` seeded from `localStorage` would render light
+  on the server and dark in the browser and trip a hydration mismatch; seeding
+  it in an effect would paint the wrong icon first, and
+  `react-hooks/set-state-in-effect` rejects that shape anyway. Any later
+  preference that only CSS consumes can go the same way.
+- **The preference is restored by an inline script in `<head>`**, built as a
+  string in [`src/lib/theme.ts`](../src/lib/theme.ts) and injected in
+  `app/layout.tsx`, which is why `<html>` carries `suppressHydrationWarning`.
+  It has to run during HTML parsing: `useEffect` runs after paint and
+  `useLayoutEffect` after React has loaded, and either one is a visible flash of
+  light on a dark-preferring screen. Next documents the pattern in
+  `node_modules/next/dist/docs/01-app/02-guides/preventing-flash-before-hydration.md`.
+  Only `"dark"` is ever stored — light is the absence of the key and of the
+  attribute, so the default has one spelling.
+- **The toggle's icon is swapped in CSS, not in React**, by the only two rules
+  outside the token block that read `data-theme`. Both glyphs are in the DOM and
+  the attribute displays one, because the server cannot know which theme the
+  browser is about to restore. `display: none` also drops the hidden branch out
+  of the accessibility tree, which is what lets each branch carry its own
+  `sr-only` label and gives the button a name that is always accurate without
+  any JavaScript keeping the two in step.
 - **Closing the drawer on navigation is a click handler, not a URL watcher.**
   `react-hooks/set-state-in-effect` rejects the effect version outright, and it
   is also wrong: tapping the already-active nav item navigates nowhere, so there

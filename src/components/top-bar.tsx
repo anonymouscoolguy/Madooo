@@ -1,6 +1,7 @@
 'use client'
 
 import { Icon } from './icon'
+import { ThemeToggle } from './theme-toggle'
 
 type Props = {
   menuOpen: boolean
@@ -15,17 +16,19 @@ type Props = {
 }
 
 /**
- * The top bar, and it is still almost empty on purpose.
+ * The top bar: the theme toggle, and below `md` a menu button.
  *
- * The design puts a search field and a dark-mode toggle in here, but the search
- * belongs to step 8.2 and the toggle to 8.1 — and a search box that does nothing
- * is worse than no search box. What is left is still doing work: it is the fixed
- * boundary the content scrolls under, and it holds the frame at the height every
- * later slice will drop its controls into.
+ * The design puts a search field in here too, but that is step 8.2 and a search
+ * box that does nothing is worse than no search box. The bar is doing work
+ * either way: it is the fixed boundary the content scrolls under, and it holds
+ * the frame at the height every later slice will drop its controls into.
  *
- * The menu button is the exception, and it is here because the design has no
- * mobile state to have put it anywhere else. It exists only below `md`, where
- * the sidebar has become a drawer and needs something to open it.
+ * The menu button is not in the design at all. It is here because the reference
+ * images have no mobile state to have put it in, and it exists only below `md`,
+ * where the sidebar has become a drawer and needs something to open it. Which
+ * is why the toggle carries `ml-auto` rather than the header carrying
+ * `justify-between`: at `md` and up the menu button is not there to be spaced
+ * away from, and the toggle would drift to the left edge.
  */
 export function TopBar({ menuOpen, onMenuClick, ref }: Props) {
   return (
@@ -44,6 +47,8 @@ export function TopBar({ menuOpen, onMenuClick, ref }: Props) {
       >
         <Icon name={menuOpen ? 'close' : 'menu'} size="lg" />
       </button>
+
+      <ThemeToggle />
     </header>
   )
 }

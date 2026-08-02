@@ -72,20 +72,21 @@
 
   /* --- Theming -----------------------------------------------------------
      Every semantic below is one light-dark() call, which resolves against the
-     *used* colour-scheme of whatever element consumes it. That single mechanism
-     covers both requirements at once:
+     *used* colour-scheme of whatever element consumes it. Because resolution
+     happens where a variable is used rather than where it is declared, setting
+     colour-scheme anywhere re-points that entire subtree — exactly what
+     foundations claims for the data-theme attribute.
 
-       - with `light dark` here, the app follows the operating system, which is
-         what it should do until step 8.1 ships a toggle;
-       - once it does, setting data-theme forces the choice, and because the
-         resolution happens where the variable is used rather than where it is
-         declared, the attribute re-points an entire subtree — exactly what
-         foundations claims for it.
+     `light` here, not `light dark`: **light is the default for everyone**, as
+     foundations says outright. The app does not follow the operating system. A
+     dark-preferring user gets dark by asking for it in the top bar, and that
+     choice is remembered; nobody gets a theme they did not choose.
 
      The corollary, and it is a rule: **no `dark:` utilities anywhere.** A
-     `dark:` class would be a second theming mechanism keyed off a different
-     signal, and the two would disagree the moment the toggle exists. */
-  color-scheme: light dark;
+     `dark:` class keys off `prefers-color-scheme`, which is the signal this
+     file has just stopped listening to, so it would disagree with the toggle
+     for every user whose choice differs from their machine's. */
+  color-scheme: light;
 
   --page: light-dark(var(--gray-1), var(--gray-90));
   --surface: light-dark(var(--gray-0), var(--gray-90));
@@ -150,9 +151,15 @@
   --dur-4: 320ms;
 }
 
-/* What step 8.1's toggle will write. Setting colour-scheme rather than a pile
-   of colour overrides is the whole trick: every light-dark() above re-resolves,
-   and so do the browser's own form controls and scrollbars. */
+/* What the toggle writes on <html>, and what the inline script in `layout.tsx`
+   restores before first paint. Setting colour-scheme rather than a pile of
+   colour overrides is the whole trick: every light-dark() above re-resolves,
+   and so do the browser's own form controls and scrollbars.
+
+   Only `dark` is ever written — light is the absence of the attribute, so there
+   is one spelling of the default rather than two. `[data-theme="light"]` stays
+   because foundations grants the attribute to any container, and light inside a
+   dark subtree is the case it exists for. */
 [data-theme="light"] {
   color-scheme: light;
 }
@@ -440,5 +447,38 @@
   }
   .icon-lg {
     --icon-size: 22px;
+  }
+
+  /* The theme toggle's two faces, and the only place outside the token block
+     that reads the attribute. Both live in the DOM and the attribute picks one,
+     because the server cannot know which theme the browser is about to restore
+     from localStorage — an icon chosen in React would be wrong until hydration,
+     which is the flash the inline script exists to prevent.
+
+     The button shows the theme you would switch *to*, so the moon is the light
+     state. `display: none` also drops the hidden branch out of the
+     accessibility tree, which is what leaves the button with one accurate name.
+
+     Written as a pair of rules on the attribute rather than as a Tailwind
+     variant on purpose: a `theme-dark:` variant would be a general-purpose
+     escape hatch from the semantic tokens, and this is a special case that
+     should stay one. Display stays in this layer for both faces, too: a
+     Tailwind `inline-flex` on the span would sit in the later `utilities` layer
+     and beat the `display: none` below, whatever its specificity. */
+  .theme-icon-light,
+  .theme-icon-dark {
+    display: inline-flex;
+  }
+
+  .theme-icon-dark {
+    display: none;
+  }
+
+  [data-theme="dark"] .theme-icon-light {
+    display: none;
+  }
+
+  [data-theme="dark"] .theme-icon-dark {
+    display: inline-flex;
   }
 }
