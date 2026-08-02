@@ -1,3 +1,10 @@
+/* Declares the cascade order before Tailwind's import establishes its own, so
+   that `clerk` lands between Tailwind's base reset and its utilities. Layer
+   order is fixed by first appearance, so this has to precede the import: state
+   it afterwards and `clerk` is appended last, where it would outrank every
+   utility class. Paired with `cssLayerName` on `<ClerkProvider>`. */
+@layer theme, base, clerk, components, utilities;
+
 @import "tailwindcss";
 
 :root {

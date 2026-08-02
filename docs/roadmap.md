@@ -4,18 +4,20 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-01 (step 4)
+**Last updated:** 2026-08-02 (step 5)
 
 ---
 
 ## Current state
 
-Real football is in the database and on a page: the 2024 season's full fixture
-list, one gameweek hydrated down to individual players, and `/` server-rendering
-the first twenty fixtures out of Neon on every request. No auth.
+Real football is in the database and behind a login: the 2024 season's full
+fixture list, one gameweek hydrated down to individual players, and
+`/dashboard` server-rendering the first twenty fixtures out of Neon on every
+request for a signed-in user. `/` is a public landing page.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
+- Clerk 7.x for auth, with Google and email/password enabled
 - Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
   squash-merged into `main`
 - Deployed on Vercel from `main`, built with `prisma generate && next build`
@@ -24,8 +26,9 @@ the first twenty fixtures out of Neon on every request. No auth.
 - `npm run db:check` proves the database layer works end to end
 - `npm run sync -- --round 1` fills the database from API-Football; `npm test`
   runs Vitest over the mapper
-- `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL` and
-  `DATABASE_URL_DEV`; `.env.example` documents the full set
+- `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
+  `DATABASE_URL_DEV` and four Clerk variables; `.env.example` documents the full
+  set
 
 ### How the database is addressed
 
@@ -44,9 +47,10 @@ takes an advisory lock that pgbouncer in transaction mode does not support.
 All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
 
 **The Vercel deployment reads the development branch**, by decision, until a
-production branch is worth filling. So it sets `DATABASE_URL_DEV` and `SEASON`
-and nothing else — no `DATABASE_TARGET`, no `DATABASE_URL` — and the default
-above carries it to the right place with no code involved. Pointing a deployment
+production branch is worth filling. So of the database variables it sets
+`DATABASE_URL_DEV` and nothing else — no `DATABASE_TARGET`, no `DATABASE_URL` —
+and the default above carries it to the right place with no code involved.
+(It also carries `SEASON` and the four Clerk variables.) Pointing a deployment
 at the dev branch by putting the dev connection string in `DATABASE_URL` would
 work equally well and label it a lie; this way the variable names stay true.
 
@@ -76,6 +80,33 @@ would destroy a user's diary on the next sync. Re-running the sync has been
 verified to leave `MatchSquad` ids untouched and a judgement written against one
 intact.
 
+### How auth is wired
+
+Clerk owns identity; the database owns the `User` row. The two meet in exactly
+one place, [`src/lib/auth.ts`](../src/lib/auth.ts), where `requireDbUser()`
+upserts on `clerkId` and returns our own row. Get-or-create on first sight
+rather than a signup webhook, so no public URL is involved and a laptop behaves
+like the deployment.
+
+**Sign-in and sign-up are modals on the landing page, not routes.** There is no
+`/sign-in` page, so both the proxy and `requireDbUser()` send a signed-out
+visitor to `/`, where the buttons are. Clerk's `auth.protect()` is deliberately
+unused: with no sign-in URL to go to it redirects to Clerk's hosted account
+portal on another domain.
+
+`src/proxy.ts` — Next 16's name for what used to be `middleware.ts` — runs
+`clerkMiddleware()` on every matched request and redirects signed-out visitors
+away from `/dashboard(.*)`. That redirect is an optimistic check. The check that
+guards data is `requireDbUser()` itself, because Next's own guidance is that a
+proxy may run separately from the render, and because a check placed in a layout
+would not re-run on client-side navigation.
+
+`/dashboard/layout.tsx` calls it to render the email in the header, which is
+what provisions the row for everything below it. Server Actions render no
+layout, so anything that writes will have to call `requireDbUser()` itself; the
+upsert is idempotent and memoised per request with React's `cache()`, so the
+duplication costs one indexed lookup.
+
 ## Build order
 
 Each step ends with something runnable and a commit. Do not run ahead.
@@ -91,8 +122,10 @@ Each step ends with something runnable and a commit. Do not run ahead.
 - [x] **4 — Deploy to Vercel.** Live, with `/` reading fixtures from Neon at
       request time so the deployment proves the database path and not just the
       hosting. Sync is still a local CLI; no cron.
-- [ ] **5 — Auth.** Clerk wired up. Success looks like logging in and seeing
-      your own email on screen. Nothing more.
+- [x] **5 — Auth.** Clerk wired up, with Google and email/password, signed in
+      through a modal on the landing page. `/` is public and the fixture list
+      moved to `/dashboard`, which shows the signed-in user's email. The `User`
+      row is created on first sight.
 - [ ] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
 - [ ] **7 — Diary and player views.** Both are queries over what step 6 already
@@ -144,6 +177,37 @@ Each step ends with something runnable and a commit. Do not run ahead.
 - **`public/next.svg` and `public/vercel.svg` are now unreferenced.** Left in
   place; they cost nothing and deleting them was not what this slice was for.
 
+### Carried over from step 5
+
+- **Next 16 renamed `middleware.ts` to `proxy.ts`, and almost every Clerk guide
+  still says otherwise.** The file lives at `src/proxy.ts` — alongside `app`,
+  not at the repo root. Clerk's current quickstart has caught up; most
+  third-party writing and most model training data has not. The same applies to
+  `<ClerkProvider>`, which now belongs inside `<body>` rather than wrapped
+  around `<html>`.
+- **Tailwind 4 and Clerk share a cascade via a named layer.** `globals.css`
+  declares `@layer theme, base, clerk, components, utilities;` *before* the
+  Tailwind import, because layer order is fixed by first appearance — declared
+  after, `clerk` would append last and outrank every utility class. The
+  matching `cssLayerName: 'clerk'` is on `<ClerkProvider>`. There is no
+  `tailwind.config.js` to configure this from; v4 is CSS-first.
+- **`User.email` is nullable and the code respects that**, so the header can
+  read "no email on file". Google always supplies a verified address, so in
+  practice it is populated — but the schema permits an account without one and
+  nothing coerces it.
+- **The dashboard header holds `{children}` behind an `await`.** Fine at this
+  size, but the session read is a top-level await in a layout, so it delays the
+  first streamed chunk for the whole segment. Next's guide describes pushing
+  that into a nested component behind `<Suspense>` if it ever matters.
+- **Clerk is on a development instance.** Its keys work on Vercel, but sessions
+  are capped and Clerk's components show a development badge.
+- **The Neon connection strings pin `sslmode=verify-full`.** Surfaced as a
+  runtime warning from `pg` 8.22, which currently treats the `sslmode=require`
+  Neon hands out as `verify-full` but will adopt libpq's weaker meaning in v9 —
+  encrypt without verifying who answered. Nothing about the connection changed;
+  the parameter now says what was already happening, so the v9 upgrade cannot
+  quietly downgrade it. Unrelated to auth, found while testing this slice.
+
 ## Long-term remarks
 
 Standing constraints that were agreed explicitly, cannot be read off the code,
@@ -178,6 +242,10 @@ response is ground truth; recollection is not.
 ## Open decisions
 
 - **Paid API tier.** Buy one to two weeks before launch, not on launch day.
+- **Clerk production instance.** A development instance uses Clerk's shared
+  Google OAuth credentials, which a production one may not. Promoting it means
+  creating a Google Cloud project and an OAuth client, and swapping the keys on
+  Vercel. Same timing as the API tier — before launch, not on launch day.
 
 ## Notes for a fresh session
 
@@ -196,4 +264,6 @@ response is ground truth; recollection is not.
   refuses to run against production and cleans up after itself.
 - To reproduce what Vercel does, `rm -rf src/generated && npm run build`. Only
   that proves the build regenerates the client rather than leaning on a stale
-  local copy. `/` should appear as `ƒ` (dynamic) in the route summary, not `○`.
+  local copy. `/dashboard` should appear as `ƒ` (dynamic) in the route summary;
+  `/` is `○` (static) and should stay that way, since the landing page reads no
+  database.
