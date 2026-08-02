@@ -62,6 +62,14 @@ runs on `SEASON=2024`.
 is next, and which decisions are still open. Read it before proposing work, and
 update it when something lands.
 
+**Anything that renders:** [`docs/design/`](docs/design/) is the design source of
+truth — `foundations.md` holds the tokens (colour, type, spacing, elevation,
+motion, states, icons) and the rules about when each applies, alongside the
+reference images and screenshots of the intended screens. Read it before writing
+markup or CSS, not after. Its own first rule is the one most easily broken by
+accident: **never hard-code a hex or a raw px value in product code — always a
+semantic token.**
+
 ## Stack
 
 Decided:

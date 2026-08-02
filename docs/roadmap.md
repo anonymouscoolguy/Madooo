@@ -4,7 +4,7 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-02 (step 5; steps 6–8 re-sliced against the designs)
+**Last updated:** 2026-08-02 (step 5; design handoff landed in `design/`)
 
 ---
 
@@ -24,9 +24,12 @@ request for a signed-in user. `/` is a public landing page.
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
-- Visual designs exist in a Claude Design project. Screenshots of the feed page
-  are in [`design/screenshots/`](design/screenshots/); the project's own
-  markdown handoff is still to come and will land alongside them
+- Visual designs exist in a Claude Design project, handed off into
+  [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
+  set and the rules around it, with `colour.png` and `type-and-space.png` as its
+  reference sheets and [`screenshots/`](design/screenshots/) showing the
+  fixtures page as intended. Nothing is implemented yet — step 6.1 is where the
+  tokens first become CSS
 - `npm run sync -- --round 1` fills the database from API-Football; `npm test`
   runs Vitest over the mapper
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
@@ -115,10 +118,10 @@ duplication costs one indexed lookup.
 Each step ends with something runnable and a commit. Do not run ahead.
 
 Steps 6 to 8 are cut into slices, each its own branch and squash-merge. The
-designs are what cut them: the sidebar asks for five destinations where the
-roadmap had three, and several tiles and counts in the feed have no data behind
-them yet. **Every slice owns its own empty state** — what its screen says when
-it has nothing to show is part of the slice, not a later pass.
+designs are what cut them: the sidebar asks for four destinations where the
+roadmap had three, and several tiles and counts on the fixtures page have no
+data behind them yet. **Every slice owns its own empty state** — what its screen
+says when it has nothing to show is part of the slice, not a later pass.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -138,13 +141,14 @@ it has nothing to show is part of the slice, not a later pass.
 - [ ] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
   - [ ] **6.1 — App shell.** The sidebar, top bar and shared design tokens.
-        `/dashboard` becomes `/feed`, with Players, Teams and Diary as siblings
-        behind placeholders. The signed-in identity moves from the dashboard
-        header into the sidebar's foot. The search field is not part of this —
-        a box that does nothing is worse than no box.
-  - [ ] **6.2 — The feed.** Fixture cards with venue, score and team badges;
-        the league tab row; the matchday pager. A match with no squad rows is
-        visibly not openable.
+        `/dashboard` becomes `/fixtures`, labelled Fixtures in the sidebar,
+        with Players, Teams and Diary as siblings behind placeholders. The
+        signed-in identity moves from the dashboard header into the sidebar's
+        foot. The search field is not part of this — a box that does nothing is
+        worse than no box.
+  - [ ] **6.2 — The fixtures page.** Fixture cards with venue, score and team
+        badges; the league tab row; the matchday pager. A match with no squad
+        rows is visibly not openable.
   - [ ] **6.3 — Match page.** Both squads, read-only: starters, substitutes,
         shirt numbers, positions.
   - [ ] **6.4 — Tagging.** A Server Action writing `Judgement`. Tapping the
@@ -288,7 +292,7 @@ response is ground truth; recollection is not.
   not publish club colours at all. `MatchLineup` does carry kit colours, but
   those are the kit worn in one match — possibly a third kit in a colour the club
   is not known by — so they describe a shirt, not an identity. Needed by 6.2.
-- **What "watched" counts.** The feed's first tile reads "WATCHED 14 this
+- **What "watched" counts.** The first tile on `/fixtures` reads "WATCHED 14 this
   season" and no such concept exists. The obvious reading is matches in which
   this user has recorded at least one judgement, which makes it a query rather
   than a new column, but it has not been agreed. Needed by 6.6.
