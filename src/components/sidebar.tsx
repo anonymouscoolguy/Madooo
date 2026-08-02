@@ -58,8 +58,13 @@ export function Sidebar() {
             elements: {
               userButtonBox: 'w-full gap-3',
               userButtonTrigger: 'w-full rounded-md px-2 py-1.5 focus-visible:focus-ring',
-              userButtonOuterIdentifier: 'text-body text-text',
-              userButtonAvatarBox: 'size-7',
+              // Clerk puts the name before the avatar in the DOM and offers no
+              // prop to swap them. `flex-direction` is not the lever: Clerk's
+              // own generated class sets it and wins the cascade, even though
+              // our type utilities on the same element land. `order` is
+              // untouched by Clerk, so nothing competes with it.
+              userButtonOuterIdentifier: 'order-2 text-body text-text',
+              userButtonAvatarBox: 'order-1 size-7',
             },
           }}
         />
