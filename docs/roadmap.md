@@ -4,7 +4,7 @@ Where the project stands and what happens next. Update this as things land —
 it is the file that lets a fresh session pick up without the previous
 conversation.
 
-**Last updated:** 2026-08-02 (step 6.1; the app shell and the design tokens)
+**Last updated:** 2026-08-02 (step 6.1b; the responsive shell)
 
 ---
 
@@ -17,6 +17,10 @@ fixtures out of Neon on every request for a signed-in user. It sits in an app
 shell — fixed sidebar, fixed top bar, scrolling content — alongside Players,
 Teams and Diary, which exist as placeholders. `/` is a public landing page and
 is the one screen still on scaffold styling.
+
+The shell is responsive as of 6.1b: at `md` (768px) and up it is the layout the
+designs show, and below it the sidebar becomes a drawer over the content, opened
+from a menu button in the top bar.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -183,7 +187,13 @@ says when it has nothing to show is part of the slice, not a later pass.
         with Players, Teams and Diary as siblings behind placeholders, and the
         signed-in identity moved into the sidebar's foot. The search field was
         deliberately left out — a box that does nothing is worse than no box —
-        which leaves the top bar empty until 8.1 and 8.2 fill it.
+        which leaves the top bar empty until 8.1 and 8.2 fill it. Desktop only:
+        the shell had no narrow-width behaviour at all, which 6.1b added.
+  - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
+        drawer below `md`, opened from a menu button in the top bar and closed by
+        Escape, the backdrop or any nav item. Nothing at `md` and above changed.
+        The rules it was written against are now a `### Responsive` section in
+        `foundations.md`, which had none.
   - [ ] **6.2 — The fixtures page.** Fixture cards with venue, score and team
         badges; the league tab row; the matchday pager. A match with no squad
         rows is visibly not openable.
@@ -289,12 +299,45 @@ says when it has nothing to show is part of the slice, not a later pass.
   the parameter now says what was already happening, so the v9 upgrade cannot
   quietly downgrade it. Unrelated to auth, found while testing this slice.
 
+### Carried over from step 6.1b
+
+- **`foundations.md` now has a `### Responsive` section, and it is binding.**
+  Read it before writing markup, the same way the rest of the file is. It fixes
+  the breakpoints as Tailwind's defaults, states that chrome changes arrangement
+  rather than scaling, and explains why utilities are written unprefixed-then-
+  `md:`. (The standing gap it does *not* close is under Long-term remarks.)
+- **`--row-h-lg` finally has a viewport.** It was defined as "Touch rows" with no
+  statement of when a row is a touch row. It now means: the same rows, below
+  `md`. Anything tappable in later slices follows `h-(--row-h-lg) md:h-(--row-h)`.
+- **`inert` on `<main>` replaces a focus-trap library**, and the resize listener
+  in `app-frame.tsx` exists solely to stop it stranding: widening past `md` with
+  the drawer open would otherwise leave the desktop layout inert and unusable
+  with no visible cause. Any future overlay that uses `inert` needs the same
+  escape hatch.
+- **`app-frame.tsx` holds the only copy of the breakpoint written in JavaScript**
+  (`FRAME_BREAKPOINT`, 48rem). It is duplicated from the `md:` classes because
+  `inert` cannot be driven by a media query. Moving the frame breakpoint means
+  changing both.
+- **Server components can be handed to client components as props, and stay on
+  the server.** `layout.tsx` passes `<Sidebar />` into `AppFrame` rather than
+  letting `AppFrame` import it, which is what keeps the sidebar and its Clerk
+  `<UserButton>` off the client bundle. The same move is available whenever a
+  later slice needs client state wrapped around server-rendered UI.
+- **Closing the drawer on navigation is a click handler, not a URL watcher.**
+  `react-hooks/set-state-in-effect` rejects the effect version outright, and it
+  is also wrong: tapping the already-active nav item navigates nowhere, so there
+  would be no URL change to react to. `drawer-context.ts` carries the close
+  function down to `NavItem` instead.
+- **The icon subset font got smaller while gaining a glyph** — 27 icons at
+  5.6 kB became 28 at 5.4 kB. Google regenerated the upstream font between
+  fetches. The size in these notes is therefore a rough figure, not a fixed one.
+
 ### Carried over from step 6.1
 
 - **`next/font/google` has no entry for Material Symbols at all**, and the full
   variable font is 3.96 MB. What works instead: Google's `css2` endpoint accepts
   `icon_names=` *together with* an axis selector, and returns only those glyphs
-  with the FILL axis intact — 5.6 kB for the whole vocabulary in
+  with the FILL axis intact — around 5.5 kB for the whole vocabulary in
   [`icon-names.ts`](../src/components/icon-names.ts). `npm run icons` fetches it
   into `src/app/fonts/`, which is **committed**: unlike `src/generated/` it is
   build input, and a fresh clone must build without reaching Google.
@@ -335,6 +378,16 @@ says when it has nothing to show is part of the slice, not a later pass.
 Standing constraints that were agreed explicitly, cannot be read off the code,
 and outlive any one slice. Each names what would resolve it. A high bar — an
 empty list is the expected state.
+
+- **The design covers desktop only, and every screen must be designed narrow
+  without a reference.** The export from Claude Design carries no breakpoints and
+  no mobile mockups; both reference screenshots are ~2060px captures. 6.1b agreed
+  the frame's rules and wrote them into `foundations.md`'s `### Responsive`
+  section, but that settles the frame alone. The fixture card, the squad list,
+  the tag controls and the stat tiles each still have to be resolved at narrow
+  width by judgement, against those rules rather than against a drawing.
+  *Can be resolved when narrow-width reference designs exist for the app's
+  screens.*
 
 - **A `Match` can exist with no squad rows, and code must cope with that.**
   Right now only round 1 is hydrated: all 380 matches exist as rows, but the
@@ -383,6 +436,13 @@ response is ground truth; recollection is not.
   restyling Clerk's internals or rendering our own chip and finding somewhere
   else for sign-out. Not urgent, but it is a knowing breach rather than an
   oversight.
+- **Nothing identifies the app below `md`.** The "Madooo" wordmark lives at the
+  head of the sidebar, so on a narrow screen it is inside the closed drawer and
+  the top bar is a menu button on an otherwise empty 56px rail. Putting the
+  wordmark in the top bar below `md` is the obvious answer and was deliberately
+  left out of 6.1b, which was scoped to the drawer. It interacts with 8.1 and
+  8.2, which add the theme toggle and the search field to that same bar and will
+  have to decide what a narrow top bar holds.
 - **The landing page `/` is still on scaffold styling** — `zinc-*` palette
   classes, `rounded-full` buttons, `dark:` utilities. Left out of 6.1 by
   decision to keep that slice to the signed-in shell. Nothing depends on it, but

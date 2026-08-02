@@ -15,7 +15,17 @@ const DESTINATIONS: { href: string; icon: IconName; label: string }[] = [
 
 export function Sidebar() {
   return (
-    <aside className="row-span-2 flex w-(--sidebar-w) flex-col border-r border-border bg-surface">
+    /*
+      Placement is not this component's job — `AppFrame` decides whether it is a
+      grid column or an off-canvas drawer, and owns the classes that say so. What
+      stays here is what the sidebar *is* at any width: 232px wide, full height,
+      a column, and separated from the content by a border.
+
+      `--sidebar-w` is fixed on purpose and does not scale with the viewport. A
+      sidebar's width is set by what is in it; a fluid one would be dead space on
+      a wide screen and would truncate its own labels on a narrow one.
+    */
+    <aside className="flex h-full w-(--sidebar-w) flex-col border-r border-border bg-surface">
       {/* The wordmark sits at exactly the top bar's height, so the two line up
           across the sidebar's border. */}
       <div className="flex h-(--rail-w) shrink-0 items-center px-5">

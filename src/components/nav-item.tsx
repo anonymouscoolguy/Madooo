@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useCloseDrawer } from './drawer-context'
 import { Icon } from './icon'
 import type { IconName } from './icon-names'
 
@@ -28,6 +29,9 @@ type Props = {
 
 export function NavItem({ href, icon, children }: Props) {
   const pathname = usePathname()
+  // A no-op above `md`, where the sidebar is a column and there is nothing open
+  // to close. Below it, this is what dismisses the drawer on the way out.
+  const closeDrawer = useCloseDrawer()
 
   // `startsWith` on purpose: /fixtures/12 is still Fixtures. The trailing slash
   // stops /fixtures matching a hypothetical /fixtures-archive.
@@ -36,13 +40,18 @@ export function NavItem({ href, icon, children }: Props) {
   return (
     <Link
       href={href}
+      onClick={closeDrawer}
       // Read by screen readers as the current page, and the only part of the
       // active state that is not purely visual.
       aria-current={active ? 'page' : undefined}
       // `no-underline` because the base stylesheet gives every <a> the link
       // colour and a hover underline. That is right for prose and wrong for
       // chrome, so navigation opts out explicitly.
-      className={`t-hover flex h-(--row-h) items-center gap-3 rounded-md px-3 no-underline focus-visible:focus-ring ${
+      // 44px below `md`, 36px from there up: `--row-h-lg` is foundations' touch
+      // row, and a drawer opened by thumb is where it earns its place. Written
+      // unprefixed-then-`md:` because Tailwind's variants are min-width only, so
+      // the small-screen case is necessarily the one without a prefix.
+      className={`t-hover flex h-(--row-h-lg) items-center gap-3 rounded-md px-3 no-underline focus-visible:focus-ring md:h-(--row-h) ${
         active
           ? 'bg-surface-sunken font-medium text-text'
           : 'text-muted hover:bg-surface-alt hover:text-text'

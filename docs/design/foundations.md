@@ -121,15 +121,51 @@ Line heights: tight 1.1, snug 1.25, normal 1.45, loose 1.65.
 | `--sidebar-w` | 232px |
 | `--rail-w` (top bar height) | 56px |
 | `--container` | 1120px max content width |
-| page padding | 24px (`--sp-8`) |
+| page padding | 24px (`--sp-8`) at `md` and up, 16px (`--sp-6`) below |
 
-Sidebar and top bar are fixed; content scrolls.
+Sidebar and top bar are fixed; content scrolls. Below `md` the sidebar is a
+drawer — see Responsive.
+
+### Responsive
+
+The rest of this document is viewport-independent; this section is not. It was
+added after the fact, because the reference screens were drawn at desktop width
+only and the frame above describes a single layout.
+
+**Breakpoints are Tailwind's defaults, unchanged**: `sm 640` · `md 768` ·
+`lg 1024` · `xl 1280`. No custom scale. Nothing in `globals.css` overrides them,
+and a parallel set would give the project two vocabularies for one idea.
+
+**The frame's fixed widths stay fixed.** `--sidebar-w` and `--rail-w` never scale
+with the viewport. Chrome has an intrinsic size set by its contents — a fluid
+sidebar is dead space on a wide screen and truncates its own labels on a narrow
+one. Layout responds by **changing arrangement at a breakpoint**, not by scaling
+chrome. The sidebar is 232px or it is a drawer; it is never 180px.
+
+**`md` (768px) is the frame breakpoint.** At and above, the sidebar is a grid
+column exactly as drawn. Below, it becomes an overlay drawer opened from a menu
+button in the top bar — the one control that exists nowhere in the reference
+images, because they have no narrow state to have put it in. At 768px the sidebar
+plus padding still leaves ~490px of content; much below that it does not.
+
+**Author mobile-first — a CSS convention, not a statement of priority.** Desktop
+is the primary target and the desktop result is what the reference images show.
+But Tailwind's responsive variants are *min-width only*: `md:` means "≥768px",
+and there is no plain "below 768" variant. So an unprefixed utility necessarily
+applies at every width and prefixed ones layer on as the screen widens — hence
+`h-(--row-h-lg) md:h-(--row-h)`, "44px, and 36px from 768 up". Inverting it with
+`max-md:` mixes max- and min-width rules over one property, which is where
+cascade bugs come from.
+
+**`--row-h-lg` applies below `md`.** See Control heights.
+
+Content stays fluid up to `--container`.
 
 ### Control heights
 | Token | Value | Where |
 | --- | --- | --- |
-| `--row-h` | 36px | Nav items, dense rows |
-| `--row-h-lg` | 44px | Touch rows |
+| `--row-h` | 36px | Nav items, dense rows — at `md` and up |
+| `--row-h-lg` | 44px | Touch rows: the same rows below `md` |
 | `--control-h` | 32px | Default button, input, select, icon button |
 | `--control-h-lg` | 40px | Large button, tab |
 | — | 26px | Small button / small icon button |

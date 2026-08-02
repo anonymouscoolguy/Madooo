@@ -1,6 +1,6 @@
 import { requireDbUser } from '@/lib/auth'
+import { AppFrame } from '@/components/app-frame'
 import { Sidebar } from '@/components/sidebar'
-import { TopBar } from '@/components/top-bar'
 
 /**
  * The app shell: everything a signed-in user sees is rendered inside this.
@@ -25,22 +25,18 @@ export default async function AppLayout({
 }>) {
   await requireDbUser()
 
-  return (
-    /*
-      Two columns, two rows, with the sidebar spanning both rows. `h-dvh` pins
-      the whole thing to the viewport and only <main> is allowed to scroll, which
-      is what makes the sidebar and top bar fixed without any of them leaving the
-      normal flow via `position: fixed` — no magic offsets to keep in sync.
+  /*
+    The frame itself lives in `AppFrame`, which is a client component because
+    the drawer's open/closed state is shared between the top bar's menu button
+    and the sidebar, and shared state has to sit above both.
 
-      `dvh` rather than `vh` so that a mobile browser's collapsing address bar
-      does not leave the sidebar's foot below the fold.
-    */
-    <div className="grid h-dvh grid-cols-[auto_1fr] grid-rows-[auto_1fr] overflow-hidden">
-      <Sidebar />
-      <TopBar />
-      <main className="overflow-y-auto bg-page">
-        <div className="mx-auto max-w-(--container) p-6">{children}</div>
-      </main>
-    </div>
+    `<Sidebar />` is handed over as a **prop, not imported by `AppFrame`**. That
+    is what keeps it a server component: `'use client'` pulls a module's imports
+    into the browser bundle, but not the already-rendered output passed into it.
+    So the sidebar and the Clerk `<UserButton>` it holds still render on the
+    server, and only the frame's own logic ships.
+  */
+  return (
+    <AppFrame sidebar={<Sidebar />}>{children}</AppFrame>
   )
 }
