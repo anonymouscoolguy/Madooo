@@ -32,14 +32,9 @@ Product rules settled so far:
 ## Working with the author
 
 The author is fluent in Python and reads other languages comfortably, but is not
-deep in the JS/TS ecosystem. Working on this project is partly a way to learn it.
+deep in the JS/TS ecosystem.
 
-- **Explain TypeScript- and Next-specific concepts the first time they appear** —
-  server vs client components, file conventions, the type system, build tooling,
-  module resolution. Two or three sentences in chat, not buried in code comments.
-- **Do not explain general programming logic.** Assume Python fluency and use it
-  as the reference point for what is genuinely different.
-- Prefer explaining *why* a convention exists over just naming it.
+- Prefer explaining *why* a project convention exists over just naming it.
 
 ## Non-negotiable constraints
 

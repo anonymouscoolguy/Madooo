@@ -83,8 +83,8 @@ npm test            # if tests exist
 npm run build       # if routes or rendering were touched
 ```
 
-`tsc --noEmit` is the highest-value feedback loop in this stack for an author
-learning TypeScript. Do not skip it because the build passed.
+`tsc --noEmit` is the highest-value feedback loop in this stack. Do not skip it
+because the build passed.
 
 **5. Failure rule.**
 
@@ -121,17 +121,7 @@ three fixes ago and the files you forgot you touched. Check for:
 Fix trivial findings. Report substantive ones rather than silently rewriting the
 agreed plan.
 
-**8. Explain what is new.**
-
-In chat, walk through the TypeScript- and Next-specific concepts that appear in
-this diff for the first time — two or three sentences each. Assume Python
-fluency; explain only what is genuinely different, and prefer explaining *why* a
-convention exists over naming it. Do not explain general programming logic.
-
-This is not optional garnish. Learning the ecosystem is half the point of the
-project, and this is the moment the code is still fresh.
-
-**9. Update the docs, as the last step of this phase.**
+**8. Update the docs, as the last step of this phase.**
 
 Last deliberately: the docs describe the slice as built, which is only known
 once the diff has been read. They commit on this branch, so they land with the
@@ -140,7 +130,7 @@ slice rather than as a stray commit on `main` afterwards.
 Two files, and the split between them is what keeps either readable. **The
 roadmap holds what is true about the *project's progress*; the architecture file
 holds what is true about the *system*.** A fact that will still be true after
-step 8 ships is not roadmap material.
+this slice ships is not roadmap material.
 
 In [`docs/roadmap.md`](../../../docs/roadmap.md), update all of these that moved:
 
@@ -217,7 +207,7 @@ and a heading naming the next step is usually a task list about to happen. That
 last tell applies to `architecture.md` headings too: they name subsystems, never
 slices.
 
-**10. Stop.**
+**9. Stop.**
 
 Do not push. Do not run `/slice finish` — that is the author's call, made once
 they have seen the slice work in the browser.
