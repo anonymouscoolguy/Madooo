@@ -102,7 +102,7 @@ The rule: **if it is a number you can add up, it is monospaced.**
 | `--text-display` | 700 · 40px · 1.1 · Archivo | `-0.02em` | Reserved for large headers |
 | `--text-title` | 700 · 24px · 1.25 · Archivo | `-0.02em` | Page titles ("Fixtures", player name) |
 | `--text-heading` | 600 · 18px · 1.25 · Archivo | 0 | Dialog titles, team names on MatchCard |
-| `--text-body-lg` | 400 · 16px · 1.65 · Archivo | 0 | Diary notes — read as prose |
+| `--text-body-lg` | 400 · 16px · 1.65 · Archivo | 0 | A note where it stands alone as prose — the Diary |
 | `--text-body` | 400 · 14px · 1.45 · Archivo | 0 | Default UI text |
 | `--text-label` | 500 · 13px · 1.25 · Archivo | 0 | Buttons, tabs, fixture lines |
 | `--text-caption` | 400 · 12px · 1.25 · Archivo | 0 | Sub-labels, meta |
@@ -114,6 +114,8 @@ Sizes available: 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 56.
 Line heights: tight 1.1, snug 1.25, normal 1.45, loose 1.65.
 
 **Caps appear in exactly two places**: the three verdict words (STANDOUT / FLOP / MVP) and micro-labels. Everything else is sentence case.
+
+**A note takes its size from where it is read, not from what it is.** On a dense list — a squad row — it is `--text-body` in `--text-muted`, indented under the name with a rule, so the row stays a row. `--text-body-lg` is for the screens where a note is the content rather than an annotation on it.
 
 ---
 

@@ -308,15 +308,21 @@ opposite of what was tapped. Deciding that a second tap means `null` belongs to
 the client, which is what knows the verdict it just drew. Any later toggle should
 be shaped the same way.
 
-**Clearing a verdict is a delete *then* an update**, both inside one
+**Clearing half a judgement is a delete *then* an update**, both inside one
 `$transaction`, and that order is the whole of it. `judgement_has_content` — the
 CHECK constraint added by hand in the initial migration — requires a tag or a
 note, so blanking the tag on a judgement that has no note violates it, while
 deleting outright would throw away a note that is there. So: delete the
 judgements that are only a tag, then blank the tag on whatever survives, which
 is exactly the ones carrying a note. Each statement leaves every row it touches
-valid on its own. Right now the delete does all the work, because no notes exist
-yet.
+valid on its own. `clearTag` and `clearNote` are that pair in each direction,
+written out twice rather than shared through a column-name parameter — what
+differs between them is which column each statement reads and which it writes,
+and the parameterised version says less than the four lines do.
+
+**An empty string is how a note is deleted.** `setNote(id, '')` runs `clearNote`;
+there is no delete action and the design draws no delete button. It is the same
+set-semantics as the tag, so the one gesture is clear the box and save.
 
 **MVP's exclusivity is enforced in the action, not by a constraint.** The rule is
 in [`AGENTS.md`](../AGENTS.md); the mechanism is that awarding it runs the same
@@ -333,7 +339,10 @@ caller.** `setVerdict` takes only a `matchSquadId` and looks the `matchId` up by
 primary key. Accepting it as an argument would let a crafted POST scope the MVP
 demotion to a different match and strip the tag off a player in it. The lookup
 doubles as an existence check, turning a bogus id into a clear message instead of
-a foreign-key violation.
+a foreign-key violation — which is the only reason `setNote` makes it too, since
+nothing there needs the match. Without it that action's two branches fail
+differently and neither says much: the upsert with a raw foreign key error, and
+the clear not at all, because a `deleteMany` that matches nothing succeeds.
 
 **A demoted MVP's chip is un-filled by the `refresh()`, not by the click.** Each
 row is its own client island with its own optimistic state and no knowledge of
@@ -361,9 +370,19 @@ Both the optimistic update and the action call have to sit inside the same
 against.
 
 **The write reaches the client through a small island, not a client page.** A
-squad row stays a server component and mounts `<VerdictControls>` inside itself;
-the match page ships nothing else to the browser. The same move as the shell's
+squad row stays a server component and mounts its controls inside itself; the
+match page ships nothing else to the browser. The same move as the shell's
 `<Sidebar />` prop, in the other direction.
+
+**Optimistic state decides where an island's boundary falls.** A squad row's note
+appears on a line of its own *under* the row, in a different cell of the same
+grid from the button that writes it — and the two share one `useOptimistic`
+value, so one component has to own both. `PlayerControls` is that owner, and it
+returns a **fragment of two grid children**: a fragment emits no DOM, so both stay
+direct children of the `<li>` and the grid still places them. The verdict chips
+are handed to it as `children` rather than imported, which keeps
+`VerdictControls` free of any knowledge of notes. Anything later that wants
+optimism across two separated parts of one row takes the same shape.
 
 ---
 
@@ -427,6 +446,12 @@ both, which is affordance enough. Inventing a hex to manufacture the missing ste
 would break the rule the whole token system exists for; anything else later that
 sits on a tint should do the same.
 
+The note button on the same row is the rule applied one step up the ramp: resting
+it is borderless and takes the standard hover to `--surface-alt`, and once there
+is a note it sits on `--surface-sunken` with no hover of its own. Its glyph does
+**not** fill — `FILL 1` means "on" for the states `foundations.md` lists, and a
+note is not one of them, so the box carries it.
+
 The chips' selected classes are written out one verdict at a time rather than
 built from the tag. **Tailwind finds class names by scanning source as text**, so
 a name assembled at runtime is one it never sees and never generates CSS for.
@@ -440,6 +465,61 @@ which reads as nothing at all. A `<div>` per club, each holding that club's two
 panels, gives the drawn desktop layout *and* a narrow layout of one whole club
 followed by the other. Any later screen pairing two of something wants the same
 shape.
+
+**What nesting costs is shared rows, and `grid-rows-subgrid` buys them back.**
+Nested columns size independently, so a note on one club's eleven pushed only
+that club's bench down and the two benches stopped starting at the same height.
+The parent declares two rows; each column becomes a grid at `md` that spans both
+and *adopts the parent's tracks* rather than declaring its own, which puts both
+elevens in one row and both benches in the next. It takes `items-start` with it,
+or the shorter panel stretches to fill the row and a bordered list card ends in
+blank space. Below `md` the subgrid classes are inactive and the column is a flex
+stack again, so the narrow layout is untouched.
+
+**`grid-rows-2` does not mean "two rows".** Tailwind's numbered track utilities
+expand to `repeat(n, minmax(0, 1fr))`, so it means two rows *of equal height* —
+which padded the bench row out to the height of an eleven carrying notes and left
+a hole above "Your verdicts". The match page asks for `grid-rows-[auto_auto]`.
+Equal columns are wanted and equal rows are not, and the two read almost
+identically in the markup.
+
+### The dialog is the platform's, and the textarea is the first field
+
+The note dialog in [`player-controls.tsx`](../src/components/player-controls.tsx)
+is a native `<dialog>` opened with `showModal()`, not a hand-rolled overlay: the
+focus trap, Escape, the inert background and the top layer all come for free.
+The top layer is the one that earns it — `<main>` is `position: relative`, so
+anything fixed inside it would resolve against `<main>` rather than the viewport.
+
+- **It is mounted only while it is open**, which is what makes the draft
+  disposable — Cancel discards by unmounting, and there is no stale text to
+  clear. It is also why the entrance in `globals.css` needs `@starting-style`: a
+  transition needs a value to start from, and an element inserted a frame ago has
+  no previous value at all. There is no exit animation, because React removes the
+  element; foundations' motion inventory does not ask for one.
+- **`m-auto` on the dialog is load-bearing.** Tailwind's preflight zeroes every
+  margin, including the `margin: auto` the browser's own stylesheet uses to
+  centre a modal dialog. Without it the dialog sits in the top-left corner.
+- **`::backdrop` reads `--overlay` by inheritance**, which is a 2024 change to
+  the spec. The browsers that took it are the same ones that took `light-dark()`,
+  which every colour in this stylesheet already depends on, so the two stand or
+  fall together.
+- **Backdrop dismissal is on `mousedown`, not `click`.** A click's target after a
+  drag is the nearest common ancestor of press and release, so selecting text in
+  the textarea and releasing outside it would count as a click on the dialog and
+  throw the draft away. The test — `event.target === event.currentTarget` — also
+  only holds because the dialog itself carries no padding; the three sections
+  inside it carry their own.
+- **`showModal()` focuses the first focusable descendant**, which here is the
+  close button. The dialog's callback ref moves focus to the textarea after it
+  and puts the caret at the end, and it can reach the textarea from there because
+  React attaches a child's ref before its parent's.
+- **A field's focus state is not the ring.** `foundations.md` gives fields
+  `--border-focus` plus an inset 1px of it, which reads as a 2px border without
+  the element changing size and shifting the layout. That is the `focus-field`
+  utility, and it is written `focus:` rather than `focus-visible:` — a field is
+  focused in order to be typed in, so the state is real however the caret got
+  there.
 
 ### Things the toolchain does that the source does not show
 

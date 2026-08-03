@@ -45,11 +45,11 @@ export async function matchWithSquads(id: number, userId: number) {
           player: { select: { id: true, name: true } },
           // 0 or 1 rows, never more — `@@unique([userId, matchSquadId])` says
           // so. Prisma types a to-many relation as an array regardless, and
-          // `verdictOf` in [`verdicts.ts`](./verdicts.ts) is the one place that
-          // unwraps it. Still one round trip: Prisma resolves the nested
-          // selection in the same query, which is what this function's whole
-          // shape is for.
-          judgements: { where: { userId }, select: { tag: true } },
+          // `verdictOf` and `noteOf` in [`verdicts.ts`](./verdicts.ts) are the
+          // only places that unwrap it. Still one round trip: Prisma resolves
+          // the nested selection in the same query, which is what this
+          // function's whole shape is for.
+          judgements: { where: { userId }, select: { tag: true, note: true } },
         },
       },
     },

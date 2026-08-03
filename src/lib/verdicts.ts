@@ -1,5 +1,5 @@
 /**
- * Reading a user's verdicts back off a squad.
+ * Reading a user's judgements back off a squad — the tags, and the notes.
  *
  * Pure, and deliberately so, for the same reason as [`squad.ts`](./squad.ts):
  * Prisma is not imported, everything below is structural, and the decisions
@@ -35,6 +35,30 @@ export interface Judgeable {
 }
 
 /**
+ * The same row read for its note instead of its tag.
+ *
+ * A second interface rather than a wider `Judgeable`, because TypeScript is
+ * **structurally** typed: an object is accepted anywhere its shape fits, so the
+ * page's squad entry satisfies both of these without declaring that it does, and
+ * neither helper forces a caller to supply the half it does not use.
+ */
+export interface Annotated {
+  judgements: { note: string | null }[]
+}
+
+/**
+ * How long a note may be.
+ *
+ * Here rather than in [`actions.ts`](./actions.ts) because both sides need it —
+ * the action enforces it, the dialog hands it to the textarea — and that file may
+ * export nothing but Server Actions.
+ *
+ * The column itself is unbounded `text`; this is a product limit, not a schema
+ * one. A note is a line or two about a performance.
+ */
+export const NOTE_MAX_LENGTH = 1000
+
+/**
  * Whether an untrusted value is one of the three tags.
  *
  * The `value is JudgementTag` return type is a **type predicate**: it tells
@@ -52,6 +76,12 @@ export function isJudgementTag(value: unknown): value is JudgementTag {
 /** The user's verdict on one squad entry, or null for the great unjudged majority. */
 export function verdictOf(entry: Judgeable): JudgementTag | null {
   return entry.judgements[0]?.tag ?? null
+}
+
+/** The user's note on one squad entry, or null. Never the empty string: the
+    action stores a cleared note as no note at all. */
+export function noteOf(entry: Annotated): string | null {
+  return entry.judgements[0]?.note ?? null
 }
 
 /** The number beside a panel's micro-label. Zero is a real answer and is shown. */

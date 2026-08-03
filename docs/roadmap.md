@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-03 (6.4 — tagging)
+**Last updated:** 2026-08-03 (6.5 — notes)
 
 ---
 
@@ -33,7 +33,12 @@ verdicts, and a "Your verdicts" panel under both benches lists what the match wa
 judged to be, MVP first. Nothing is shared: the read is filtered to the signed-in
 user, so a second account opening the same match sees an unjudged team sheet.
 
-Notes are not written yet, so a judgement is still only ever a tag.
+**A judgement can also be words.** A fourth control on every row opens a dialog —
+the app's first form, and its first `<dialog>` — and what is typed there is saved
+against that player in that match and read back under the row it belongs to. A
+note stands on its own: a player can carry one with no tag at all. Clearing the
+box and saving takes it away, and takes the whole judgement with it if there was
+nothing else on it.
 
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
@@ -127,8 +132,14 @@ says when it has nothing to show is part of the slice, not a later pass.
         drawing for. Deliberately absent: the fourth button the screenshots draw
         on each row, `edit_note`, which is 6.5's — and the summary's player names
         are plain text, because 7.2 is what they would link to.
-  - [ ] **6.5 — Notes.** Free text on any player, on the same row as the tag.
-        A note with no tag is valid; clearing both deletes the row.
+  - [x] **6.5 — Notes.** Done. A borderless `edit_note` button on every row
+        opens a native `<dialog>`; `setNote` writes the text, and saving an empty
+        box is how a note is deleted. The note reads back under the row, and
+        appears there the moment it is saved — the note line and the button that
+        writes it are one client island, which is what lets `useOptimistic` cover
+        both. Deliberately absent: the note is not in the "Your verdicts" panel
+        and not in the panel header counts, because a note is not a verdict and
+        the reference screens show neither.
   - [ ] **6.6 — Counts.** `/fixtures`: the four stat tiles and the per-fixture
         "N verdicts · N notes" footer. Last deliberately, so the aggregates are
         read against real judgements rather than against zeroes. The match page's
@@ -152,6 +163,9 @@ says when it has nothing to show is part of the slice, not a later pass.
         The landing page came onto tokens with it, and Clerk's appearance
         variables were pointed at ours.
   - [ ] **8.2 — Search.** Matches, teams and players.
+  - [ ] **8.3 — The filled button's missing hover step.** A semantic token for
+        one step below `--surface-inverse`, and both filled buttons onto it. See
+        the open decision below.
 
 ## Long-term remarks
 
@@ -243,8 +257,11 @@ must stay out of the Vercel build, are in
   it. What 6.4 did hit is the same gap one level down — a verdict tint has no
   step below it either — and that half is settled; see
   [`architecture.md`](architecture.md#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision).
-  The landing page's filled button is what remains open, and nothing yet planned
-  needs it.
+
+  6.5's "Save note" is now the second filled button, and it has no hover either,
+  deliberately: one control should not behave two ways while the gap is open.
+  Closing it is **8.3** — a semantic token for the step below the inverse
+  surface, applied to both.
 - **Clerk's `colorNeutral` and `colorShadow` are unbound.** Every other
   appearance variable is a `var(--…)` pointing at our tokens, but Clerk derives
   alpha shades from those two in JavaScript and cannot interpolate a `var()`.

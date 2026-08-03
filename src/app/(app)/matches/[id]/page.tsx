@@ -26,6 +26,19 @@ type Squad = ReturnType<typeof splitSquad<SquadEntry>>
  * home XI → away XI → home bench → away bench, which reads as nothing at all.
  * Nesting gives the drawn desktop layout and a narrow layout of one whole club
  * followed by the other.
+ *
+ * What nesting costs is that the two columns size independently, so a note on
+ * one club's eleven would push only that club's bench down and the two benches
+ * would stop starting at the same height. `grid-rows-subgrid` is what buys the
+ * shared rows back without giving up the nesting: at `md` this column stops
+ * being a flex stack and becomes a grid that spans both of the parent's rows and
+ * **adopts the parent's row tracks as its own** rather than declaring new ones.
+ * Both eleven panels are then in one row, both benches in the next, and each row
+ * is as tall as the taller of its pair.
+ *
+ * `items-start` with it, so a panel keeps its own height instead of stretching
+ * to fill the row. A bordered list card with blank space under the last player
+ * reads as something failing to load.
  */
 function TeamSquad({ team, squad }: { team: MatchTeam; squad: Squad }) {
   const { starters, substitutes } = squad
@@ -43,7 +56,7 @@ function TeamSquad({ team, squad }: { team: MatchTeam; squad: Squad }) {
   const orphanedBench = starters.length === 0
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 md:row-span-2 md:grid md:grid-rows-subgrid md:items-start">
       <SquadPanel title={`${team.name} — Starting XI`} entries={starters} />
       <SquadPanel
         title={orphanedBench ? `${team.name} — Substitutes` : 'Substitutes'}
@@ -125,7 +138,20 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
         <p className="text-body text-muted">No squad has been published for this match yet.</p>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          {/*
+            Two rows, declared here and inherited by each column's subgrid — the
+            eleven panels and the bench panels. `gap-x-6` rather than `gap-6` at
+            `md`: the wider gutter is between the two clubs, while the gap
+            between a club's own two panels stays 16px as it is below `md`.
+
+            `grid-rows-[auto_auto]` and **not** `grid-rows-2`, which is a very
+            different thing: Tailwind's numbered track utilities mean
+            `repeat(n, minmax(0, 1fr))`, so `grid-rows-2` would make the two
+            rows *equal*, and a bench would be padded out to the height of an
+            eleven carrying notes. Equal columns are what is wanted; equal rows
+            are not.
+          */}
+          <div className="grid gap-4 md:grid-cols-2 md:grid-rows-[auto_auto] md:gap-x-6">
             <TeamSquad team={match.homeTeam} squad={home} />
             <TeamSquad team={match.awayTeam} squad={away} />
           </div>

@@ -21,7 +21,7 @@ import { refresh } from 'next/cache'
 
 import { requireDbUser } from './auth'
 import { prisma } from './prisma'
-import { isJudgementTag, type JudgementTag } from './verdicts'
+import { isJudgementTag, NOTE_MAX_LENGTH, type JudgementTag } from './verdicts'
 import type { Prisma } from '@/generated/prisma/client'
 
 /**
@@ -37,8 +37,7 @@ import type { Prisma } from '@/generated/prisma/client'
  *
  * So: delete the judgements that are only a tag, then blank the tag on whatever
  * survives, which is precisely the ones carrying a note. Each statement leaves
- * every row it touches valid on its own. Right now the delete does all the work,
- * because no notes exist yet.
+ * every row it touches valid on its own.
  *
  * Returns the operations rather than running them, so a caller can put them in
  * one transaction alongside its own write.
@@ -47,6 +46,22 @@ function clearTag(where: Prisma.JudgementWhereInput) {
   return [
     prisma.judgement.deleteMany({ where: { ...where, note: null } }),
     prisma.judgement.updateMany({ where, data: { tag: null } }),
+  ]
+}
+
+/**
+ * Take the note off every judgement the filter matches, without losing a tag.
+ *
+ * The mirror of `clearTag`, and delete-before-update for exactly the same
+ * reason — see its comment. Written out rather than shared with it through a
+ * parameter, because what differs is which column each statement reads and which
+ * it writes, and a version that took the column name would say less than these
+ * four lines do.
+ */
+function clearNote(where: Prisma.JudgementWhereInput) {
+  return [
+    prisma.judgement.deleteMany({ where: { ...where, tag: null } }),
+    prisma.judgement.updateMany({ where, data: { note: null } }),
   ]
 }
 
@@ -143,5 +158,57 @@ export async function setVerdict(matchSquadId: number, tag: JudgementTag | null)
     with its own optimistic state and no knowledge of this one, so the server's
     answer is the only thing that can un-fill it.
   */
+  refresh()
+}
+
+/**
+ * Set — or clear — the signed-in user's note on one player in one match.
+ *
+ * Set-semantics again, and the same shape as `setVerdict` throughout: the caller
+ * sends the text it wants stored, and **the empty string is how a note is
+ * deleted**. There is no separate delete action and the design draws no delete
+ * button; clearing the box and saving is the one gesture.
+ *
+ * A note with no tag is a valid judgement, so a note may create a row on its own.
+ * Clearing the last of the two is what removes it, which is `clearNote`'s job.
+ */
+export async function setNote(matchSquadId: number, note: string) {
+  const user = await requireDbUser()
+
+  // Untrusted, both of them — see the file comment. `typeof` is the check that
+  // matters for the second: this arrives as JSON, so it could be a number, an
+  // object, or absent entirely, and `.trim()` on any of those throws something
+  // unreadable instead of saying what was wrong.
+  if (!Number.isInteger(matchSquadId)) throw new Error('setNote: matchSquadId must be an integer')
+  if (typeof note !== 'string') throw new Error('setNote: note must be a string')
+
+  const text = note.trim()
+  if (text.length > NOTE_MAX_LENGTH) throw new Error('setNote: note is too long')
+
+  /*
+    The same lookup `setVerdict` makes, for one of its two reasons rather than
+    both: nothing here needs the match, but a bogus id needs to become a clear
+    message. Without it the two branches fail differently and neither says much —
+    the upsert with a raw foreign-key violation, and the clear not at all, since
+    `deleteMany` matching nothing is a success.
+  */
+  const entry = await prisma.matchSquad.findUnique({
+    where: { id: matchSquadId },
+    select: { id: true },
+  })
+  if (entry === null) throw new Error(`setNote: no squad entry ${matchSquadId}`)
+
+  const mine = { userId: user.id, matchSquadId }
+
+  if (text === '') {
+    await prisma.$transaction(clearNote(mine))
+  } else {
+    await prisma.judgement.upsert({
+      where: { userId_matchSquadId: { userId: user.id, matchSquadId } },
+      update: { note: text },
+      create: { userId: user.id, matchSquadId, note: text },
+    })
+  }
+
   refresh()
 }

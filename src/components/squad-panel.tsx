@@ -1,5 +1,6 @@
 import { positionLabel } from '@/lib/squad'
-import { countVerdicts, verdictOf } from '@/lib/verdicts'
+import { countVerdicts, noteOf, verdictOf } from '@/lib/verdicts'
+import { PlayerControls } from './player-controls'
 import { VerdictControls } from './verdict-controls'
 import type { SquadEntry } from '@/lib/matches'
 
@@ -7,9 +8,9 @@ import type { SquadEntry } from '@/lib/matches'
  * One list of players: a club's starting eleven, or its bench.
  *
  * The same card as `FixtureCard` — a bordered surface with a header strip — so
- * the two screens read as one system. The fourth control the reference
- * screenshots draw on each row, `edit_note`, is 6.5's: a control that does
- * nothing is worse than no control.
+ * the two screens read as one system. The header's count is verdicts only: a
+ * note is not a verdict, and a player carrying nothing but a note is not part
+ * of it.
  */
 
 function Row({ entry }: { entry: SquadEntry }) {
@@ -45,17 +46,21 @@ function Row({ entry }: { entry: SquadEntry }) {
       <span className="truncate text-body">{entry.player.name}</span>
       {position ? <span className="text-caps text-faint">{position}</span> : null}
       {/*
-        `col-end-[-1]` is the last grid line whichever layout is in force, so one
-        pair of classes covers both: below `md` the controls span columns 2–3 on
-        a second row, and at `md` they are the fourth column of the first.
+        Two grid children, not one: the controls, and — when there is a note —
+        the line it reads back on. `PlayerControls` places both, because the two
+        share one piece of optimistic state; see its own comment.
       */}
-      <div className="col-start-2 col-end-[-1] justify-self-start md:col-start-4 md:justify-self-end">
+      <PlayerControls
+        matchSquadId={entry.id}
+        playerName={entry.player.name}
+        note={noteOf(entry)}
+      >
         <VerdictControls
           matchSquadId={entry.id}
           playerName={entry.player.name}
           tag={verdictOf(entry)}
         />
-      </div>
+      </PlayerControls>
     </li>
   )
 }

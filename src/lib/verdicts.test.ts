@@ -17,7 +17,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { countVerdicts, isJudgementTag, summariseVerdicts, verdictOf } from './verdicts'
+import { countVerdicts, isJudgementTag, noteOf, summariseVerdicts, verdictOf } from './verdicts'
 import type { JudgementTag } from './verdicts'
 import { splitSquad } from './squad'
 import { buildSquad } from './api-football/map'
@@ -88,6 +88,20 @@ describe('verdictOf', () => {
 
   it('unwraps the single judgement the unique constraint allows', () => {
     expect(verdictOf({ judgements: [{ tag: 'FLOP' }] })).toBe('FLOP')
+  })
+})
+
+describe('noteOf', () => {
+  it('is null when the user has not judged the player', () => {
+    expect(noteOf({ judgements: [] })).toBeNull()
+  })
+
+  it('is null for a judgement that is only a tag', () => {
+    expect(noteOf({ judgements: [{ note: null }] })).toBeNull()
+  })
+
+  it('unwraps the single judgement the unique constraint allows', () => {
+    expect(noteOf({ judgements: [{ note: 'Caught upfield twice.' }] })).toBe('Caught upfield twice.')
   })
 })
 
