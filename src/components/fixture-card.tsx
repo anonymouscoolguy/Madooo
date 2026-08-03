@@ -1,11 +1,15 @@
 import Link from 'next/link'
 import { CrestChip } from './crest-chip'
+import { Icon } from './icon'
 import { kickoffDate, kickoffTime } from '@/lib/dates'
+import { plural } from '@/lib/text'
+import { countNotes, countVerdicts } from '@/lib/verdicts'
 import type { Fixture } from '@/lib/fixtures'
 
 /**
  * One fixture: a header strip carrying the venue and the date, then the match
- * itself — both clubs' crest chips, their names, and the score between them.
+ * itself — both clubs' crest chips, their names, and the score between them,
+ * over a footer strip counting what this user has said about it.
  *
  * A match with no squad rows is **not openable**, and the roadmap's long-term
  * remark says that case is real and permanent: fixtures are published long
@@ -24,6 +28,29 @@ function Score({ match }: { match: Fixture }) {
     // An en dash, not a hyphen — it is a span between two numbers.
     <span className="text-stat">
       {match.homeGoals}–{match.awayGoals}
+    </span>
+  )
+}
+
+type TallyProps = {
+  /** Narrower than `IconName`: this footer draws these two and nothing else. */
+  icon: 'how_to_reg' | 'edit_note'
+  count: number
+  noun: string
+}
+
+/** One icon and its count, in the footer strip. */
+function Tally({ icon, count, noun }: TallyProps) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <Icon name={icon} size="xs" />
+      {/* Two flex children, not three: the numeral and its noun are one span, or
+          the bare word would become an anonymous flex item and take the gap.
+          `font-mono` overrides only the family `text-caption` sets, so a count
+          you can add up is monospaced without changing size beside its word. */}
+      <span>
+        <span className="font-mono">{count}</span> {plural(count, noun)}
+      </span>
     </span>
   )
 }
@@ -78,6 +105,20 @@ function Card({ match, openable }: { match: Fixture; openable: boolean }) {
           <CrestChip team={match.awayTeam} />
         </div>
       </div>
+
+      {/*
+        The header strip's treatment, mirrored at the foot so the card stays one
+        object: one step off `--surface`, darkening with the rest of it on hover
+        and doing nothing when there is no group ancestor to hover.
+
+        It is drawn on a match with no squad too. Nobody can be judged there yet,
+        but zero is shown rather than hidden everywhere else in this app, and a
+        card that dropped a band would change height against its neighbours.
+      */}
+      <footer className="t-hover flex items-center gap-4 border-t border-border bg-surface-alt px-4 py-2 text-caption text-muted group-hover:bg-surface-sunken">
+        <Tally icon="how_to_reg" count={countVerdicts(match.squadEntries)} noun="verdict" />
+        <Tally icon="edit_note" count={countNotes(match.squadEntries)} noun="note" />
+      </footer>
     </article>
   )
 }

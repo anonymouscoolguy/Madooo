@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-03 (6.5 — notes)
+**Last updated:** 2026-08-03 (6.6 — counts)
 
 ---
 
@@ -39,6 +39,13 @@ against that player in that match and read back under the row it belongs to. A
 note stands on its own: a player can carry one with no tag at all. Clearing the
 box and saving takes it away, and takes the whole judgement with it if there was
 nothing else on it.
+
+**And the app adds it up.** `/fixtures` opens on four tiles — matches watched
+this season, standouts, flops, notes — and every fixture card carries a footer
+counting the verdicts and the notes on that match. A match is *watched* once
+anything has been recorded against it. Every tally is the signed-in user's own,
+so a second account sees four zeroes and a page of empty footers. The fixtures
+page is now the screen the design draws.
 
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
@@ -93,7 +100,7 @@ says when it has nothing to show is part of the slice, not a later pass.
       through a modal on the landing page. `/` is public and the fixture list
       moved to `/dashboard`, which shows the signed-in user's email. The `User`
       row is created on first sight.
-- [ ] **6 — The core loop.** Pick a match, see both squads, tag players
+- [x] **6 — The core loop.** Pick a match, see both squads, tag players
       MVP/STANDOUT/FLOP, and have it persist.
   - [x] **6.1 — App shell.** Done. The sidebar, top bar and shared design
         tokens. `/dashboard` became `/fixtures` inside an `(app)` route group,
@@ -140,10 +147,14 @@ says when it has nothing to show is part of the slice, not a later pass.
         both. Deliberately absent: the note is not in the "Your verdicts" panel
         and not in the panel header counts, because a note is not a verdict and
         the reference screens show neither.
-  - [ ] **6.6 — Counts.** `/fixtures`: the four stat tiles and the per-fixture
-        "N verdicts · N notes" footer. Last deliberately, so the aggregates are
-        read against real judgements rather than against zeroes. The match page's
-        own counts landed in 6.4.
+  - [x] **6.6 — Counts.** Done. The four season stat tiles and a footer strip on
+        every fixture card. "Watched" became a query over judgements rather than
+        a column — the open decision it needed is settled and gone from the list
+        below. The per-card tallies ride the query that was already fetching the
+        cards, as a filtered relation beside its unfiltered `_count`. Plurals are
+        real, unlike in the reference screenshot. The tiles were the last thing
+        step 6 had to resolve at narrow width without a drawing; step 7's screens
+        have no drawing at all, so the long-term remark stays.
 - [ ] **7 — Diary, players and teams.** Queries over what step 6 wrote, plus the
       two destinations the sidebar adds.
   - [ ] **7.1 — Diary.** Judgements reverse-chronological, dated, grouped by
@@ -177,10 +188,12 @@ empty list is the expected state.
   without a reference.** The export from Claude Design carries no breakpoints and
   no mobile mockups; both reference screenshots are ~2060px captures. 6.1b agreed
   the frame's rules and wrote them into `foundations.md`'s `### Responsive`
-  section, but that settles the frame alone. 6.2 resolved the fixture card the
-  same way, 6.3 the squad panels and 6.4 the tag controls. The stat tiles are
-  what is left: they still have to be resolved at narrow width by judgement,
-  against those rules rather than against a drawing.
+  section, but that settles the frame alone. Every screen since has resolved its
+  own narrow layout by judgement against those rules — 6.2 the fixture card, 6.3
+  the squad panels, 6.4 the tag controls, 6.6 the stat tiles — and step 6 has now
+  run out of drawn screens to do it to. Step 7's have no desktop drawing either,
+  so they are designed at both widths at once, and this constraint binds harder
+  there rather than less.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 
@@ -216,10 +229,6 @@ must stay out of the Vercel build, are in
   colours are not — each is that club's commonly published primary, entered by
   hand and never checked against anything. They are the one part of the seed
   table meant to be edited on sight, and a wrong one is wrong quietly.
-- **What "watched" counts.** The first tile on `/fixtures` reads "WATCHED 14 this
-  season" and no such concept exists. The obvious reading is matches in which
-  this user has recorded at least one judgement, which makes it a query rather
-  than a new column, but it has not been agreed. Needed by 6.6.
 - **The demoted MVP's chip waits for the round trip.** Each squad row is its own
   client island holding its own optimistic state, so nothing tells one row that
   another has just taken the MVP: the player losing it keeps a filled star until

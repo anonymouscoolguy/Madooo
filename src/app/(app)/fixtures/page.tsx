@@ -1,10 +1,12 @@
+import { requireDbUser } from '@/lib/auth'
 import { season } from '@/lib/env'
-import { defaultRound, fixturesForRound, listRounds } from '@/lib/fixtures'
+import { defaultRound, fixturesForRound, listRounds, seasonTotals } from '@/lib/fixtures'
 import { roundNumber } from '@/lib/rounds'
 import { FixtureCard } from '@/components/fixture-card'
 import { LeagueTabs } from '@/components/league-tabs'
 import { MatchdayPager } from '@/components/matchday-pager'
 import { PageHeader } from '@/components/page-header'
+import { StatTiles } from '@/components/stat-tiles'
 
 /**
  * Render on every request rather than once during `next build`.
@@ -32,7 +34,15 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
   const currentSeason = season()
   const { matchday } = await searchParams
 
-  const rounds = await listRounds(currentSeason)
+  // The tallies below belong to one user, so the page needs our own `User.id`
+  // for the first time. The upsert behind this is memoised per request and the
+  // shell layout already calls it, so it costs one indexed lookup.
+  const user = await requireDbUser()
+
+  const [rounds, totals] = await Promise.all([
+    listRounds(currentSeason),
+    seasonTotals(currentSeason, user.id),
+  ])
 
   if (rounds.length === 0) {
     return (
@@ -40,6 +50,10 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
         <PageHeader title="Fixtures">
           Pick a league and matchday, then open any fixture to rate the players.
         </PageHeader>
+        {/* The tiles are drawn on this branch too. A page that hid its tallies
+            while saying the database is empty would be hiding two different
+            failures behind one message. */}
+        <StatTiles totals={totals} />
         {/* Said out loud rather than rendered as an empty list: a deployment
             pointed at the wrong database should look broken, not merely quiet. */}
         <p className="text-body text-muted">No fixtures in the database for this season.</p>
@@ -63,13 +77,15 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
   }
 
   const current = rounds[index]
-  const fixtures = await fixturesForRound(currentSeason, current.round)
+  const fixtures = await fixturesForRound(currentSeason, current.round, user.id)
 
   return (
     <>
       <PageHeader title="Fixtures">
         Pick a league and matchday, then open any fixture to rate the players.
       </PageHeader>
+
+      <StatTiles totals={totals} />
 
       {/* Stacked below `md` — the tabs and the pager together need more width
           than a phone has, and wrapping them keeps both at full size rather than

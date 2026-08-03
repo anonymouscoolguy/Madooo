@@ -90,6 +90,19 @@ export function countVerdicts(entries: readonly Judgeable[]): number {
 }
 
 /**
+ * The other half of a fixture card's footer.
+ *
+ * Deliberately not folded into `countVerdicts` as one function returning a pair:
+ * the panel header on the match page wants verdicts alone, and a helper that
+ * always computed both would make every caller of the common case pay for the
+ * other and then throw it away. Two functions over the two structural interfaces
+ * also means each one asks for exactly the half of a row it reads.
+ */
+export function countNotes(entries: readonly Annotated[]): number {
+  return entries.filter((entry) => noteOf(entry) !== null).length
+}
+
+/**
  * MVP, then the standouts, then the flops — the order the reference screenshot
  * draws the summary panel in, which is not the left-to-right order of the
  * buttons on a row. Two orders for one vocabulary, so both are written down.

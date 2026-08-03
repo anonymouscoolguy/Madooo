@@ -17,7 +17,14 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { countVerdicts, isJudgementTag, noteOf, summariseVerdicts, verdictOf } from './verdicts'
+import {
+  countNotes,
+  countVerdicts,
+  isJudgementTag,
+  noteOf,
+  summariseVerdicts,
+  verdictOf,
+} from './verdicts'
 import type { JudgementTag } from './verdicts'
 import { splitSquad } from './squad'
 import { buildSquad } from './api-football/map'
@@ -54,6 +61,11 @@ const { starters } = splitSquad(
 /** One squad entry with a verdict attached, as the page's query would return it. */
 function judged<T>(entry: T, tag: JudgementTag | null) {
   return { ...entry, judgements: tag === null ? [] : [{ tag }] }
+}
+
+/** The same, for the other half of a judgement. */
+function annotated<T>(entry: T, note: string | null) {
+  return { ...entry, judgements: note === null ? [] : [{ note }] }
 }
 
 describe('isJudgementTag', () => {
@@ -115,6 +127,26 @@ describe('countVerdicts', () => {
 
   it('is zero for a whole squad nobody has judged', () => {
     expect(countVerdicts(starters.map((entry) => judged(entry, null)))).toBe(0)
+  })
+})
+
+describe('countNotes', () => {
+  it('counts only the annotated entries', () => {
+    const entries = starters.map((entry, index) =>
+      annotated(entry, index < 2 ? 'Quiet all afternoon.' : null),
+    )
+    expect(countNotes(entries)).toBe(2)
+  })
+
+  it('does not count a judgement that is only a tag', () => {
+    // The case that keeps the two tallies on a fixture card apart: a tagged
+    // player with nothing written about them has a judgement row, and it is not
+    // a note.
+    expect(countNotes([{ judgements: [{ note: null }] }])).toBe(0)
+  })
+
+  it('is zero for a whole squad nobody has written about', () => {
+    expect(countNotes(starters.map((entry) => annotated(entry, null)))).toBe(0)
   })
 })
 

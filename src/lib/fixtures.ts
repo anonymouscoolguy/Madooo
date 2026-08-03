@@ -89,8 +89,20 @@ const teamFields = {
  * `_count.squadEntries` is what decides whether a card is openable. Counting is
  * the point: asking whether *any* squad row exists must not mean loading forty
  * of them per match to find out.
+ *
+ * `squadEntries` beside it is the card's footer — the user's verdicts and notes
+ * on this match. **The two do not interfere.** A `_count` entry takes its own
+ * optional `where` and has none here, so it stays a count of the whole squad
+ * however the sibling selection is filtered; if it did inherit that filter, every
+ * card in the round would quietly stop opening.
+ *
+ * The filter keeps the selection to the rows this user has judged, which is a
+ * handful per match rather than forty, and `countVerdicts` and `countNotes` in
+ * [`verdicts.ts`](./verdicts.ts) fold it into the two numbers. Counting in JS
+ * here rather than in Postgres because one relation can carry only one `_count`,
+ * and this needs two different tallies out of the same rows.
  */
-export async function fixturesForRound(season: number, round: string) {
+export async function fixturesForRound(season: number, round: string, userId: number) {
   return prisma.match.findMany({
     where: { season, round },
     orderBy: [{ kickoff: 'asc' }, { id: 'asc' }],
@@ -98,8 +110,61 @@ export async function fixturesForRound(season: number, round: string) {
       homeTeam: teamFields,
       awayTeam: teamFields,
       _count: { select: { squadEntries: true } },
+      squadEntries: {
+        where: { judgements: { some: { userId } } },
+        select: {
+          // The same `where` again, and it is not redundant: the outer one picks
+          // the squad rows, this one picks which judgements come back on them.
+          // Without it a second account's judgement would arrive attached to a
+          // row this user judged, and the tallies would count it.
+          judgements: { where: { userId }, select: { tag: true, note: true } },
+        },
+      },
     },
   })
+}
+
+/** The four numbers on the stat tiles, for one user in one season. */
+export interface SeasonTotals {
+  watched: number
+  standouts: number
+  flops: number
+  notes: number
+}
+
+/**
+ * The stat tiles. Season-wide, which is what the first tile's "this season"
+ * says out loud and the other three inherit — a tally that moved as you paged
+ * through matchdays would not be a tally.
+ *
+ * **"Watched" is a match this user has recorded anything against** — a tag or a
+ * note. It is a query rather than a column: nothing marks a match as watched,
+ * and having had something to say about one is the only evidence there is.
+ *
+ * Four `count`s rather than reading the judgements and folding them, because a
+ * season's judgements are unbounded and nothing on this page wants the rows. They
+ * go out together under `Promise.all`, so the page waits for the slowest rather
+ * than for the sum.
+ */
+export async function seasonTotals(season: number, userId: number): Promise<SeasonTotals> {
+  // Reaching from a judgement back to the season it belongs to, through the
+  // squad row and its match. Repeated four times because Prisma's `where` is a
+  // plain object literal per query, and naming it would hide the one thing worth
+  // seeing here.
+  const inSeason = { userId, matchSquad: { match: { season } } }
+
+  const [watched, standouts, flops, notes] = await Promise.all([
+    prisma.match.count({
+      where: { season, squadEntries: { some: { judgements: { some: { userId } } } } },
+    }),
+    prisma.judgement.count({ where: { ...inSeason, tag: 'STANDOUT' } }),
+    prisma.judgement.count({ where: { ...inSeason, tag: 'FLOP' } }),
+    // Not `{ not: '' }` as well: `setNote` stores a cleared note as no judgement
+    // or as a null column, never as an empty string, so null is the whole of it.
+    prisma.judgement.count({ where: { ...inSeason, note: { not: null } } }),
+  ])
+
+  return { watched, standouts, flops, notes }
 }
 
 /**

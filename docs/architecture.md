@@ -86,6 +86,33 @@ after any sync that introduces a club.
   gets a neutral grey chip, which reads as missing data rather than as a wrong
   fact about the club.
 
+### A relation can be counted whole and read filtered in one query
+
+`fixturesForRound` asks for `_count.squadEntries` — the openable test, "does this
+match have a squad at all" — and beside it, in the same query, the squad rows this
+user has judged. **The two do not interfere.** A `_count` entry takes its own
+optional `where` and has none here, so it counts the whole relation however its
+sibling selection is filtered. That was verified against the database rather than
+assumed, because the failure mode is silent: a `_count` that inherited the filter
+would report no squad for every unjudged match, and every card would quietly stop
+opening.
+
+One relation carries only one `_count`, so a query cannot ask Postgres for two
+different tallies over the same rows. That is why a fixture card's verdicts and
+notes are folded in JavaScript, by `countVerdicts` and `countNotes` in
+[`verdicts.ts`](../src/lib/verdicts.ts) — the rows are already in hand and bounded
+by how much one user judged one match.
+
+**Season totals go the other way**: `seasonTotals` is four `count`s under a
+`Promise.all`, because a season's judgements are unbounded and the page wants the
+numbers rather than the rows. A judgement reaches its season through two
+relations — `matchSquad.match.season` — since `Judgement` points at a
+`MatchSquad` and carries no match of its own.
+
+**"Watched" is a match this user has recorded anything against**, tag or note.
+A query over `Match`, never a column on it: nothing marks a match as watched, and
+having had something to say about one is the only evidence there is.
+
 ### The connection strings pin `sslmode=verify-full`
 
 Surfaced as a runtime warning from `pg` 8.22, which currently treats the
@@ -252,9 +279,9 @@ row for everything below it. Nothing there renders anything from the result —
 Clerk supplies the name in the sidebar — so the call is purely the upsert plus
 the redirect. **Every other caller calls it again for itself**, and must: Server
 Actions render no layout at all, and a page that needs our `User.id` rather than
-just the guard has to ask for it. The match page and `setVerdict` both do. The
-upsert is idempotent and memoised per request with React's `cache()`, so a
-second call in one render costs one indexed lookup.
+just the guard has to ask for it. The match page, the fixtures page and both
+actions all do. The upsert is idempotent and memoised per request with React's
+`cache()`, so a second call in one render costs one indexed lookup.
 
 **The shell holds `{children}` behind an `await`.** Fine at this size, but the
 session read is a top-level await in a layout, so it delays the first streamed
