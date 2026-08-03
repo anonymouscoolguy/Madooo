@@ -19,6 +19,11 @@ Product rules settled so far:
 - **Any player in the matchday squad can be judged, including unused
   substitutes.** A diary is a private judgement, so it needs no justification
   in minutes played.
+- **MVP is exclusive within a match; STANDOUT and FLOP are not.** A match has at
+  most one MVP across *both* squads — it is a verdict on the match, not on a
+  club. Awarding it to a second player takes it off the first, who is left with
+  no judgement at all, or with their note and no tag if they have one. Any
+  number of players can be a standout or a flop.
 - **Logos and player photos are stored but never displayed.** `League.logo`,
   `Team.logo` and `Player.photo` keep API-Football's `media.api-sports.io` URLs
   so the option stays open, but nothing renders them. Storing a URL is inert;

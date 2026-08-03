@@ -21,8 +21,13 @@ const teamFields = {
  *
  * The squad is a bounded ~40 rows, so it comes back whole rather than as two
  * queries filtered by team.
+ *
+ * `userId` is what makes a diary private. The nested selection below filters the
+ * judgements to one user, so a second account reading the same match sees an
+ * unjudged team sheet — that `where` is the whole of the guarantee, and there is
+ * no second place it is enforced.
  */
-export async function matchWithSquads(id: number) {
+export async function matchWithSquads(id: number, userId: number) {
   return prisma.match.findUnique({
     where: { id },
     include: {
@@ -38,6 +43,13 @@ export async function matchWithSquads(id: number) {
           isStarter: true,
           grid: true,
           player: { select: { id: true, name: true } },
+          // 0 or 1 rows, never more — `@@unique([userId, matchSquadId])` says
+          // so. Prisma types a to-many relation as an array regardless, and
+          // `verdictOf` in [`verdicts.ts`](./verdicts.ts) is the one place that
+          // unwraps it. Still one round trip: Prisma resolves the nested
+          // selection in the same query, which is what this function's whole
+          // shape is for.
+          judgements: { where: { userId }, select: { tag: true } },
         },
       },
     },

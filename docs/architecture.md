@@ -186,6 +186,17 @@ message saying to re-run `scripts/verify_api.py` (about 5 requests). **This is
 why `npm test` is not part of the Vercel build and must not become part of one** —
 every deployment builds from a fresh clone, so the tests would fail every time.
 
+The rule binds API-Football's JSON, which is where recollection is the unreliable
+part. Our own data has no upstream to be wrong about: `verdicts.test.ts` attaches
+invented verdicts to real captured players, because the claim under test is our
+ordering, not the provider's shape.
+
+**Vitest resolves no path aliases.** `vitest.config.ts` declares none, so `@/…`
+fails at import time with "Cannot find package". Anything under `src/lib/` that a
+test reaches has to import its neighbours relatively — including
+`../generated/prisma/enums`, which is the one generated module a pure helper has
+reason to touch.
+
 ### Scheduling the sync is an unsolved problem, not an unstarted one
 
 The 6.5s pacing puts a round at about two minutes, past a serverless function's
@@ -239,9 +250,11 @@ so a path and its types cannot drift apart.
 `src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
 row for everything below it. Nothing there renders anything from the result —
 Clerk supplies the name in the sidebar — so the call is purely the upsert plus
-the redirect. Server Actions render no layout, so anything that writes will have
-to call `requireDbUser()` itself; the upsert is idempotent and memoised per
-request with React's `cache()`, so the duplication costs one indexed lookup.
+the redirect. **Every other caller calls it again for itself**, and must: Server
+Actions render no layout at all, and a page that needs our `User.id` rather than
+just the guard has to ask for it. The match page and `setVerdict` both do. The
+upsert is idempotent and memoised per request with React's `cache()`, so a
+second call in one render costs one indexed lookup.
 
 **The shell holds `{children}` behind an `await`.** Fine at this size, but the
 session read is a top-level await in a layout, so it delays the first streamed
@@ -260,6 +273,97 @@ but it is a behaviour change: the bounce moves from the edge to the render.
 
 **Clerk is on a development instance.** Its keys work on Vercel, but sessions are
 capped and Clerk's components show a development badge.
+
+---
+
+## Writing data
+
+[`src/lib/actions.ts`](../src/lib/actions.ts) is the app's only `'use server'`
+file and the only code that writes. Everything else reads.
+
+**Every export of a `'use server'` file is a public POST endpoint.** Next
+compiles the bodies out of the client bundle and leaves a reference that posts
+back, so the route is reachable by anyone who can send that request — the UI is
+not a boundary. Two rules follow, and both are load-bearing:
+
+- Nothing but async actions may be exported from that file. A helper exported
+  alongside them becomes an endpoint of its own.
+- Each action calls `requireDbUser()` itself and validates its own arguments.
+  `setVerdict` checks the id is an integer and the tag is one of the three, via
+  the `isJudgementTag` type predicate in
+  [`verdicts.ts`](../src/lib/verdicts.ts) — the thing that turns a string off the
+  wire into an enum without a cast.
+
+**`refresh()` from `next/cache`, not `revalidatePath()`.** Almost all writing
+about Next says the latter, but `revalidatePath` invalidates a *cache*, and every
+page under `(app)` is `force-dynamic` with nothing cached to invalidate.
+`refresh()` says what is meant — re-render the current route — and Next streams
+the new RSC payload back inside the action's own response, so one round trip
+covers the write and the redraw. Next's own guide is
+`node_modules/next/dist/docs/01-app/01-getting-started/07-mutating-data.md`.
+
+**Actions take the state wanted, not "flip this".** `setVerdict(id, tag | null)`
+is idempotent, needs no read before its write, and cannot race itself into the
+opposite of what was tapped. Deciding that a second tap means `null` belongs to
+the client, which is what knows the verdict it just drew. Any later toggle should
+be shaped the same way.
+
+**Clearing a verdict is a delete *then* an update**, both inside one
+`$transaction`, and that order is the whole of it. `judgement_has_content` — the
+CHECK constraint added by hand in the initial migration — requires a tag or a
+note, so blanking the tag on a judgement that has no note violates it, while
+deleting outright would throw away a note that is there. So: delete the
+judgements that are only a tag, then blank the tag on whatever survives, which
+is exactly the ones carrying a note. Each statement leaves every row it touches
+valid on its own. Right now the delete does all the work, because no notes exist
+yet.
+
+**MVP's exclusivity is enforced in the action, not by a constraint.** The rule is
+in [`AGENTS.md`](../AGENTS.md); the mechanism is that awarding it runs the same
+clear-a-tag pair over *the previous holder in this match*, in the same
+transaction as the award, so a match is never left with two MVPs or none. The
+filter reaches through the relation to `MatchSquad.matchId` and excludes the
+player being awarded — without that exclusion the clear and the upsert fight over
+one row. A partial unique index would be the database-level alternative and was
+not taken: it would reject the second award rather than transfer it, which is the
+opposite of the wanted behaviour.
+
+**Which match a write belongs to is read from the squad row, never taken from the
+caller.** `setVerdict` takes only a `matchSquadId` and looks the `matchId` up by
+primary key. Accepting it as an argument would let a crafted POST scope the MVP
+demotion to a different match and strip the tag off a player in it. The lookup
+doubles as an existence check, turning a bogus id into a clear message instead of
+a foreign-key violation.
+
+**A demoted MVP's chip is un-filled by the `refresh()`, not by the click.** Each
+row is its own client island with its own optimistic state and no knowledge of
+the others, so for the length of one round trip two chips read as MVP. Making
+that instant would mean lifting the whole match's verdicts into shared client
+state, which is a much larger thing than the lag is worth.
+
+**A `CHECK` constraint in Postgres is non-deferrable**, and no transaction
+changes that. Only `UNIQUE`, foreign keys and `EXCLUDE` can be declared
+`DEFERRABLE`; a `CHECK` is evaluated as each statement runs. Writing the pair in
+the other order and expecting `$transaction` to hide the moment in between fails
+with `23514` on the first statement — which is how this was found.
+
+**Next dispatches Server Actions one at a time per client.** Tagging five players
+quickly queues five round trips rather than overlapping them. That is the
+framework's behaviour and not a bug to route around; `Promise.all` over actions
+would not parallelise them.
+
+**Optimistic state is `useOptimistic`, never a `useState` copy.**
+[`verdict-controls.tsx`](../src/components/verdict-controls.tsx) holds the tapped
+verdict only until the server's own answer arrives in the `refresh()` re-render,
+so there is no second copy of the tag to fall out of step with the database.
+Both the optimistic update and the action call have to sit inside the same
+`startTransition` — outside one, the optimistic value has nothing to be discarded
+against.
+
+**The write reaches the client through a small island, not a client page.** A
+squad row stays a server component and mounts `<VerdictControls>` inside itself;
+the match page ships nothing else to the browser. The same move as the shell's
+`<Sidebar />` prop, in the other direction.
 
 ---
 
@@ -308,8 +412,25 @@ are written unprefixed-then-`md:`. Read it before writing markup, the same way a
 the rest of the file.
 
 `--row-h-lg` means the same rows, below `md`. Anything tappable follows
-`h-(--row-h-lg) md:h-(--row-h)`. A row that later slices will put controls into
-takes it as `min-h-` instead, so it can grow without the height being restated.
+`h-(--row-h-lg) md:h-(--row-h)`. A row carrying controls takes it as `min-h-`
+instead, so it can grow past the floor without the height being restated — which
+is what let the squad row become two lines below `md` without touching it.
+
+### A selected verdict chip has no hover state, and that is the decision
+
+`foundations.md`'s hover rule is "surfaces darken one step", and a verdict tint —
+`--mvp-bg` and friends — has nothing below it to darken to and no semantic token
+for one. So a **resting** chip takes the standard hover (surface to
+`--surface-alt`, border to `--border-strong`, muted ink to full) and a
+**selected** one takes no colour change at all. Press and the focus ring apply to
+both, which is affordance enough. Inventing a hex to manufacture the missing step
+would break the rule the whole token system exists for; anything else later that
+sits on a tint should do the same.
+
+The chips' selected classes are written out one verdict at a time rather than
+built from the tag. **Tailwind finds class names by scanning source as text**, so
+a name assembled at runtime is one it never sees and never generates CSS for.
+This applies to every future tinted thing, not just these.
 
 **A two-column screen nests its columns rather than auto-placing into a grid.**
 The match page draws four panels — each club's starting eleven and its bench.
@@ -387,6 +508,16 @@ been seen to get *smaller* while gaining a glyph.
 from a menu button in the top bar and closed by Escape, the backdrop or any nav
 item.
 
+- **`<main>` is `relative`, and that is a containing block, not a position.**
+  Tailwind's `sr-only` is `position: absolute` with no offsets. Absolute
+  positioning resolves against the nearest *positioned* ancestor, so with a
+  static `<main>` those spans resolved against the initial containing block —
+  the document — escaped the scroll container holding them, and each added its
+  own offset to the document's scrollable height. The symptom was a page that
+  scrolled a second time once `<main>` reached its end, into empty space below
+  the frame, by as much as the lowest label's offset. One screen-reader label at
+  the foot of a long list is enough. Any future scroll container has to be
+  positioned for the same reason.
 - **`inert` on `<main>` replaces a focus-trap library**, and the resize listener
   in `app-frame.tsx` exists solely to stop it stranding: widening past `md` with
   the drawer open would otherwise leave the desktop layout inert and unusable

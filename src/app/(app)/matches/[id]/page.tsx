@@ -1,12 +1,21 @@
 import { notFound } from 'next/navigation'
+import { requireDbUser } from '@/lib/auth'
 import { kickoffDate, kickoffTime } from '@/lib/dates'
 import { matchWithSquads, type MatchTeam, type SquadEntry } from '@/lib/matches'
 import { roundNumber } from '@/lib/rounds'
 import { splitSquad } from '@/lib/squad'
 import { PageHeader } from '@/components/page-header'
 import { SquadPanel } from '@/components/squad-panel'
+import { VerdictSummary } from '@/components/verdict-summary'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * The split is made once, in the page, rather than by each column: the summary
+ * panel below needs the same players in the same order the panels draw them,
+ * and splitting twice would leave two orders to keep in step.
+ */
+type Squad = ReturnType<typeof splitSquad<SquadEntry>>
 
 /**
  * One team's half of the page: its starting eleven above its bench.
@@ -18,8 +27,8 @@ export const dynamic = 'force-dynamic'
  * Nesting gives the drawn desktop layout and a narrow layout of one whole club
  * followed by the other.
  */
-function TeamSquad({ team, entries }: { team: MatchTeam; entries: SquadEntry[] }) {
-  const { starters, substitutes } = splitSquad(entries, team.id)
+function TeamSquad({ team, squad }: { team: MatchTeam; squad: Squad }) {
+  const { starters, substitutes } = squad
 
   if (starters.length === 0 && substitutes.length === 0) {
     // The sync's merge is a union over two endpoints, so a fixture with only one
@@ -58,7 +67,12 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
   const matchId = Number(id)
   if (!Number.isInteger(matchId)) notFound()
 
-  const match = await matchWithSquads(matchId)
+  // The verdicts on this page belong to one user, so the read needs our own
+  // `User.id`. The upsert behind this is memoised per request, so calling it
+  // here as well as in the shell layout costs one indexed lookup.
+  const user = await requireDbUser()
+
+  const match = await matchWithSquads(matchId, user.id)
   if (match === null) notFound()
 
   // Null goals means no result recorded, not a goalless draw — the same reading
@@ -71,6 +85,9 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
   // Back to the matchday the reader came from, not to whichever one `/fixtures`
   // opens on by default.
   const matchday = roundNumber(match.round)
+
+  const home = splitSquad(match.squadEntries, match.homeTeam.id)
+  const away = splitSquad(match.squadEntries, match.awayTeam.id)
 
   return (
     <>
@@ -107,10 +124,20 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
         // permanent, because fixtures are published long before team news.
         <p className="text-body text-muted">No squad has been published for this match yet.</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-          <TeamSquad team={match.homeTeam} entries={match.squadEntries} />
-          <TeamSquad team={match.awayTeam} entries={match.squadEntries} />
-        </div>
+        <>
+          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+            <TeamSquad team={match.homeTeam} squad={home} />
+            <TeamSquad team={match.awayTeam} squad={away} />
+          </div>
+          {/* Below both benches and across both clubs, so it is the one place
+              that reads as a verdict on the match rather than on a team. The
+              entries arrive in reading order — home eleven, home bench, away
+              eleven, away bench — because `summariseVerdicts` groups by verdict
+              and leaves the order inside each group alone. */}
+          <VerdictSummary
+            entries={[...home.starters, ...home.substitutes, ...away.starters, ...away.substitutes]}
+          />
+        </>
       )}
     </>
   )

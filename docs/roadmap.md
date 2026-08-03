@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-03 (6.3 — the match page)
+**Last updated:** 2026-08-03 (6.4 — tagging)
 
 ---
 
@@ -25,7 +25,15 @@ so instead. It sits in a responsive app shell alongside Players, Teams and Diary
 which exist as placeholders. `/` is a public landing page, now on the same tokens
 as everything else.
 
-Nothing is writable yet: the squads are a team sheet to read, not to judge.
+**The app writes.** Every player on a match page carries three chips — standout,
+flop, MVP — and tapping one records a private judgement against that player in
+that match; tapping it again clears it. A match has one MVP at most, and
+awarding it again moves it. Each panel header counts its own
+verdicts, and a "Your verdicts" panel under both benches lists what the match was
+judged to be, MVP first. Nothing is shared: the read is filtered to the signed-in
+user, so a second account opening the same match sees an unjudged team sheet.
+
+Notes are not written yet, so a judgement is still only ever a tag.
 
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
@@ -109,13 +117,22 @@ says when it has nothing to show is part of the slice, not a later pass.
         and the "Your verdicts" summary panel the screenshots show below the
         benches. Player names are not links either — 7.2 is what they would link
         to.
-  - [ ] **6.4 — Tagging.** A Server Action writing `Judgement`. Tapping the
-        active tag clears it.
+  - [x] **6.4 — Tagging.** Done. Three chips on every squad row, a Server Action
+        writing `Judgement`, and tapping the active chip clears it. MVP transfers
+        rather than duplicating — the rule is now in
+        [`AGENTS.md`](../AGENTS.md). The panel
+        header counts and the "Your verdicts" panel came with it, since all three
+        read the same judgements. Below `md` the chips drop to their own line at
+        40px, which is the narrow-width decision the reference screens have no
+        drawing for. Deliberately absent: the fourth button the screenshots draw
+        on each row, `edit_note`, which is 6.5's — and the summary's player names
+        are plain text, because 7.2 is what they would link to.
   - [ ] **6.5 — Notes.** Free text on any player, on the same row as the tag.
         A note with no tag is valid; clearing both deletes the row.
-  - [ ] **6.6 — Counts.** The four stat tiles and the per-fixture
+  - [ ] **6.6 — Counts.** `/fixtures`: the four stat tiles and the per-fixture
         "N verdicts · N notes" footer. Last deliberately, so the aggregates are
-        read against real judgements rather than against zeroes.
+        read against real judgements rather than against zeroes. The match page's
+        own counts landed in 6.4.
 - [ ] **7 — Diary, players and teams.** Queries over what step 6 wrote, plus the
       two destinations the sidebar adds.
   - [ ] **7.1 — Diary.** Judgements reverse-chronological, dated, grouped by
@@ -147,9 +164,9 @@ empty list is the expected state.
   no mobile mockups; both reference screenshots are ~2060px captures. 6.1b agreed
   the frame's rules and wrote them into `foundations.md`'s `### Responsive`
   section, but that settles the frame alone. 6.2 resolved the fixture card the
-  same way, and 6.3 the squad panels. The tag controls and the stat tiles each
-  still have to be resolved at narrow width by judgement, against those rules
-  rather than against a drawing.
+  same way, 6.3 the squad panels and 6.4 the tag controls. The stat tiles are
+  what is left: they still have to be resolved at narrow width by judgement,
+  against those rules rather than against a drawing.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 
@@ -189,6 +206,17 @@ must stay out of the Vercel build, are in
   season" and no such concept exists. The obvious reading is matches in which
   this user has recorded at least one judgement, which makes it a query rather
   than a new column, but it has not been agreed. Needed by 6.6.
+- **The demoted MVP's chip waits for the round trip.** Each squad row is its own
+  client island holding its own optimistic state, so nothing tells one row that
+  another has just taken the MVP: the player losing it keeps a filled star until
+  `refresh()` lands, and for that moment two chips read as MVP. Making it instant
+  means hoisting the optimistic state into a provider above the rows — which can
+  still wrap server-rendered children, the way `AppFrame` wraps `<Sidebar />`.
+  Two sizes were sketched: a narrow one holding only the current MVP, leaving the
+  counts and the summary to settle on the refresh as everything does now; and a
+  full one holding the whole verdict map, which makes the counts and the summary
+  client components and gives the exclusivity rule a second implementation to
+  keep in step with the server's. Raised and deliberately deferred in 6.4.
 - **The sidebar's avatar contradicts the design.** The foot is Clerk's
   `<UserButton showName />`, chosen because its menu is the only way to sign
   out. Its avatar is the Google profile photo, or a coloured gradient when there
@@ -208,8 +236,15 @@ must stay out of the Vercel build, are in
   account" is the app's first filled button — `bg-surface-inverse`, black on
   light and white on dark — and `foundations.md`'s hover rule is "surfaces
   darken one step", which has nothing below it to darken to and no semantic
-  token for one. It currently has no hover state at all. Needed properly by the
-  tag controls in 6.4, which are the next filled things.
+  token for one. It currently has no hover state at all.
+
+  This was recorded as needed by 6.4's tag controls. It was not: a verdict chip
+  fills with a *tint*, never with `--surface-inverse`, so nothing in 6.4 touched
+  it. What 6.4 did hit is the same gap one level down — a verdict tint has no
+  step below it either — and that half is settled; see
+  [`architecture.md`](architecture.md#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision).
+  The landing page's filled button is what remains open, and nothing yet planned
+  needs it.
 - **Clerk's `colorNeutral` and `colorShadow` are unbound.** Every other
   appearance variable is a `var(--…)` pointing at our tokens, but Clerk derives
   alpha shades from those two in JavaScript and cannot interpolate a `var()`.

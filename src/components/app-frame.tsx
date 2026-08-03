@@ -147,8 +147,19 @@ export function AppFrame({ sidebar, children }: Props) {
 
         The top bar is deliberately *not* inert: it holds the menu button, which
         has to stay reachable to close what it opened.
+
+        **`relative` is load-bearing and is not a positioning decision.** It
+        makes <main> a containing block for absolutely positioned descendants.
+        Tailwind's `sr-only` is `position: absolute` with no offsets, so without
+        this those spans resolve against the *initial containing block* — the
+        document — instead of against the element that scrolls them. They then
+        escape this scroll container entirely and add their own position to the
+        document's scrollable height, one per label, the lowest one winning. The
+        symptom is a page that scrolls a second time after <main> has reached its
+        end, into empty space below the frame. One screen-reader label at the
+        foot of a long list is enough to cause it.
       */}
-      <main inert={open} className="overflow-y-auto bg-page">
+      <main inert={open} className="relative overflow-y-auto bg-page">
         <div className="mx-auto max-w-(--container) p-4 md:p-6">{children}</div>
       </main>
     </div>
