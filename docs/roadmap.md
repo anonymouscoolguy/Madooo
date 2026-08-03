@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-02 (8.1 — the dark-mode toggle)
+**Last updated:** 2026-08-03 (6.3 — the match page)
 
 ---
 
@@ -19,9 +19,13 @@ designs ask for: the 2024 season's full fixture list, one gameweek hydrated down
 to individual players, and `/fixtures` drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
-squad opens a match page; one without does not. It sits in a responsive app
-shell alongside Players, Teams and Diary, which exist as placeholders. `/` is a
-public landing page, now on the same tokens as everything else.
+squad opens onto both matchday squads — each club's starting eleven above its
+bench, goalkeeper first, with shirt numbers and positions — and one without says
+so instead. It sits in a responsive app shell alongside Players, Teams and Diary,
+which exist as placeholders. `/` is a public landing page, now on the same tokens
+as everything else.
+
+Nothing is writable yet: the squads are a team sheet to read, not to judge.
 
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
@@ -91,11 +95,20 @@ says when it has nothing to show is part of the slice, not a later pass.
   - [x] **6.2 — The fixtures page.** Done. Fixture cards with venue, score and
         crest chips; the league row; the matchday pager, with the matchday in the
         URL so the page stays a server component. A match with no squad rows says
-        "No squad yet" and does not navigate. `/matches/[id]` exists as a stub for
-        6.3 to fill. The stat tiles and the per-card verdict counts are not here —
-        they are 6.6, deliberately last.
-  - [ ] **6.3 — Match page.** Both squads, read-only: starters, substitutes,
-        shirt numbers, positions.
+        "No squad yet" and does not navigate. The stat tiles and the per-card
+        verdict counts are not here — they are 6.6, deliberately last.
+  - [x] **6.3 — Match page.** Done. Both squads, read-only: each club's starting
+        eleven above its bench, ordered goalkeeper-first by a pure helper rather
+        than by the database, with shirt numbers and positions. The header
+        carries the scoreline and a back link to the matchday it was opened from.
+        Positions read `GK`/`DEF`/`MID`/`FWD`, not the designs' `RB`/`CB`/`AM` —
+        agreed explicitly, because the finer position is in no provider response;
+        see [`architecture.md`](architecture.md#a-position-is-one-of-four-letters-and-the-designs-ask-for-more).
+        Deliberately absent, all of it 6.4's and 6.6's: the three verdict buttons
+        and the note button on every row, the verdict count in each panel header,
+        and the "Your verdicts" summary panel the screenshots show below the
+        benches. Player names are not links either — 7.2 is what they would link
+        to.
   - [ ] **6.4 — Tagging.** A Server Action writing `Judgement`. Tapping the
         active tag clears it.
   - [ ] **6.5 — Notes.** Free text on any player, on the same row as the tag.
@@ -134,9 +147,9 @@ empty list is the expected state.
   no mobile mockups; both reference screenshots are ~2060px captures. 6.1b agreed
   the frame's rules and wrote them into `foundations.md`'s `### Responsive`
   section, but that settles the frame alone. 6.2 resolved the fixture card the
-  same way. The squad list, the tag controls and the stat tiles each still have
-  to be resolved at narrow width by judgement, against those rules rather than
-  against a drawing.
+  same way, and 6.3 the squad panels. The tag controls and the stat tiles each
+  still have to be resolved at narrow width by judgement, against those rules
+  rather than against a drawing.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 

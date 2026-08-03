@@ -135,6 +135,25 @@ tackles, duels, dribbles and fouls are parsed by nothing. The API's misspelling
 is reproduced only in [`types.ts`](../src/lib/api-football/types.ts) and
 corrected at the boundary.
 
+### A position is one of four letters, and the designs ask for more
+
+`MatchSquad.position` only ever holds `G`, `D`, `M` or `F`. Both endpoints agree
+on that vocabulary — `player.pos` on `/fixtures/lineups`, `games.position` on
+`/fixtures/players` — and [`squad.test.ts`](../src/lib/squad.test.ts) asserts it
+against the captured payload, so a fifth letter fails the suite rather than
+reaching a page as a blank column.
+
+The reference screenshots label players `RB`, `CB`, `AM`, `LW`. **That data does
+not exist anywhere in the provider's responses.** `grid` carries enough to guess
+a side, and the guess is deliberately not made: the column convention is
+unverified against ground truth, and a wrong one prints a confident falsehood
+about a real player. The match page expands the four letters to
+`GK`/`DEF`/`MID`/`FWD` and infers nothing.
+
+`grid` itself is a `"row:column"` **string** and has to be parsed into two
+integers before it is compared. Sorted as text it puts row 10 ahead of row 2 —
+which no captured fixture reaches, so nothing would catch it in passing.
+
 ### Anything a page needs from a round string lives in `src/lib/rounds.ts`
 
 `Match.round` holds API-Football's own label, `"Regular Season - 1"`, and the
@@ -289,7 +308,17 @@ are written unprefixed-then-`md:`. Read it before writing markup, the same way a
 the rest of the file.
 
 `--row-h-lg` means the same rows, below `md`. Anything tappable follows
-`h-(--row-h-lg) md:h-(--row-h)`.
+`h-(--row-h-lg) md:h-(--row-h)`. A row that later slices will put controls into
+takes it as `min-h-` instead, so it can grow without the height being restated.
+
+**A two-column screen nests its columns rather than auto-placing into a grid.**
+The match page draws four panels — each club's starting eleven and its bench.
+Dropping all four into one `md:grid-cols-2` puts the home bench in the away
+column, and below `md` stacks them home XI → away XI → home bench → away bench,
+which reads as nothing at all. A `<div>` per club, each holding that club's two
+panels, gives the drawn desktop layout *and* a narrow layout of one whole club
+followed by the other. Any later screen pairing two of something wants the same
+shape.
 
 ### Things the toolchain does that the source does not show
 
