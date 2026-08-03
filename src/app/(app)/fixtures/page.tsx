@@ -6,7 +6,7 @@ import { FixtureCard } from '@/components/fixture-card'
 import { LeagueTabs } from '@/components/league-tabs'
 import { MatchdayPager } from '@/components/matchday-pager'
 import { PageHeader } from '@/components/page-header'
-import { StatTiles } from '@/components/stat-tiles'
+import { FIXTURE_TILES, StatTiles } from '@/components/stat-tiles'
 
 /**
  * Render on every request rather than once during `next build`.
@@ -53,7 +53,7 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
         {/* The tiles are drawn on this branch too. A page that hid its tallies
             while saying the database is empty would be hiding two different
             failures behind one message. */}
-        <StatTiles totals={totals} />
+        <StatTiles tiles={FIXTURE_TILES} totals={totals} />
         {/* Said out loud rather than rendered as an empty list: a deployment
             pointed at the wrong database should look broken, not merely quiet. */}
         <p className="text-body text-muted">No fixtures in the database for this season.</p>
@@ -85,7 +85,7 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
         Pick a league and matchday, then open any fixture to rate the players.
       </PageHeader>
 
-      <StatTiles totals={totals} />
+      <StatTiles tiles={FIXTURE_TILES} totals={totals} />
 
       {/* Stacked below `md` — the tabs and the pager together need more width
           than a phone has, and wrapping them keeps both at full size rather than

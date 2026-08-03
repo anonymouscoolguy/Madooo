@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-03 (6.6 — counts)
+**Last updated:** 2026-08-03 (7.1 — diary)
 
 ---
 
@@ -21,7 +21,7 @@ fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions — and one without says
-so instead. It sits in a responsive app shell alongside Players, Teams and Diary,
+so instead. It sits in a responsive app shell alongside Players and Teams,
 which exist as placeholders. `/` is a public landing page, now on the same tokens
 as everything else.
 
@@ -47,6 +47,14 @@ anything has been recorded against it. Every tally is the signed-in user's own,
 so a second account sees four zeroes and a page of empty footers. The fixtures
 page is now the screen the design draws.
 
+**And it can be read back.** `/diary` is no longer a placeholder: every
+judgement of the season, newest first, cut into calendar months with a count
+against each, over four tiles and a row of filter pills that live in the URL.
+An entry is dated by **when it was written**, not by when the match was played —
+agreed explicitly, and the reason the fixture is named on every row. A note with
+no tag is an entry too, drawn with a fourth badge in the informational blue that
+exists nowhere in the database. Its scoreline links back to the match.
+
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
 it, remembered across visits. Clerk's own modals follow it too.
@@ -67,7 +75,7 @@ it, remembered across visits. Clerk's own modals follow it too.
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
-  fixtures page as intended. The tokens are now CSS, in
+  fixtures page and the diary as intended. The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
@@ -157,8 +165,14 @@ says when it has nothing to show is part of the slice, not a later pass.
         have no drawing at all, so the long-term remark stays.
 - [ ] **7 — Diary, players and teams.** Queries over what step 6 wrote, plus the
       two destinations the sidebar adds.
-  - [ ] **7.1 — Diary.** Judgements reverse-chronological, dated, grouped by
-        match.
+  - [x] **7.1 — Diary.** Done, and grouped by **month** rather than by match,
+        which is what the reference screenshots turned out to draw. Ordered by
+        `Judgement.createdAt`; the schema's `@@index([userId, createdAt])` has
+        been waiting for this query since step 2. `StatTiles` became generic over
+        its key union so `/fixtures` and `/diary` share one set of markup.
+        Deliberately absent: player names are not links, because 7.2 is what they
+        would point at, and there is no pager — a season's entries are bounded by
+        how much one person typed, and the design draws none.
   - [ ] **7.2 — Player profile.** One player's judgements across matches,
         linked from every squad list.
   - [ ] **7.3 — Players index.** The sidebar's Players destination, linking
@@ -190,10 +204,11 @@ empty list is the expected state.
   the frame's rules and wrote them into `foundations.md`'s `### Responsive`
   section, but that settles the frame alone. Every screen since has resolved its
   own narrow layout by judgement against those rules — 6.2 the fixture card, 6.3
-  the squad panels, 6.4 the tag controls, 6.6 the stat tiles — and step 6 has now
-  run out of drawn screens to do it to. Step 7's have no desktop drawing either,
-  so they are designed at both widths at once, and this constraint binds harder
-  there rather than less.
+  the squad panels, 6.4 the tag controls, 6.6 the stat tiles, 7.1 the diary
+  entry, whose date moves above the badge below `md` because 85px of monospace
+  beside a player and a fixture does not fit on a phone. The diary arrived with a
+  desktop drawing, so only half of it had to be invented; 7.2, 7.3 and 7.4 have
+  no drawing at either width, and are designed at both at once.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 

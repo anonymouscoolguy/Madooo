@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { dateRange, kickoffDate, kickoffTime } from './dates'
+import { dateRange, entryDate, groupByMonth, kickoffDate, kickoffTime, monthLabel } from './dates'
 import { roundNumber } from './rounds'
 import type { ApiFootballEnvelope, RawFixture } from './api-football/types'
 
@@ -123,5 +123,87 @@ describe('dateRange', () => {
     )
     if (single === undefined) return
     expect(dateRange(single.first, single.last)).toMatch(/^\d{1,2} [A-Z][a-z]{2}$/)
+  })
+})
+
+describe('entryDate', () => {
+  it('is a day, a three-letter month and a two-digit year, all season', () => {
+    for (const { kickoff } of played) {
+      expect(entryDate(kickoff), kickoff.toISOString()).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{2}$/)
+    }
+  })
+
+  it('crosses the new year the season crosses', () => {
+    // A Premier League season runs August to May, so both years are real and the
+    // two-digit year is doing work rather than repeating itself.
+    const years = new Set(played.map(({ kickoff }) => entryDate(kickoff).split(' ')[2]))
+    expect(years.size).toBe(2)
+  })
+})
+
+describe('monthLabel', () => {
+  it('spells the month out in full, beside a four-digit year', () => {
+    for (const { kickoff } of played) {
+      expect(monthLabel(kickoff), kickoff.toISOString()).toMatch(/^[A-Z][a-z]{2,8} \d{4}$/)
+    }
+  })
+
+  it('reads the London calendar, not UTC', () => {
+    /*
+      Constructed rather than found, and deliberately: the payload cannot supply
+      this case. Premier League kickoffs top out at 20:00 UK, which is 19:00 UTC
+      at the latest, so no fixture in the season falls on a different date in the
+      two zones. The claim under test is about the formatter's zone, not about
+      the provider's shape, so a real fixture would prove nothing here.
+
+      30 September, 23:30 UTC is 1 October, 00:30 in London — British Summer Time
+      is still in force that week.
+    */
+    const lateSeptember = new Date('2025-09-30T23:30:00Z')
+    expect(monthLabel(lateSeptember)).toBe('October 2025')
+  })
+})
+
+describe('groupByMonth', () => {
+  /** The season's fixtures newest first — the order the diary's query returns. */
+  const newestFirst = [...played].sort((a, b) => b.kickoff.getTime() - a.kickoff.getTime())
+
+  it('keeps every item exactly once', () => {
+    const grouped = groupByMonth(newestFirst, (entry) => entry.kickoff)
+    expect(grouped.flatMap((month) => month.items)).toEqual(newestFirst)
+  })
+
+  it('puts a month in one group, not several', () => {
+    const labels = groupByMonth(newestFirst, (entry) => entry.kickoff).map((month) => month.label)
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
+  it('labels each group with the month all its items are in', () => {
+    for (const month of groupByMonth(newestFirst, (entry) => entry.kickoff)) {
+      for (const item of month.items) expect(monthLabel(item.kickoff)).toBe(month.label)
+    }
+  })
+
+  it('is empty for an empty list', () => {
+    expect(groupByMonth([], (entry: { kickoff: Date }) => entry.kickoff)).toEqual([])
+  })
+
+  it('cuts a new group whenever the month changes, sorting nothing', () => {
+    /*
+      The documented precondition, asserted rather than assumed: handed an
+      unsorted list it produces two groups with the same label, in the order it
+      was given. That is the behaviour that makes it safe to put a Postgres
+      `ORDER BY` in charge of the order — and it is why a caller must never hand
+      it something it has not sorted.
+    */
+    const august = played.find((entry) => monthLabel(entry.kickoff).startsWith('August'))!
+    const may = played.find((entry) => monthLabel(entry.kickoff).startsWith('May'))!
+    const grouped = groupByMonth([august, may, august], (entry) => entry.kickoff)
+
+    expect(grouped.map((month) => month.label)).toEqual([
+      monthLabel(august.kickoff),
+      monthLabel(may.kickoff),
+      monthLabel(august.kickoff),
+    ])
   })
 })

@@ -103,15 +103,43 @@ notes are folded in JavaScript, by `countVerdicts` and `countNotes` in
 [`verdicts.ts`](../src/lib/verdicts.ts) — the rows are already in hand and bounded
 by how much one user judged one match.
 
-**Season totals go the other way**: `seasonTotals` is four `count`s under a
-`Promise.all`, because a season's judgements are unbounded and the page wants the
-numbers rather than the rows. A judgement reaches its season through two
+**Season totals go the other way**: `seasonTotals` and `diaryTotals` are each
+four `count`s under a `Promise.all`, because a season's judgements are unbounded
+and neither page wants the rows. A judgement reaches its season through two
 relations — `matchSquad.match.season` — since `Judgement` points at a
 `MatchSquad` and carries no match of its own.
+
+Three of those four counts are the same on both pages and are deliberately not
+shared. The screens differ in the first tile — `/fixtures` counts *matches
+watched*, `/diary` counts *entries written* — so one function returning five
+numbers would make each caller pay for the other's question and throw a count
+away. A third screen wanting these three is the point at which extracting them
+earns its keep.
 
 **"Watched" is a match this user has recorded anything against**, tag or note.
 A query over `Match`, never a column on it: nothing marks a match as watched, and
 having had something to say about one is the only evidence there is.
+
+### The diary is ordered by when an entry was written
+
+`diaryEntries` sorts on `Judgement.createdAt` descending, not on the kickoff of
+the match being judged, and that is a product decision rather than a convenience:
+a diary entry is dated by the act of writing it. The consequence to hold onto is
+that two verdicts on one match recorded a fortnight apart sit a fortnight apart
+in the list, which is why every row names its fixture.
+
+`@@index([userId, createdAt])` on `Judgement` is exactly that query's index. It
+has been in the schema since step 2 and had no reader until the diary; anything
+later that pages a user's judgements should sort the same way rather than adding
+a second index. `id` breaks ties, because two judgements saved in the same
+millisecond would otherwise come back in whatever order Postgres liked.
+
+Cutting the sorted run into months is `groupByMonth` in
+[`dates.ts`](../src/lib/dates.ts), which walks the list once and **never sorts**.
+That is what keeps the `ORDER BY` the single opinion about order. It lives in
+`dates.ts` rather than beside the screen because "which calendar month is this
+in" is answered by the fixed `Europe/London` zone that file owns, and a second
+file holding an opinion about the zone is one too many.
 
 ### The connection strings pin `sslmode=verify-full`
 
@@ -483,6 +511,27 @@ The chips' selected classes are written out one verdict at a time rather than
 built from the tag. **Tailwind finds class names by scanning source as text**, so
 a name assembled at runtime is one it never sees and never generates CSS for.
 This applies to every future tinted thing, not just these.
+
+**`NOTE` is a fourth badge over a three-value enum.** `JudgementTag` has three
+members and the diary draws four badges: a judgement carrying a note and no tag
+is a valid row, and it is rendered in the informational blue with `edit_note` —
+the same distinction that keeps notes out of the match page's header counts. The
+key type is `JudgementTag | 'NOTE'`, a local union in
+[`diary-entry.tsx`](../src/components/diary-entry.tsx). Nothing named `NOTE`
+reaches the database, and nothing should: the reference screenshots have no
+example of this case, so it is a drawing decision, not a schema one.
+
+**`--text-body-lg` is for a note that is the content**, not an annotation on
+something. `foundations.md` names the diary as the case, and the diary is its
+only use in product code: on a squad row the same text is `--text-body` in
+`--text-muted`, indented under the name, so the row stays a row. A note's size is
+a fact about where it is read.
+
+**A screen's stat tiles are one component and two tables.** `StatTiles` is
+generic over the union of keys it reads — `StatTiles<K extends string>` with
+`Record<K, number>` totals — so `/fixtures` and `/diary` draw the same four boxes
+over different numbers and a tile naming a key its totals lack is a compile error
+rather than a blank. A third screen adds a table, not a component.
 
 **A two-column screen nests its columns rather than auto-placing into a grid.**
 The match page draws four panels — each club's starting eleven and its bench.
