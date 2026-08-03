@@ -31,8 +31,16 @@ function Row({ entry }: { entry: SquadEntry }) {
 
       A fixed 2rem first column keeps every shirt number on the same right edge
       however many digits it has, which is the whole reason it is monospaced.
+
+      **Which column takes the free space is what places the position label.** At
+      `md` it is the position's own column, so the name is sized to its content
+      and the label sits directly beside it, as the design draws it. Below `md`
+      it is the name's, which pushes the label to the right-hand edge — right
+      there, because the controls have moved off this line and the edge is empty.
+      The name truncates in both, since `truncate` sets `overflow: hidden` and a
+      grid item with that can shrink below its own content.
     */
-    <li className="grid min-h-(--row-h-lg) grid-cols-[2rem_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2 md:grid-cols-[2rem_1fr_auto_auto]">
+    <li className="grid min-h-(--row-h-lg) grid-cols-[2rem_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2 md:grid-cols-[2rem_auto_1fr_auto]">
       <span className="text-right text-data text-muted">{entry.shirtNumber ?? '—'}</span>
       <span className="truncate text-body">{entry.player.name}</span>
       {position ? <span className="text-caps text-faint">{position}</span> : null}
