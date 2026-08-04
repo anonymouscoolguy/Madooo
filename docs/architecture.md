@@ -8,6 +8,33 @@ what is next, and what is still undecided is in [`roadmap.md`](roadmap.md); the
 binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
 [`design/foundations.md`](design/foundations.md).
 
+## Contents
+
+- [Database and Prisma](#database-and-prisma)
+  - [How the database is addressed](#how-the-database-is-addressed)
+  - [Prisma 7 differs from most writing about it](#prisma-7-differs-from-most-writing-about-it)
+  - [Two columns are seeded by hand and never synced](#two-columns-are-seeded-by-hand-and-never-synced)
+  - [A relation can be counted whole and read filtered in one query](#a-relation-can-be-counted-whole-and-read-filtered-in-one-query)
+  - [The diary is ordered by when an entry was written](#the-diary-is-ordered-by-when-an-entry-was-written)
+  - [The connection strings pin `sslmode=verify-full`](#the-connection-strings-pin-sslmodeverify-full)
+- [Sync and the provider boundary](#sync-and-the-provider-boundary)
+  - [What the API does that its own docs do not say](#what-the-api-does-that-its-own-docs-do-not-say)
+  - [What is deliberately unmapped](#what-is-deliberately-unmapped)
+  - [A position is one of four letters, and the designs ask for more](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more)
+  - [Anything a page needs from a round string lives in `src/lib/rounds.ts`](#anything-a-page-needs-from-a-round-string-lives-in-srclibroundsts)
+  - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
+  - [Scheduling the sync is an unsolved problem, not an unstarted one](#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one)
+- [Auth and routing](#auth-and-routing)
+- [Writing data](#writing-data)
+- [Design tokens and CSS](#design-tokens-and-css)
+  - [Responsive rules are in `foundations.md` and are binding](#responsive-rules-are-in-foundationsmd-and-are-binding)
+  - [A selected verdict chip has no hover state, and that is the decision](#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision)
+  - [The dialog is the platform's, and the textarea is the first field](#the-dialog-is-the-platforms-and-the-textarea-is-the-first-field)
+  - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
+  - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
+- [The app shell](#the-app-shell)
+- [Build and deploy](#build-and-deploy)
+
 ---
 
 ## Database and Prisma
