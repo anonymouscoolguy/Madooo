@@ -107,8 +107,9 @@ The rule: **if it is a number you can add up, it is monospaced.**
 | `--text-label` | 500 · 13px · 1.25 · Archivo | 0 | Buttons, tabs, fixture lines |
 | `--text-caption` | 400 · 12px · 1.25 · Archivo | 0 | Sub-labels, meta |
 | `--text-caps` | 700 · 11px · 1.25 · Archivo | `+0.08em`, uppercase | Micro-labels: COMPETITION, STARTING XI |
-| `--text-stat` | 700 · 32px · 1.1 · JetBrains Mono | `-0.02em` | Stat tile numbers |
+| `--text-stat` | 700 · 32px · 1.1 · JetBrains Mono | `-0.02em` | Stat tile numbers, the 64px shirt tile |
 | `--text-score` | 700 · 40px · 1.1 · JetBrains Mono | `-0.02em` | The match page's scoreline |
+| `--text-tally` | 700 · 20px · 1.1 · JetBrains Mono | `-0.02em` | The 40px shirt tile, in a list row |
 | `--text-data` | 500 · 13px · 1.25 · JetBrains Mono | 0 | Shirt numbers, dates, counts |
 
 Sizes available: 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 56.
@@ -207,6 +208,22 @@ A **pill tab** (28px, `--radius-pill`) chooses the *scope the screen is drawn fo
 
 Both wrap rather than scrolling sideways, because a horizontal scroller hides its own overflow.
 
+### A pill chooses a scope; a select narrows what is already on screen
+
+The league is a pill row on `/fixtures` and a `<select>` on `/players`, and this is why that is not two vocabularies for one idea.
+
+A **pill** names the scope the server drew the page for. It is a fact about which page you are on, it shows every option at once, and there is nothing else beside it. A **select** sits in a **filter row** — a search box, one or two dropdowns, and any control that changes how the same list is drawn — and narrows what has already been fetched. Those controls have to read as one set, and a pill among them would claim a different rank than the things beside it.
+
+The test is what the control changes, not what it names: a select never decides what the server queried, and a pill never appears in a filter row. A filter row is also the only place a select belongs — one on its own is a pill, or a tab.
+
+### The filter row
+
+A row of controls over a list, all at `--control-h` (`--control-h-lg` below `md`), wrapping rather than scrolling. The search field grows; the selects take a fixed width at `md` and up and share the remaining width below it.
+
+Fields — text inputs and selects — take `--radius-md`, a `--border` outline on `--surface`, and **the field focus treatment rather than the ring**: see Interaction states. A select carries `expand_more` in `--text-muted`; a search field carries `search` in `--text-faint`, at the 18px size fields get. Both hide their platform appearance so the closed box matches the field beside it, and a select stays a **native** control underneath — the keyboard behaviour, the type-ahead and the phone's own wheel are not worth rebuilding.
+
+A **segmented toggle** ends the row: two or three icon buttons, square at the control height, `--radius-md`. The selected one fills with `--surface-inverse`, as a selected pill does. Its glyph does **not** take `FILL 1` — the fill axis means "on" for the states listed under Iconography, and the inverse fill already says it here.
+
 Borders: `--border-w 1px`, `--border-w-strong 2px`.
 
 ---
@@ -270,8 +287,10 @@ Nothing else animates. No bounce, no spring, no scale-in, no page transitions, n
 
 Sizes: 14 in badges and micro-labels, 16 in chips, 18 in buttons and fields, 20 default, 22 for large icon buttons. Icons inherit `currentColor` and are never given their own colour except through the element holding them.
 
-Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
+Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `view_list` and `grid_view` (the layout toggle), `menu` (the drawer), `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
 (the referee's whistle).
+
+The list that binds is `ICON_NAMES` in `src/components/icon-names.ts`, which is both the type `<Icon>` accepts and the subset request the font is fetched with. This paragraph is its prose companion and can fall behind it; the array cannot.
 
 **No emoji, no unicode glyphs as icons, no hand-drawn SVG.** If a glyph does not exist in Material Symbols, use a word.
 

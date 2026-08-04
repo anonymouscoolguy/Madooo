@@ -2,6 +2,7 @@ import { Icon } from './icon'
 import type { IconName } from './icon-names'
 import type { DiaryTotals } from '@/lib/diary'
 import type { SeasonTotals } from '@/lib/fixtures'
+import type { PlayersTotals } from '@/lib/players'
 import type { VerdictCounts } from '@/lib/verdict-split'
 
 /**
@@ -85,6 +86,26 @@ export const PLAYER_TILES: readonly Tile<keyof VerdictCounts>[] = [
   { key: 'mvps', icon: 'star', label: 'MVPs', ink: 'text-mvp' },
   { key: 'standouts', icon: 'trending_up', label: 'Standouts', ink: 'text-standout' },
   { key: 'flops', icon: 'trending_down', label: 'Flops', ink: 'text-flop' },
+]
+
+/**
+ * `/players`: what this reader has given out across the season.
+ *
+ * **The only row of the four with no count of the list beneath it.** The other
+ * three open with a tally of what you are looking at — matches watched, entries
+ * written, a player's own watched count. This list is the league, so counting it
+ * would report a fact about the database rather than about the reader. The
+ * design's own first tile said "TRACKED 18" over a list of judged players; once
+ * the list became every player, that number stopped describing it, and the row
+ * is four things the user did instead.
+ *
+ * `text-caps` uppercases, so "MVPs given" renders "MVPS GIVEN" as drawn.
+ */
+export const PLAYERS_TILES: readonly Tile<keyof PlayersTotals>[] = [
+  { key: 'mvps', icon: 'star', label: 'MVPs given', ink: 'text-mvp' },
+  { key: 'standouts', icon: 'trending_up', label: 'Standouts', ink: 'text-standout' },
+  { key: 'flops', icon: 'trending_down', label: 'Flops', ink: 'text-flop' },
+  { key: 'notes', icon: 'edit_note', label: 'Notes', ink: 'text-info' },
 ]
 
 type Props<K extends string> = {

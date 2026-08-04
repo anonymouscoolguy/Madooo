@@ -24,6 +24,7 @@ export const ICON_NAMES = [
   'delete',
   'edit_note',
   'expand_more',
+  'grid_view',
   'groups',
   'how_to_reg',
   'light_mode',
@@ -42,12 +43,13 @@ export const ICON_NAMES = [
   'trophy',
   'two_pager',
   'view_agenda',
+  'view_list',
   'visibility',
 ] as const
 
 /**
  * `as const` above makes the array readonly and narrows each element to its own
- * literal type rather than `string`, so this is a union of the 30 exact names.
+ * literal type rather than `string`, so this is a union of the 32 exact names.
  * A typo in `<Icon name="stadiun" />` is then a compile error instead of a blank
  * square nobody notices until it ships.
  */

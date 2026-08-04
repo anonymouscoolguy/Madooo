@@ -15,6 +15,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [Prisma 7 differs from most writing about it](#prisma-7-differs-from-most-writing-about-it)
   - [Two columns are seeded by hand and never synced](#two-columns-are-seeded-by-hand-and-never-synced)
   - [A relation can be counted whole and read filtered in one query](#a-relation-can-be-counted-whole-and-read-filtered-in-one-query)
+  - [Prisma resolves `distinct` and a nested `take` in Node, so "latest row per group" is raw SQL](#prisma-resolves-distinct-and-a-nested-take-in-node-so-latest-row-per-group-is-raw-sql)
   - [The diary is ordered by when an entry was written](#the-diary-is-ordered-by-when-an-entry-was-written)
   - [The connection strings pin `sslmode=verify-full`](#the-connection-strings-pin-sslmodeverify-full)
 - [Sync and the provider boundary](#sync-and-the-provider-boundary)
@@ -25,11 +26,12 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
   - [Scheduling the sync is an unsolved problem, not an unstarted one](#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one)
 - [Auth and routing](#auth-and-routing)
+  - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
 - [Writing data](#writing-data)
 - [Design tokens and CSS](#design-tokens-and-css)
   - [Responsive rules are in `foundations.md` and are binding](#responsive-rules-are-in-foundationsmd-and-are-binding)
   - [A selected verdict chip has no hover state, and that is the decision](#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision)
-  - [The dialog is the platform's, and the textarea is the first field](#the-dialog-is-the-platforms-and-the-textarea-is-the-first-field)
+  - [The dialog is the platform's, and so are the fields](#the-dialog-is-the-platforms-and-so-are-the-fields)
   - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
 - [The app shell](#the-app-shell)
@@ -173,6 +175,45 @@ his most recent squad row of the season, `take: 1` after ordering by
 `match.kickoff` — which is what makes a January transfer show the club he is at
 now. The list comes back empty for a player with no squad row that season, which
 is reachable by typing a URL and is a state the page has to draw.
+
+### Prisma resolves `distinct` and a nested `take` in Node, so "latest row per group" is raw SQL
+
+`/players` needs that same club-and-shirt lookup for every player at once, and
+that is where the idiom stops scaling. Both Prisma spellings of it were run
+against the real database with `log: ['query']` and their SQL read back:
+
+- `matchSquad.findMany({ distinct: ['playerId'] })` dedupes **in the query
+  engine**, not in Postgres — `@prisma/query-plan-executor` has an
+  `InMemoryOps.distinct` node that filters rows already fetched.
+- `player.findMany` with a nested `take: 1` does the same thing less obviously.
+  The child query it emits carries **no `LIMIT`, no `LATERAL` and no
+  `ROW_NUMBER`**: it selects every squad row for every matched player and keeps
+  the first in memory. `relationLoadStrategy: 'join'`, which used to force a
+  LATERAL, is rejected outright by Prisma 7.
+
+Postgres would do this with `DISTINCT ON`, and Prisma cannot emit it, because the
+distinct column has to lead the `ORDER BY` and the order wanted is
+`match.kickoff` — a column on a joined table. So `playersInSeason` in
+[`players.ts`](../src/lib/players.ts) is `$queryRaw`, the **only** raw SQL in the
+app. `$queryRaw` is a tagged template and binds its parameters; `$queryRawUnsafe`
+does not and has no business here. The generic on it is an assertion rather than
+a check: raw SQL bypasses Prisma's mapping, so the column names are the
+database's own — safe while no model carries `@map`, and silently wrong the day
+one does.
+
+**Development cannot show you any of this.** With one round hydrated there is
+exactly one squad row per player, so all three forms return 400 rows and only the
+emitted SQL tells them apart; a full season is ~15,200 rows fetched to keep ~600,
+on every request of a `force-dynamic` page. `defaultRound`'s `distinct: ['round']`
+in [`fixtures.ts`](../src/lib/fixtures.ts) is the same in-memory dedupe and is
+harmless at 380 tiny rows — it is not a precedent to copy at scale.
+
+**The counterpart is that a judgement cannot be grouped by its player at all.**
+`Judgement` points at a `MatchSquad`, so `playerId` is a column on the relation
+rather than on the row, and `groupBy` cannot reach it. One `groupBy` per player
+would be six hundred queries, so `/players` reads the user's own judgements as
+rows and folds them in JavaScript — bounded by how much one person typed, the
+same bound the diary accepts for having no pager.
 
 ### The diary is ordered by when an entry was written
 
@@ -371,6 +412,45 @@ to the screen the reader actually left rather than to an unparameterised one.
 `playerHref` does the `encodeURIComponent`, once, because a `from` carrying
 `?filter=mvp` has to survive being a value inside another query string.
 
+### A location goes in the URL; a preference goes in `localStorage`
+
+`/players` is the first screen whose state is not in the URL, and the distinction
+that admits it is the one to apply to anything later.
+
+A **location** answers *what am I looking at* — `?matchday=6`, `?filter=mvp`,
+`?view=notes`. It belongs in the URL, which is what keeps those pages server
+components and makes them linkable and reachable with the back button.
+
+A **preference** answers *how do I like this drawn* — rows or cards, which sort,
+which league to narrow to. Nobody bookmarks Grid, and the URL is the one store
+that does **not** survive closing the tab, so a preference put there is forgotten
+between visits and clutters a link that was never about it. `/players` keeps its
+three in `localStorage` and its search box in React state, since a search term is
+neither: it is worth nothing on the next visit.
+
+The cost is stated plainly because it is real: the server cannot read
+`localStorage`, so the page is a client island and **the first paint shows the
+default** before React re-renders with the stored choice. The theme toggle avoids
+that with an inline script in the document head, which works because a theme is
+one attribute and CSS does the rest; nothing can do it for a preference that
+reorders a list.
+
+**The hook is `useSyncExternalStore`, and the three obvious alternatives are all
+wrong.** `useState` seeded from storage renders one thing on the server and
+another in the browser — a hydration mismatch; seeding it in an effect paints the
+default first *and* is rejected by `react-hooks/set-state-in-effect`; reading
+storage during render is the first problem again. `useSyncExternalStore` takes a
+separate server snapshot, so the two renders agree by construction. Two things it
+requires: `getSnapshot` must return a **primitive**, since React compares it with
+`Object.is` and a fresh object each call loops forever; and the `storage` event
+fires only in *other* documents, so a writer has to notify its own listeners.
+Both are in [`use-preference.ts`](../src/components/use-preference.ts).
+
+A stored value is **exactly as untrusted as a URL parameter** — it outlives
+deploys, it is editable in devtools, and it can name a league that no longer has
+squads. So every one of them goes through a `parse*` that falls back, in the same
+table-plus-parser shape `diary-filters.ts` established for the URL.
+
 `src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
 row for everything below it. Nothing there renders anything from the result —
 Clerk supplies the name in the sidebar — so the call is purely the upsert plus
@@ -548,14 +628,21 @@ line-height, tracking — and a `text-title` that left the weight to the caller
 would be a different design.
 
 **A role is added when a screen needs a size the scale does not have, not when a
-screen wants one.** `text-score` — 40px monospaced — is the only one added so
-far: foundations mandates monospace for a number you can add up but sizes no
-scoreline, and the two nearest roles were both wrong for it. `text-stat` is 32px,
-which beside a 24px club name is too small a step for the scoreline to read as
-the subject of the page; `text-display` is 40px but sans, so it would break the
-mono rule to get the size. The alternative was `text-[40px]` at the call site,
-which is a raw px in product code — the one thing the token system exists to
-prevent.
+screen wants one.** Two have been added, and both were the same shape of problem:
+foundations mandates monospace for a number you can add up, and its mono scale
+has three sizes with large gaps between them.
+
+- `text-score` — 40px — because `text-stat`'s 32px beside a 24px club name is too
+  small a step for a scoreline to read as the subject of the page, and
+  `text-display` is 40px but sans, so it would break the mono rule to get the size.
+- `text-tally` — 20px — because the shirt tile has two sizes, 64px on a profile
+  and 40px in a list row, and the 40px one has nothing to hold: `text-stat` puts
+  two digits against the edges and `text-data`'s 13px reads as a caption on a
+  colour swatch. 20-in-40 is the ratio the existing 32-in-64 tile has, which is
+  what makes the two read as one object at two scales.
+
+The alternative in both cases was `text-[40px]` at the call site — a raw px in
+product code, the one thing the token system exists to prevent.
 
 ### Responsive rules are in `foundations.md` and are binding
 
@@ -679,15 +766,27 @@ leaving a selected tab on the first row detached from it. Wrapping rather than
 scrolling sideways is 6.1b's decision and survives the change.
 
 **A proportional bar takes an inline width, and that is not a token breach.** The
-profile's split bar sizes its segments from the database, so no semantic token
-could ever express the value — and Tailwind could not generate the class anyway,
-since it finds names by scanning source text and `w-[47%]` is assembled at
-runtime. The bar's track is `--surface-sunken` and the unrated remainder is **the
-track showing through** rather than a fourth filled box, which is what the design
-draws and also means three rounded widths cannot leave a gap at the right-hand
-end. The segments take the verdict *ink* tokens rather than the `--*-mark` trio,
-which foundations scopes to a glyph on an inverse surface; the ink also makes each
-segment exactly the colour of the legend label beneath it.
+split bar sizes its segments from the database, so no semantic token could ever
+express the value — and Tailwind could not generate the class anyway, since it
+finds names by scanning source text and `w-[47%]` is assembled at runtime. The
+bar's track is `--surface-sunken` and the unrated remainder is **the track showing
+through** rather than a fourth filled box, which is what the design draws and also
+means three rounded widths cannot leave a gap at the right-hand end. The segments
+take the verdict *ink* tokens rather than the `--*-mark` trio, which foundations
+scopes to a glyph on an inverse surface; the ink also makes each segment exactly
+the colour of the legend label beneath it.
+
+`SplitBar` and `SplitLegend` in [`split-bar.tsx`](../src/components/split-bar.tsx)
+are the drawn parts; `VerdictSplit` is the profile's card around them, and a
+players-index row draws the bar alone. **The bar is `aria-hidden` and carries the
+crest chip's contract: whatever holds it has to name it.** In the card the legend
+below states every count as text, so a bar announcing its own numbers would say
+the whole thing twice; in a row there is no legend, so the row supplies an
+`sr-only` sentence. The bar cannot know which of the two it is in, which is why
+the obligation sits on the caller. Which segments a legend draws is the caller's
+decision too — a profile passes all four, a grid card passes the three that are
+verdicts, because `unrated` only reads as "watched him and said nothing" where the
+watched count is on screen beside it.
 
 **A two-column screen nests its columns rather than auto-placing into a grid.**
 The match page draws four panels — each club's starting eleven and its bench.
@@ -715,7 +814,7 @@ a hole above "Your verdicts". The match page asks for `grid-rows-[auto_auto]`.
 Equal columns are wanted and equal rows are not, and the two read almost
 identically in the markup.
 
-### The dialog is the platform's, and the textarea is the first field
+### The dialog is the platform's, and so are the fields
 
 The note dialog in [`player-controls.tsx`](../src/components/player-controls.tsx)
 is a native `<dialog>` opened with `showModal()`, not a hand-rolled overlay: the
@@ -751,7 +850,28 @@ anything fixed inside it would resolve against `<main>` rather than the viewport
   the element changing size and shifting the layout. That is the `focus-field`
   utility, and it is written `focus:` rather than `focus-visible:` — a field is
   focused in order to be typed in, so the state is real however the caret got
-  there.
+  there. It applies to all three fields the app now has.
+
+The players index added the other two — a text input and a `<select>`, in
+[`search-field.tsx`](../src/components/search-field.tsx) and
+[`select-field.tsx`](../src/components/select-field.tsx) — and they take the same
+"use the platform" line:
+
+- **The select is native.** Keyboard behaviour, type-ahead, the wheel a phone
+  shows instead of a menu, and the popup's own light or dark rendering all arrive
+  for nothing, the last of them because `color-scheme` already re-points the
+  browser's form controls. `appearance-none` removes the platform arrow so the
+  closed box matches the field beside it; the open popup stays the platform's,
+  which is the part that cannot be restyled and the part not worth rebuilding.
+- **Both wrap their label rather than pointing at it with `htmlFor`**, so neither
+  carries an `id`. An `id` baked into a shared component collides the moment two
+  of them share a page, which 8.2 makes likely — it puts a search field in the
+  top bar above whatever the screen already has. That is also why both were built
+  general rather than inside `players-browser.tsx`.
+- **Neither carries `'use client'`.** A module imported by a client component
+  joins the client graph on its own; the directive marks an *entry point* to the
+  boundary, and a second one where it is not needed only invites the idea that
+  every client-side file wants one. `icon.tsx` has the same shape.
 
 ### Things the toolchain does that the source does not show
 
@@ -810,11 +930,22 @@ been seen to get *smaller* while gaining a glyph.
 - **A misspelled glyph name fails silently, and nothing in the toolchain catches
   it.** Google answers `200` and leaves the unknown name out of the font; the
   ligature then has no glyph, so the literal word renders — `trophy` in the middle
-  of a sentence. The script's own "30 icons" line is `ICON_NAMES.length`, which is
+  of a sentence. The script's own "32 icons" line is `ICON_NAMES.length`, which is
   what we asked for rather than what came back, so it reports success either way.
-  The cheap proof is arithmetic on the built file: every icon is one codepoint in
-  the private use area, so `len(cmap ≥ 0xE000)` must equal the array's length.
-  It was 28 before this vocabulary last grew and 30 after.
+
+  **Count distinct glyphs, not codepoints.** This entry used to say `len(cmap ≥
+  0xE000)` should equal the array's length; it does not, and never did. Material
+  Symbols gives many icons several private-use codepoints — deprecated names and
+  aliases all mapping to one outline — so a 32-name subset answers with 47 PUA
+  codepoints over 32 distinct glyphs. `len({cmap[c] for c in cmap if c ≥ 0xE000})`
+  is the number that matches.
+
+  The stronger check, and the one worth running, tests the mechanism instead:
+  every name must have a **ligature**, since a ligature is what turns the word
+  `grid_view` into a glyph. Walk `GSUB` — the lookups are `ExtensionSubst`, so
+  unwrap `ExtSubTable` before looking for `ligatures` — rebuild each ligature's
+  input string through the reverse cmap, and assert every entry of `ICON_NAMES`
+  appears. `fontTools` reads `.woff2` directly given `brotli`.
 - The script sends a browser User-Agent on purpose. Google serves the old static
   `Material Icons` font to clients it does not recognise, and that font silently
   has no FILL axis.

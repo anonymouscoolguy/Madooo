@@ -365,7 +365,7 @@
   text-transform: uppercase;
 }
 
-/* The three monospaced roles. If it is a number you can add up, it is one of
+/* The four monospaced roles. If it is a number you can add up, it is one of
    these — scores, tallies, shirt numbers, dates, minute marks. */
 @utility text-stat {
   font-family: var(--font-mono);
@@ -382,6 +382,20 @@
 @utility text-score {
   font-family: var(--font-mono);
   font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* The shirt number on a 40px tile, in a list row. The two neighbours are both
+   wrong at that size for the same reason `text-score` was added: `text-stat`'s
+   32px leaves two digits touching the edges of a 40px box, and `text-data`'s
+   13px reads as a caption on a colour swatch rather than as a shirt. 20px is a
+   size foundations already lists, and 20-in-40 is the ratio the profile's
+   existing 32-in-64 tile has — so the two tiles are one object at two scales. */
+@utility text-tally {
+  font-family: var(--font-mono);
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;

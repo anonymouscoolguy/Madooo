@@ -1,5 +1,6 @@
 import { plural } from '@/lib/text'
-import { verdictSplit, type SegmentKey, type VerdictCounts } from '@/lib/verdict-split'
+import { verdictSplit, type VerdictCounts } from '@/lib/verdict-split'
+import { SplitBar, SplitLegend } from './split-bar'
 
 /**
  * "Verdict split" — how a player's watched matches divide between the three
@@ -9,38 +10,11 @@ import { verdictSplit, type SegmentKey, type VerdictCounts } from '@/lib/verdict
  * `--radius-md` with a `--surface-header` strip, so the profile reads as one
  * system with the match page rather than as a dashboard.
  *
- * The arithmetic is in [`verdict-split.ts`](../lib/verdict-split.ts), where it is
- * pure and tested. This file only draws it.
+ * The card is all this file is now. The bar and the badges moved to
+ * [`split-bar.tsx`](./split-bar.tsx) when the players index wanted them without a
+ * card around them; the arithmetic was already in
+ * [`verdict-split.ts`](../lib/verdict-split.ts), where it is pure and tested.
  */
-
-/**
- * Written out per key rather than assembled from it, for the reason Tailwind
- * forces: it finds class names by scanning source text.
- *
- * The **ink** tokens, not the `--*-mark` trio. Foundations scopes those to a
- * glyph on an inverse surface, and the ink is the better answer anyway — each
- * segment then matches the legend label beneath it exactly. Both read at a
- * glance in dark, where the verdict inks lighten rather than staying the light
- * theme's near-black.
- *
- * `Partial` says the thing the type would otherwise hide: **`unrated` has no
- * fill**, because it is the track showing through rather than a box drawn over
- * it. Keying on `SegmentKey` still makes a misspelt segment a compile error.
- */
-const SEGMENT: Partial<Record<SegmentKey, string>> = {
-  mvps: 'bg-mvp',
-  standouts: 'bg-standout',
-  flops: 'bg-flop',
-}
-
-/** Exhaustive, unlike the fills: every segment appears in the legend. */
-const CHIP: Record<SegmentKey, string> = {
-  mvps: 'bg-mvp-bg text-mvp',
-  standouts: 'bg-standout-bg text-standout',
-  flops: 'bg-flop-bg text-flop',
-  unrated: 'bg-surface-sunken text-muted',
-}
-
 export function VerdictSplit({ counts }: { counts: VerdictCounts }) {
   const segments = verdictSplit(counts)
 
@@ -62,49 +36,11 @@ export function VerdictSplit({ counts }: { counts: VerdictCounts }) {
       </header>
 
       <div className="p-4">
-        {/*
-          `aria-hidden`, because every number in it is stated as text in the
-          legend directly below. A bar carrying its own long label would say the
-          whole thing twice.
-
-          The track is `--surface-sunken` and the **unrated segment is the track
-          showing through** rather than a fourth filled box. That is what the
-          design draws, and it also means the three drawn widths cannot leave a
-          rounding gap at the right-hand end.
-        */}
-        <div aria-hidden className="flex h-2 overflow-hidden rounded-sm bg-surface-sunken">
-          {segments.map((segment) => {
-            const fill = SEGMENT[segment.key]
-            if (fill === undefined || segment.count === 0) return null
-
-            return (
-              /*
-                An inline width, which is **data rather than a design value** —
-                the percentage comes out of the database, so no token could
-                express it and foundations' no-raw-values rule is not in play.
-                It is also the only way: Tailwind never sees a class name built
-                at runtime, so `w-[47%]` could not exist.
-              */
-              <span key={segment.key} style={{ width: `${segment.percent}%` }} className={fill} />
-            )
-          })}
-        </div>
-
-        {/* Zeroes are shown, not hidden. A legend that dropped its empty
-            categories would change shape as the season went on, and "0 FLOP" is
-            a fact worth reading. */}
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {segments.map((segment) => (
-            <li
-              key={segment.key}
-              // 20px, foundations' badge — the same object as the one in
-              // `VerdictSummary`, with a count in front of the word.
-              className={`inline-flex h-5 items-center gap-1.5 rounded-sm px-2 text-caps ${CHIP[segment.key]}`}
-            >
-              <span className="font-mono">{segment.count}</span> {segment.label}
-            </li>
-          ))}
-        </ul>
+        {/* All four segments in the legend, including `unrated`: on a profile
+            there is a "watched" number for it to be the remainder of, which is
+            what makes it read as "watched him and said nothing". */}
+        <SplitBar segments={segments} />
+        <SplitLegend segments={segments} className="mt-3" />
       </div>
     </section>
   )

@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-04 (6.3b — the scoreline card)
+**Last updated:** 2026-08-04 (7.3 — the players index)
 
 ---
 
@@ -57,8 +57,18 @@ agreed explicitly, and the reason the fixture is named on every row. A note with
 no tag is an entry too, drawn with a fourth badge in the informational blue that
 exists nowhere in the database. Its scoreline links back to the match.
 
-**And a player has a profile.** Every name in a squad list, in "Your verdicts"
-and in the diary is now a link to one: the club and shirt number he was last
+**And there is a way in to all of them.** `/players` is the season's whole
+matchday-squad roster — every player, not only the judged ones — over four tallies
+of what the reader has given out. A search box finds any of them as it is typed
+in, including a player nobody has ever judged, because the list is held in the
+browser rather than asked for a name at a time. A league filter, five sort orders
+and a rows-or-cards toggle sit beside it, and **those three are remembered between
+visits in `localStorage`** rather than in the URL — the first screen state in the
+app that is not in the address bar. Sixty rows are drawn at a time under a "Show
+more"; the count in the card's header is always the true one.
+
+**And a player has a profile.** Every name in a squad list, in "Your verdicts",
+in the diary and now on the index is a link to one: the club and shirt number he was last
 named under, four tallies, a bar splitting his watched matches between the three
 verdicts and the ones that got none, and his own diary under a Diary/Notes tab
 strip. *Watched* means matches where something was recorded and he was in the
@@ -211,8 +221,24 @@ says when it has nothing to show is part of the slice, not a later pass.
         saying when each of the two tab kinds applies. Deliberately absent: no
         verdict controls — a profile reads a season back, and the place to change
         a verdict is the match it was given in.
-  - [ ] **7.3 — Players index.** The sidebar's Players destination, linking
-        into 7.2.
+  - [x] **7.3 — Players index.** Done, and it is a **directory rather than a
+        diary** — the list is every player with a squad row this season, most of
+        whom have nothing on them. That was a change of scope made during
+        planning, and it took the design's first stat tile with it: "TRACKED"
+        counted judged players, which stopped describing the list, so the row is
+        MVPs / Standouts / Flops / Notes and the subtitle names the league rather
+        than a number. Two desktop drawings arrived with the slice, which is why
+        the standing remark below no longer claims 7.3 has none.
+
+        The slice's own decisions, none of them drawn: the three controls are
+        **preferences and live in `localStorage`**, not the URL, which makes this
+        the app's one client-rendered list and costs a default-first paint; the
+        whole roster ships to the browser, because that is what makes search
+        reach an unjudged player without a round trip; and only 60 rows are
+        drawn at once, since ~600 would stutter on every keystroke — a control
+        the reference does not have. It also cost the app its first raw query.
+        Deliberately absent: no verdict controls, for 7.2's reason, and no
+        server-side search — see the open decision below.
   - [ ] **7.4 — Teams.** A team index and a team profile carrying the user's
         verdicts on that club's players. The one slice here likely to want
         splitting in two.
@@ -246,8 +272,10 @@ empty list is the expected state.
   and the split bar's legend, and 6.3b the scoreline, which stacks below `md`
   because a 320px line leaves about 136px for two 24px club names. The diary, the
   profile and the match page each arrived with a desktop drawing, so only half of
-  each had to be invented; 7.3 and 7.4 have no drawing at either width, and are
-  designed at both at once.
+  each had to be invented; 7.3's two drawings arrived with the slice itself and
+  are desktop-only like the rest, so its filter row, its two-line list row and its
+  card grid were all decided narrow without one. 7.4 has no drawing at either
+  width, and is designed at both at once.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 
@@ -276,6 +304,39 @@ must stay out of the Vercel build, are in
 - Do not test Prisma, Next's rendering, or other third-party code.
 
 ## Open decisions
+
+- **The app now has two conventions for screen state, and the older one may be
+  the wrong default. High priority — a refactor the author may want.** Every
+  screen before 7.3 keeps its state in the URL: `/fixtures?matchday=6`,
+  `/diary?filter=mvp`, `/players/44?view=notes`. 7.3 keeps its three controls in
+  `localStorage` instead, on the argument that they are *preferences* — how the
+  reader likes a list drawn — where the others are *locations*. That distinction
+  is written up in
+  [`architecture.md`](architecture.md#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
+  and it holds; what is open is whether the older screens are on the right side
+  of it.
+
+  The reason to look again: **nothing in the app is shareable.** Diaries are
+  private, single-user, no public profiles — so the URL's main advantage buys
+  nothing today, while its main cost is real, because a filter in the URL is
+  forgotten the moment the tab closes. A reader who always wants MVPs gets the
+  unfiltered diary on every visit. Against moving them: the back button stops
+  undoing a filter change, the pages stop being server components, and a future
+  share feature would want them back in the URL.
+
+  Deliberately not touched in 7.3, which was scoped to one screen. Whoever
+  settles it should decide for the diary's filter and the profile's view tab
+  together, since they are the same question twice.
+
+- **Search is in the browser's memory, and that stops being right somewhere past
+  five leagues.** `/players` ships the season's whole roster — ~15 kB compressed
+  for one league, ~60 kB for five — so a keystroke never waits on the network.
+  At a few thousand players it is still the better trade; well past that, the box
+  should ask Postgres instead. The swap is self-contained: the search field
+  changes where it gets its answers and nothing else moves. It costs a route
+  handler, debouncing, a loading state and out-of-order response handling, and it
+  makes search visibly laggy, which is why it was not built now. *Revisit when a
+  third league is synced.*
 
 - **The club colours have no authority behind them.** Settled in 6.2: codes and
   colours are columns on `Team`, seeded by `npm run db:seed-teams`. The codes are
