@@ -1,7 +1,7 @@
 import { requireDbUser } from '@/lib/auth'
 import { groupByMonth } from '@/lib/dates'
 import { diaryEntries, diaryTotals } from '@/lib/diary'
-import { parseFilter } from '@/lib/diary-filters'
+import { DIARY_FILTERS, parseFilter } from '@/lib/diary-filters'
 import { season } from '@/lib/env'
 import { DiaryEntry } from '@/components/diary-entry'
 import { DiaryTabs } from '@/components/diary-tabs'
@@ -40,6 +40,10 @@ export default async function Diary({ searchParams }: PageProps<'/diary'>) {
   // Postgres already sorted them; this only cuts the run into months. See
   // `groupByMonth` for why it must not sort.
   const months = groupByMonth(entries, (entry) => entry.createdAt)
+
+  // Where a player profile opened from here sends the reader back — the filter
+  // included, so Back returns to the diary they actually left.
+  const from = current.slug === DIARY_FILTERS[0].slug ? '/diary' : `/diary?filter=${current.slug}`
 
   return (
     <>
@@ -81,7 +85,7 @@ export default async function Diary({ searchParams }: PageProps<'/diary'>) {
 
             <ul className="divide-y divide-border border-b border-border">
               {month.items.map((entry) => (
-                <DiaryEntry key={entry.id} entry={entry} />
+                <DiaryEntry key={entry.id} entry={entry} from={from} />
               ))}
             </ul>
           </section>

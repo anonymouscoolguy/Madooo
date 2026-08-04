@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { playerHref } from '@/lib/back'
 import { positionLabel } from '@/lib/squad'
 import { countVerdicts, noteOf, verdictOf } from '@/lib/verdicts'
 import { PlayerControls } from './player-controls'
@@ -13,7 +15,7 @@ import type { SquadEntry } from '@/lib/matches'
  * of it.
  */
 
-function Row({ entry }: { entry: SquadEntry }) {
+function Row({ entry, matchId }: { entry: SquadEntry; matchId: number }) {
   const position = positionLabel(entry.position)
 
   return (
@@ -43,7 +45,19 @@ function Row({ entry }: { entry: SquadEntry }) {
     */
     <li className="grid min-h-(--row-h-lg) grid-cols-[2rem_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2 md:grid-cols-[2rem_auto_1fr_auto]">
       <span className="text-right text-data text-muted">{entry.shirtNumber ?? '—'}</span>
-      <span className="truncate text-body">{entry.player.name}</span>
+      {/*
+        Still one grid child, which the column template depends on — `truncate`
+        moves onto the link itself rather than a wrapper, or the position label's
+        placement at `md` shifts by a column. Ink rather than the link colour, as
+        the design draws it; the base stylesheet's hover underline is the whole
+        of the affordance.
+      */}
+      <Link
+        href={playerHref(entry.player.id, `/matches/${matchId}`)}
+        className="truncate rounded-sm text-body text-text focus-visible:focus-ring"
+      >
+        {entry.player.name}
+      </Link>
       {position ? <span className="text-caps text-faint">{position}</span> : null}
       {/*
         Two grid children, not one: the controls, and — when there is a note —
@@ -75,9 +89,15 @@ type Props = {
    */
   team?: string
   entries: SquadEntry[]
+  /**
+   * Where a player profile opened from this panel sends the reader back. A
+   * prop rather than a field on the row: `SquadEntry` carries no `matchId`, and
+   * the page it is drawn on knows perfectly well which match it is.
+   */
+  matchId: number
 }
 
-export function SquadPanel({ title, team, entries }: Props) {
+export function SquadPanel({ title, team, entries, matchId }: Props) {
   if (entries.length === 0) return null
 
   const verdicts = countVerdicts(entries)
@@ -103,7 +123,7 @@ export function SquadPanel({ title, team, entries }: Props) {
       </header>
       <ul className="divide-y divide-border">
         {entries.map((entry) => (
-          <Row key={entry.id} entry={entry} />
+          <Row key={entry.id} entry={entry} matchId={matchId} />
         ))}
       </ul>
     </section>

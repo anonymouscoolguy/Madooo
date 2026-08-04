@@ -40,7 +40,15 @@ type Squad = ReturnType<typeof splitSquad<SquadEntry>>
  * to fill the row. A bordered list card with blank space under the last player
  * reads as something failing to load.
  */
-function TeamSquad({ team, squad }: { team: MatchTeam; squad: Squad }) {
+function TeamSquad({
+  team,
+  squad,
+  matchId,
+}: {
+  team: MatchTeam
+  squad: Squad
+  matchId: number
+}) {
   const { starters, substitutes } = squad
 
   if (starters.length === 0 && substitutes.length === 0) {
@@ -57,11 +65,12 @@ function TeamSquad({ team, squad }: { team: MatchTeam; squad: Squad }) {
 
   return (
     <div className="flex flex-col gap-4 md:row-span-2 md:grid md:grid-rows-subgrid md:items-start">
-      <SquadPanel title={`${team.name} — Starting XI`} entries={starters} />
+      <SquadPanel title={`${team.name} — Starting XI`} entries={starters} matchId={matchId} />
       <SquadPanel
         title={orphanedBench ? `${team.name} — Substitutes` : 'Substitutes'}
         team={orphanedBench ? undefined : team.name}
         entries={substitutes}
+        matchId={matchId}
       />
     </div>
   )
@@ -152,8 +161,8 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
             are not.
           */}
           <div className="grid gap-4 md:grid-cols-2 md:grid-rows-[auto_auto] md:gap-x-6">
-            <TeamSquad team={match.homeTeam} squad={home} />
-            <TeamSquad team={match.awayTeam} squad={away} />
+            <TeamSquad team={match.homeTeam} squad={home} matchId={match.id} />
+            <TeamSquad team={match.awayTeam} squad={away} matchId={match.id} />
           </div>
           {/* Below both benches and across both clubs, so it is the one place
               that reads as a verdict on the match rather than on a team. The
@@ -162,6 +171,7 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
               and leaves the order inside each group alone. */}
           <VerdictSummary
             entries={[...home.starters, ...home.substitutes, ...away.starters, ...away.substitutes]}
+            matchId={match.id}
           />
         </>
       )}

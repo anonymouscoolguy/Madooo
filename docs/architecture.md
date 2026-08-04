@@ -109,16 +109,43 @@ and neither page wants the rows. A judgement reaches its season through two
 relations — `matchSquad.match.season` — since `Judgement` points at a
 `MatchSquad` and carries no match of its own.
 
-Three of those four counts are the same on both pages and are deliberately not
-shared. The screens differ in the first tile — `/fixtures` counts *matches
-watched*, `/diary` counts *entries written* — so one function returning five
-numbers would make each caller pay for the other's question and throw a count
-away. A third screen wanting these three is the point at which extracting them
-earns its keep.
+The counts are deliberately not shared between the screens, and the third one
+settled it: each of the three tile rows asks a different question. `/fixtures`
+counts *matches watched*, `/diary` counts *entries written*, and a player profile
+counts *matches watched of his* beside an MVP tally nothing else has and no notes
+tally at all. One function returning every number so each caller could throw most
+of them away would make all three pay for the others' questions.
 
 **"Watched" is a match this user has recorded anything against**, tag or note.
 A query over `Match`, never a column on it: nothing marks a match as watched, and
 having had something to say about one is the only evidence there is.
+
+**On a player profile the same word is scoped to him, and that takes two `some`
+clauses rather than one.** `playerTotals` counts matches where the user recorded
+something *and* this player was in the matchday squad, unused substitutes
+included — the app's own rule is that anyone named can be judged. The two
+conditions sit in separate entries under `AND`, because a single
+`{ squadEntries: { some: { playerId, judgements: … } } }` demands one row
+satisfying both and so asks whether the user judged *this player* — a different
+and much smaller number. What is wanted is that he was named and that somebody
+was judged, not necessarily him.
+
+That definition is what makes the profile's split bar mean something: `unrated`
+is `watched` minus the three tags, so it reads as "you watched him and had
+nothing to say", which a count of entries could not express. It also cannot
+overflow — `@@unique([userId, matchSquadId])` and `@@unique([matchId, playerId])`
+between them make a tagged match necessarily a watched one. The arithmetic is in
+[`verdict-split.ts`](../src/lib/verdict-split.ts), kept free of Prisma so it can
+be tested. The query runs against `MatchSquad @@index([playerId])`, in the schema
+since step 2 and unread until now.
+
+**A player's club is a fact about a match, not a column.** `Player` holds a name,
+an unrendered photo URL and API-Football's id; which club he plays for lives on
+`MatchSquad`. A profile therefore reads its club, shirt number and position off
+his most recent squad row of the season, `take: 1` after ordering by
+`match.kickoff` — which is what makes a January transfer show the club he is at
+now. The list comes back empty for a player with no squad row that season, which
+is reachable by typing a URL and is a state the page has to draw.
 
 ### The diary is ordered by when an entry was written
 
@@ -300,7 +327,22 @@ question to check it against.
 two `<Link>`s, no JavaScript ships, and the matchday can be linked to and reached
 with the back button. `searchParams` is a Promise in Next 16 and has to be
 awaited; `PageProps<'/fixtures'>` derives the prop types from the route literal,
-so a path and its types cannot drift apart.
+so a path and its types cannot drift apart. `PageProps` is generated into
+`.next/types` — after adding, renaming or moving a route, `tsc` cannot resolve
+the name at all until a build has regenerated it.
+
+**Where "Back" goes is URL state too, and `?from=` is rebuilt rather than
+echoed.** A player profile is reached from a squad list, from the match page's
+verdict summary and from the diary, so no single parent is right and a server
+component cannot call `history.back()`. The origin therefore rides in the query
+string. [`back.ts`](../src/lib/back.ts) parses it against a handful of our own
+shapes and **reconstructs the href from the parsed parts**, so a value that is
+not one of them cannot survive: `?from=https://…` written straight into a
+`<Link>` is an open redirect, and reconstruction is a stronger guarantee than a
+list of things to reject. The filter or matchday travels with it, so Back returns
+to the screen the reader actually left rather than to an unparameterised one.
+`playerHref` does the `encodeURIComponent`, once, because a `from` carrying
+`?filter=mvp` has to survive being a value inside another query string.
 
 `src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
 row for everything below it. Nothing there renders anything from the result —
@@ -513,25 +555,57 @@ a name assembled at runtime is one it never sees and never generates CSS for.
 This applies to every future tinted thing, not just these.
 
 **`NOTE` is a fourth badge over a three-value enum.** `JudgementTag` has three
-members and the diary draws four badges: a judgement carrying a note and no tag
-is a valid row, and it is rendered in the informational blue with `edit_note` —
-the same distinction that keeps notes out of the match page's header counts. The
-key type is `JudgementTag | 'NOTE'`, a local union in
-[`diary-entry.tsx`](../src/components/diary-entry.tsx). Nothing named `NOTE`
-reaches the database, and nothing should: the reference screenshots have no
-example of this case, so it is a drawing decision, not a schema one.
+members and a judgement list draws four badges: a judgement carrying a note and
+no tag is a valid row, and it is rendered in the informational blue with
+`edit_note` — the same distinction that keeps notes out of the match page's
+header counts. The key type is `JudgementTag | 'NOTE'`, a local union in
+[`judgement-entry.tsx`](../src/components/judgement-entry.tsx). Nothing named
+`NOTE` reaches the database, and nothing should: the reference screenshots have
+no example of this case, so it is a drawing decision, not a schema one.
+
+**A judgement row is one component and a `children` slot.** `/diary` and a player
+profile draw the same row — date, badge, note underneath — and differ in one
+line: the diary names the player and the fixture, the profile names the fixture
+alone, because it *is* the player. `JudgementEntry` takes the date, tag and note
+as primitives and the line as `children`, rather than taking a query row: the two
+screens select different shapes, and a component naming either would drag the
+other's query into its types.
 
 **`--text-body-lg` is for a note that is the content**, not an annotation on
-something. `foundations.md` names the diary as the case, and the diary is its
-only use in product code: on a squad row the same text is `--text-body` in
-`--text-muted`, indented under the name, so the row stays a row. A note's size is
-a fact about where it is read.
+something. Both screens that list judgements use it, and nothing else does: on a
+squad row the same text is `--text-body` in `--text-muted`, indented under the
+name, so the row stays a row. A note's size is a fact about where it is read.
 
-**A screen's stat tiles are one component and two tables.** `StatTiles` is
+**A screen's stat tiles are one component and a table each.** `StatTiles` is
 generic over the union of keys it reads — `StatTiles<K extends string>` with
-`Record<K, number>` totals — so `/fixtures` and `/diary` draw the same four boxes
-over different numbers and a tile naming a key its totals lack is a compile error
-rather than a blank. A third screen adds a table, not a component.
+`Record<K, number>` totals — so three screens draw the same four boxes over
+different numbers and a tile naming a key its totals lack is a compile error
+rather than a blank. A new screen adds a table, not a component.
+
+**Two tab vocabularies, and which is which.** `foundations.md` lists a 40px
+`--control-h-lg` tab and a 28px pill tab as separate controls; the rule between
+them is that an **underline tab changes the view of the screen you are on** —
+the diary's filters, a player's Diary and Notes — while a **pill chooses the
+scope the screen is drawn for**, which so far is only the league row.
+[`tab-strip.tsx`](../src/components/tab-strip.tsx) is the first;
+[`league-tabs.tsx`](../src/components/league-tabs.tsx) is the second.
+
+The underline sits under the selected tab alone, with **no rule spanning the
+strip**. That is how the design draws it and it is also what lets the strip wrap:
+a continuous rule under a wrapped strip would underline the last row only,
+leaving a selected tab on the first row detached from it. Wrapping rather than
+scrolling sideways is 6.1b's decision and survives the change.
+
+**A proportional bar takes an inline width, and that is not a token breach.** The
+profile's split bar sizes its segments from the database, so no semantic token
+could ever express the value — and Tailwind could not generate the class anyway,
+since it finds names by scanning source text and `w-[47%]` is assembled at
+runtime. The bar's track is `--surface-sunken` and the unrated remainder is **the
+track showing through** rather than a fourth filled box, which is what the design
+draws and also means three rounded widths cannot leave a gap at the right-hand
+end. The segments take the verdict *ink* tokens rather than the `--*-mark` trio,
+which foundations scopes to a glyph on an inverse surface; the ink also makes each
+segment exactly the colour of the legend label beneath it.
 
 **A two-column screen nests its columns rather than auto-placing into a grid.**
 The match page draws four panels — each club's starting eleven and its bench.

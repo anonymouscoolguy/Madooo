@@ -72,11 +72,11 @@ The inks are darkened versions of the raw accents so the label passes contrast o
 
 ### Club colours are the one sanctioned exception to the no-hex rule
 
-A club's colour is a fact about the club, not a decision about the interface, so no semantic token could ever express it — there is no "Chelsea blue" in this system and there must not be. Club colours therefore live in the database, on `Team.colour`, and reach the DOM through an inline `style` on the crest chip. Product code still holds no hex.
+A club's colour is a fact about the club, not a decision about the interface, so no semantic token could ever express it — there is no "Chelsea blue" in this system and there must not be. Club colours therefore live in the database, on `Team.colour`, and reach the DOM through an inline `style` on **a club mark**: the crest chip, and a player's shirt tile. Product code still holds no hex.
 
-The chip's ink is picked by contrast against that colour and is `--gray-0` or `--gray-9` — **base tokens, not `--text-inverse`**. The chip sits on a fixed colour, so its ink must not move with the theme; the neutral ramp never changes across themes, which is exactly the guarantee this needs.
+A club mark's ink is picked by contrast against that colour and is `--gray-0` or `--gray-9` — **base tokens, not `--text-inverse`**. The mark sits on a fixed colour, so its ink must not move with the theme; the neutral ramp never changes across themes, which is exactly the guarantee this needs. Both go through one function, so neither the fallback for an unseeded club nor the contrast calculation exists twice.
 
-Nothing else may claim this exception.
+Only a club mark may claim this exception, and a new one has to go through that same function to count as one.
 
 ### Theming
 Light is the default and needs no attribute. Dark is `data-theme="dark"` on `<html>` (or any container — it re-points semantics on any subtree). Only semantics re-point; base tokens never change.
@@ -177,7 +177,7 @@ Content stays fluid up to `--container`.
 | `--row-h` | 36px | Nav items, dense rows — at `md` and up |
 | `--row-h-lg` | 44px | Touch rows: the same rows below `md` |
 | `--control-h` | 32px | Default button, input, select, icon button |
-| `--control-h-lg` | 40px | Large button, tab |
+| `--control-h-lg` | 40px | Large button, underline tab |
 | — | 26px | Small button / small icon button |
 | — | 28px | VerdictChip (md), pill tab |
 | — | 24px | Tag |
@@ -194,6 +194,16 @@ Content stays fluid up to `--container`.
 | `--radius-pill` | 999px | **Only two things**: Tags and pill Tabs (plus radio and switch) |
 
 No 12px or 16px "friendly" radii.
+
+### There are two kinds of tab, and they mean different things
+
+The table above lists both, and this is the rule that decides between them.
+
+An **underline tab** (40px, `--text-label`) changes the *view of the screen you are already on* — which of your entries the diary shows, whether a player's profile is reading his verdicts or his notes. The selected one carries a 2px underline in `--text` and nothing else; the rest are `--text-muted` going to `--text` on hover. **The underline is under the selected tab alone — no rule spans the strip**, which is what lets the strip wrap on a narrow screen without a selected tab on the first row being detached from a rule under the last.
+
+A **pill tab** (28px, `--radius-pill`) chooses the *scope the screen is drawn for* — which league. The selected one fills with `--surface-inverse`.
+
+Both wrap rather than scrolling sideways, because a horizontal scroller hides its own overflow.
 
 Borders: `--border-w 1px`, `--border-w-strong 2px`.
 

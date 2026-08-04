@@ -2,6 +2,7 @@ import { Icon } from './icon'
 import type { IconName } from './icon-names'
 import type { DiaryTotals } from '@/lib/diary'
 import type { SeasonTotals } from '@/lib/fixtures'
+import type { VerdictCounts } from '@/lib/verdict-split'
 
 /**
  * The four tallies a screen opens with: what the user has done, and what they
@@ -65,6 +66,25 @@ export const DIARY_TILES: readonly Tile<keyof DiaryTotals>[] = [
   { key: 'standouts', icon: 'trending_up', label: 'Standouts', ink: 'text-standout' },
   { key: 'flops', icon: 'trending_down', label: 'Flops', ink: 'text-flop' },
   { key: 'notes', icon: 'edit_note', label: 'Notes', ink: 'text-info' },
+]
+
+/**
+ * A player profile: how often this player was watched, and what he got for it.
+ *
+ * The one set of four with no Notes tile and an MVPs tile instead, which is what
+ * the reference screenshot draws — a profile is read to answer "how did he do",
+ * where the other two screens are read to answer "what have I written". It is
+ * also the first table to use `text-mvp`, since MVP has a tile of its own
+ * nowhere else.
+ *
+ * `watched` counts matches rather than entries; see
+ * [`verdict-split.ts`](../lib/verdict-split.ts) for what the word means here.
+ */
+export const PLAYER_TILES: readonly Tile<keyof VerdictCounts>[] = [
+  { key: 'watched', icon: 'visibility', label: 'Watched', ink: 'text-text' },
+  { key: 'mvps', icon: 'star', label: 'MVPs', ink: 'text-mvp' },
+  { key: 'standouts', icon: 'trending_up', label: 'Standouts', ink: 'text-standout' },
+  { key: 'flops', icon: 'trending_down', label: 'Flops', ink: 'text-flop' },
 ]
 
 type Props<K extends string> = {

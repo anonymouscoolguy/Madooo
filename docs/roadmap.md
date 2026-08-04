@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-03 (7.1 — diary)
+**Last updated:** 2026-08-04 (7.2 — player profile)
 
 ---
 
@@ -22,7 +22,7 @@ matchday pager, server-rendered out of Neon on every request. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions — and one without says
 so instead. It sits in a responsive app shell alongside Players and Teams,
-which exist as placeholders. `/` is a public landing page, now on the same tokens
+whose index pages are still placeholders. `/` is a public landing page, now on the same tokens
 as everything else.
 
 **The app writes.** Every player on a match page carries three chips — standout,
@@ -55,6 +55,16 @@ agreed explicitly, and the reason the fixture is named on every row. A note with
 no tag is an entry too, drawn with a fourth badge in the informational blue that
 exists nowhere in the database. Its scoreline links back to the match.
 
+**And a player has a profile.** Every name in a squad list, in "Your verdicts"
+and in the diary is now a link to one: the club and shirt number he was last
+named under, four tallies, a bar splitting his watched matches between the three
+verdicts and the ones that got none, and his own diary under a Diary/Notes tab
+strip. *Watched* means matches where something was recorded and he was in the
+squad, which is what makes the bar's fourth segment read as "watched him and said
+nothing". A profile has no single parent, so the way back travels in the URL and
+is rebuilt from it rather than echoed. The diary's filters moved onto the same
+tab strip; the league row keeps its pill.
+
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
 it, remembered across visits. Clerk's own modals follow it too.
@@ -75,7 +85,7 @@ it, remembered across visits. Clerk's own modals follow it too.
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
-  fixtures page and the diary as intended. The tokens are now CSS, in
+  fixtures page, the diary and the player profile as intended. The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
@@ -135,8 +145,7 @@ says when it has nothing to show is part of the slice, not a later pass.
         Deliberately absent, all of it 6.4's and 6.6's: the three verdict buttons
         and the note button on every row, the verdict count in each panel header,
         and the "Your verdicts" summary panel the screenshots show below the
-        benches. Player names are not links either — 7.2 is what they would link
-        to.
+        benches. Player names were not links either; 7.2 made them so.
   - [x] **6.4 — Tagging.** Done. Three chips on every squad row, a Server Action
         writing `Judgement`, and tapping the active chip clears it. MVP transfers
         rather than duplicating — the rule is now in
@@ -145,8 +154,8 @@ says when it has nothing to show is part of the slice, not a later pass.
         read the same judgements. Below `md` the chips drop to their own line at
         40px, which is the narrow-width decision the reference screens have no
         drawing for. Deliberately absent: the fourth button the screenshots draw
-        on each row, `edit_note`, which is 6.5's — and the summary's player names
-        are plain text, because 7.2 is what they would link to.
+        on each row, `edit_note`, which is 6.5's — and links on the summary's
+        player names, which are 7.2's.
   - [x] **6.5 — Notes.** Done. A borderless `edit_note` button on every row
         opens a native `<dialog>`; `setNote` writes the text, and saving an empty
         box is how a note is deleted. The note reads back under the row, and
@@ -170,11 +179,23 @@ says when it has nothing to show is part of the slice, not a later pass.
         `Judgement.createdAt`; the schema's `@@index([userId, createdAt])` has
         been waiting for this query since step 2. `StatTiles` became generic over
         its key union so `/fixtures` and `/diary` share one set of markup.
-        Deliberately absent: player names are not links, because 7.2 is what they
-        would point at, and there is no pager — a season's entries are bounded by
-        how much one person typed, and the design draws none.
-  - [ ] **7.2 — Player profile.** One player's judgements across matches,
-        linked from every squad list.
+        Deliberately absent: links on the player names, which are 7.2's, and a
+        pager — a season's entries are bounded by how much one person typed, and
+        the design draws none.
+  - [x] **7.2 — Player profile.** Done, and the first screen with a desktop
+        drawing whose numbers had to be defined rather than copied: the
+        reference shows 14 watched against a split of 6+9+1+4. *Watched* was
+        agreed to mean matches where the user recorded anything and the player
+        was in the squad — `/fixtures`' own meaning, narrowed to one player —
+        which makes the remainder mean "watched him and said nothing" and makes
+        the bar fill exactly. The subtitle reads `MID`, not the drawing's
+        "Attacking midfielder", for 6.3's reason. `?from=` carries the way back,
+        since a profile is opened from four places and a server component cannot
+        call `history.back()`. The diary's filter row moved onto the underline
+        tab strip this slice introduced, which cost `foundations.md` a rule
+        saying when each of the two tab kinds applies. Deliberately absent: no
+        verdict controls — a profile reads a season back, and the place to change
+        a verdict is the match it was given in.
   - [ ] **7.3 — Players index.** The sidebar's Players destination, linking
         into 7.2.
   - [ ] **7.4 — Teams.** A team index and a team profile carrying the user's
@@ -206,8 +227,9 @@ empty list is the expected state.
   own narrow layout by judgement against those rules — 6.2 the fixture card, 6.3
   the squad panels, 6.4 the tag controls, 6.6 the stat tiles, 7.1 the diary
   entry, whose date moves above the badge below `md` because 85px of monospace
-  beside a player and a fixture does not fit on a phone. The diary arrived with a
-  desktop drawing, so only half of it had to be invented; 7.2, 7.3 and 7.4 have
+  beside a player and a fixture does not fit on a phone, and 7.2 the profile
+  header and the split bar's legend. The diary and the profile each arrived with
+  a desktop drawing, so only half of either had to be invented; 7.3 and 7.4 have
   no drawing at either width, and are designed at both at once.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*

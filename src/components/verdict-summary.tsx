@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { playerHref } from '@/lib/back'
 import { summariseVerdicts } from '@/lib/verdicts'
 import type { JudgementTag } from '@/lib/verdicts'
 import type { SquadEntry } from '@/lib/matches'
@@ -5,9 +7,9 @@ import type { SquadEntry } from '@/lib/matches'
 /**
  * "Your verdicts" — everything judged in this match, under the two benches.
  *
- * The same card as `SquadPanel`, full width. Player names are plain text and not
- * the links the reference screenshot draws in blue: 7.2 is the player profile
- * they would point at, and it does not exist yet.
+ * The same card as `SquadPanel`, full width. Player names link to the profile,
+ * as the reference screenshot draws — though in ink rather than its blue, which
+ * is the treatment every in-list link in this app takes.
  */
 
 /**
@@ -21,7 +23,14 @@ const BADGE: Record<JudgementTag, string> = {
   FLOP: 'bg-flop-bg text-flop',
 }
 
-export function VerdictSummary({ entries }: { entries: SquadEntry[] }) {
+export function VerdictSummary({
+  entries,
+  matchId,
+}: {
+  entries: SquadEntry[]
+  /** Where a profile opened from this panel sends the reader back. */
+  matchId: number
+}) {
   const verdicts = summariseVerdicts(entries)
 
   return (
@@ -44,7 +53,12 @@ export function VerdictSummary({ entries }: { entries: SquadEntry[] }) {
               key={entry.id}
               className="flex min-h-(--row-h-lg) items-center justify-between gap-3 px-4 py-2 md:min-h-(--row-h)"
             >
-              <span className="truncate text-body">{entry.player.name}</span>
+              <Link
+                href={playerHref(entry.player.id, `/matches/${matchId}`)}
+                className="truncate rounded-sm text-body text-text focus-visible:focus-ring"
+              >
+                {entry.player.name}
+              </Link>
               {/* A 20px badge, foundations' smallest tinted thing — the same
                   family as the crest chip, and one of the exactly two places
                   caps are allowed: the three verdict words. */}

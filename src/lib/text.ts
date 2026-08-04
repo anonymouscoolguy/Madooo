@@ -21,3 +21,36 @@
 export function plural(count: number, noun: string): string {
   return count === 1 ? noun : `${noun}s`
 }
+
+/**
+ * The shape a scoreline needs, rather than Prisma's `Match`.
+ *
+ * Structural, like `TeamIdentity` and `Judgeable`, so a row selected by any of
+ * the query modules satisfies it without being named here — and so this stays
+ * testable with a plain object.
+ */
+export interface Scored {
+  homeGoals: number | null
+  awayGoals: number | null
+  homeTeam: { name: string }
+  awayTeam: { name: string }
+}
+
+/**
+ * `Chelsea 1–1 Arsenal`, or `Chelsea v Arsenal` when there is no result.
+ *
+ * **A null goal count means no result was recorded, not a goalless draw** — the
+ * reading `FixtureCard` and the match page both take, and the reason this is a
+ * function rather than a template literal at each call site. A fixture is in the
+ * database from the moment it is scheduled, so most of a season is null for most
+ * of a season.
+ *
+ * An en dash between the goals, not a hyphen, and the same character the match
+ * page's own heading uses.
+ */
+export function scoreline(match: Scored): string {
+  const { homeTeam, awayTeam, homeGoals, awayGoals } = match
+
+  if (homeGoals === null || awayGoals === null) return `${homeTeam.name} v ${awayTeam.name}`
+  return `${homeTeam.name} ${homeGoals}–${awayGoals} ${awayTeam.name}`
+}

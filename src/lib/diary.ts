@@ -38,7 +38,7 @@ export async function diaryEntries(season: number, userId: number, filter: Diary
       createdAt: true,
       matchSquad: {
         select: {
-          player: { select: { name: true } },
+          player: { select: { id: true, name: true } },
           match: {
             select: {
               id: true,
