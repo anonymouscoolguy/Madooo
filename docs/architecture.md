@@ -542,10 +542,20 @@ Spacing is deliberately not tokenised: foundations' scale *is* Tailwind's defaul
 4px scale, so `--sp-6` is `p-4` and inventing tokens would give every value two
 names. Frame sizes stay plain variables, used as `w-(--sidebar-w)`.
 
-The type scale is ten `@utility` classes rather than font-size tokens, because
+The type scale is eleven `@utility` classes rather than font-size tokens, because
 each role in foundations is a set of five properties — family, size, weight,
 line-height, tracking — and a `text-title` that left the weight to the caller
 would be a different design.
+
+**A role is added when a screen needs a size the scale does not have, not when a
+screen wants one.** `text-score` — 40px monospaced — is the only one added so
+far: foundations mandates monospace for a number you can add up but sizes no
+scoreline, and the two nearest roles were both wrong for it. `text-stat` is 32px,
+which beside a 24px club name is too small a step for the scoreline to read as
+the subject of the page; `text-display` is 40px but sans, so it would break the
+mono rule to get the size. The alternative was `text-[40px]` at the call site,
+which is a raw px in product code — the one thing the token system exists to
+prevent.
 
 ### Responsive rules are in `foundations.md` and are binding
 
@@ -602,6 +612,51 @@ other's query into its types.
 something. Both screens that list judgements use it, and nothing else does: on a
 squad row the same text is `--text-body` in `--text-muted`, indented under the
 name, so the row stays a row. A note's size is a fact about where it is read.
+
+**A heading that is drawn as a layout gets its name as a string and hides the
+rest.** The match page's `<h1>` is the scoreline — two club names, two crest
+marks and a score, arranged in three grid columns. Read as markup that name comes
+out as two names split around a bare `1–2`, and an unplayed match reads as
+"Manchester United 15:00 Leeds", a scoreline that never happened. So the heading
+holds an `sr-only` string from `scoreline()` — already the app's one way of naming
+a match, shared with the diary and the profile — over an `aria-hidden` subtree
+carrying the whole visible arrangement. That is only safe because the subtree
+contains nothing focusable; a heading with a control in it cannot take this shape.
+
+**A club mark is `aria-hidden` wherever it appears, so whatever holds it has to
+name the club.** `CrestChip` has two sizes — 20px in a row, 40px square in the
+scoreline — and both go through `crest()`, which is what foundations requires of
+anything carrying a club colour. Its letters stay `text-caps` at both sizes
+rather than growing with the box: it is the only role that is bold, tracked *and*
+capitalised, which is what three letters on a saturated colour need.
+
+**Putting the crest in every squad panel header deleted a special case rather
+than adding one.** The panels used to compose their own title, and a bench with
+no eleven above it — a real state, since the sync's merge is a union over two
+endpoints — had to name its club in that title, while an ordinary bench named it
+only for a screen reader. `SquadPanel` now takes the team itself and draws the
+crest plus an unconditional `sr-only` club name, so the heading no longer depends
+on whether a sibling panel exists. **A component that took a pre-composed string
+had to be told about its own context; one that takes the thing itself does not.**
+
+**A missing fact is dropped from a centred strip and stood in for in a justified
+one.** The scoreline card omits the venue or the referee when the column is null;
+`FixtureCard` prints "Venue unknown" instead. Not an inconsistency — that strip is
+`justify-between` with two children, so dropping one leaves the date against empty
+space, and the placeholder is holding a slot open. A centred wrapping run has no
+slots to hold, so the remaining facts close up. Where there is a choice, prefer
+dropping: "Referee unknown" is a sentence about an official who does not exist,
+which is [the reasoning that keeps positions at four
+letters](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more).
+
+**A screen whose header is not a title block still uses the shared back link.**
+[`back-link.tsx`](../src/components/back-link.tsx) was extracted from `PageHeader`
+when the match page's header became a card, and it carries its own `mb-3` — 12px
+above whatever follows is a fixed relationship, not a per-caller decision. A
+`PageHeader` variant would have had to suppress the title, the mark and the
+subtitle, which is the whole component, and would have left `title` conditionally
+required. **Every screen still has exactly one component owning its header
+spacing**, which is what stops the six of them drifting apart.
 
 **A screen's stat tiles are one component and a table each.** `StatTiles` is
 generic over the union of keys it reads — `StatTiles<K extends string>` with
@@ -752,6 +807,14 @@ been seen to get *smaller* while gaining a glyph.
 - **`icon_names` must be sorted alphabetically**, and axis names lowercase first
   then uppercase (`opsz,wght,FILL,GRAD`). Either wrong gives a bare
   `400: Invalid selector` naming neither.
+- **A misspelled glyph name fails silently, and nothing in the toolchain catches
+  it.** Google answers `200` and leaves the unknown name out of the font; the
+  ligature then has no glyph, so the literal word renders — `trophy` in the middle
+  of a sentence. The script's own "30 icons" line is `ICON_NAMES.length`, which is
+  what we asked for rather than what came back, so it reports success either way.
+  The cheap proof is arithmetic on the built file: every icon is one codepoint in
+  the private use area, so `len(cmap ≥ 0xE000)` must equal the array's length.
+  It was 28 before this vocabulary last grew and 30 after.
 - The script sends a browser User-Agent on purpose. Google serves the old static
   `Material Icons` font to clients it does not recognise, and that font silently
   has no FILL axis.

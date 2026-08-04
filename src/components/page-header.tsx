@@ -1,12 +1,10 @@
-import Link from 'next/link'
-import { Icon } from './icon'
+import { BackLink } from './back-link'
 
 type Props = {
   /**
-   * `ReactNode` rather than `string` so a title can carry markup — the match
-   * page puts its scoreline in a monospaced span, because foundations' rule is
-   * that a number you can add up is monospaced, and a scoreline is the most
-   * counted number on that page.
+   * `ReactNode` rather than `string` so a title can carry markup — a screen that
+   * wants part of its title in another type role can say so without this
+   * component knowing which part or why.
    */
   title: React.ReactNode
   /** A way back up, for the screens reached from another screen rather than from the sidebar. */
@@ -29,19 +27,7 @@ type Props = {
 export function PageHeader({ title, back, mark, children }: Props) {
   return (
     <header className="mb-8">
-      {back ? (
-        // Muted going to full ink on hover, which is foundations' rule for muted
-        // text, and no underline in either state — the base stylesheet gives
-        // every <a> the link colour and a hover underline, which is right for
-        // prose and wrong for chrome.
-        <Link
-          href={back.href}
-          className="t-hover mb-3 -ml-1 inline-flex items-center gap-1 rounded-md text-label text-muted no-underline hover:text-text hover:no-underline focus-visible:focus-ring"
-        >
-          <Icon name="chevron_left" size="md" />
-          {back.label}
-        </Link>
-      ) : null}
+      {back ? <BackLink {...back} /> : null}
       {/*
         The row is unconditional, and with no mark it lays out exactly as the
         block it replaced: one flex child taking `flex-1` is the full width, and

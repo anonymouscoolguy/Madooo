@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation'
 import { requireDbUser } from '@/lib/auth'
-import { kickoffDate, kickoffTime } from '@/lib/dates'
 import { matchWithSquads, type MatchTeam, type SquadEntry } from '@/lib/matches'
 import { roundNumber } from '@/lib/rounds'
 import { splitSquad } from '@/lib/squad'
-import { PageHeader } from '@/components/page-header'
+import { ScorelineCard } from '@/components/scoreline-card'
 import { SquadPanel } from '@/components/squad-panel'
 import { VerdictSummary } from '@/components/verdict-summary'
 
@@ -59,19 +58,10 @@ function TeamSquad({
     )
   }
 
-  // With no eleven above it, the bench is the only panel in this column and has
-  // to name the club itself rather than leaving it to a screen reader.
-  const orphanedBench = starters.length === 0
-
   return (
     <div className="flex flex-col gap-4 md:row-span-2 md:grid md:grid-rows-subgrid md:items-start">
-      <SquadPanel title={`${team.name} — Starting XI`} entries={starters} matchId={matchId} />
-      <SquadPanel
-        title={orphanedBench ? `${team.name} — Substitutes` : 'Substitutes'}
-        team={orphanedBench ? undefined : team.name}
-        entries={substitutes}
-        matchId={matchId}
-      />
+      <SquadPanel team={team} label="Starting XI" entries={starters} matchId={matchId} />
+      <SquadPanel team={team} label="Substitutes" entries={substitutes} matchId={matchId} />
     </div>
   )
 }
@@ -97,13 +87,6 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
   const match = await matchWithSquads(matchId, user.id)
   if (match === null) notFound()
 
-  // Null goals means no result recorded, not a goalless draw — the same reading
-  // `FixtureCard` takes, where the kickoff time stands in for the score.
-  const score =
-    match.homeGoals === null || match.awayGoals === null
-      ? null
-      : `${match.homeGoals}–${match.awayGoals}`
-
   // Back to the matchday the reader came from, not to whichever one `/fixtures`
   // opens on by default.
   const matchday = roundNumber(match.round)
@@ -113,33 +96,13 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
 
   return (
     <>
-      <PageHeader
+      <ScorelineCard
+        match={match}
         back={{
           href: matchday === null ? '/fixtures' : `/fixtures?matchday=${matchday}`,
           label: 'Back to fixtures',
         }}
-        title={
-          score === null ? (
-            `${match.homeTeam.name} v ${match.awayTeam.name}`
-          ) : (
-            <>
-              {match.homeTeam.name}{' '}
-              {/* `font-mono` overrides only the family that `text-title` sets,
-                  so the size, weight and tracking of the heading survive. */}
-              <span className="font-mono">{score}</span> {match.awayTeam.name}
-            </>
-          )
-        }
-      >
-        {match.league.name} ·{' '}
-        <span className="text-data uppercase">{kickoffDate(match.kickoff)}</span>
-        {score === null ? (
-          <>
-            {' · '}
-            <span className="text-data">{kickoffTime(match.kickoff)}</span>
-          </>
-        ) : null}
-      </PageHeader>
+      />
 
       {match.squadEntries.length === 0 ? (
         // Reachable by typing the URL — 6.2's cards refuse to link here — and

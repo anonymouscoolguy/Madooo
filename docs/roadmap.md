@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-04 (7.2 — player profile)
+**Last updated:** 2026-08-04 (6.3b — the scoreline card)
 
 ---
 
@@ -20,8 +20,10 @@ to individual players, and `/fixtures` drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
-bench, goalkeeper first, with shirt numbers and positions — and one without says
-so instead. It sits in a responsive app shell alongside Players and Teams,
+bench, goalkeeper first, with shirt numbers and positions, each panel headed by
+its club's crest — and one without says so instead. The match opens with a card
+rather than a title: the competition, ground, date and referee on a strip, over
+the two clubs either side of the score. It sits in a responsive app shell alongside Players and Teams,
 whose index pages are still placeholders. `/` is a public landing page, now on the same tokens
 as everything else.
 
@@ -85,7 +87,8 @@ it, remembered across visits. Clerk's own modals follow it too.
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
-  fixtures page, the diary and the player profile as intended. The tokens are now CSS, in
+  fixtures page, the match page, the diary and the player profile as intended.
+  The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
@@ -146,6 +149,18 @@ says when it has nothing to show is part of the slice, not a later pass.
         and the note button on every row, the verdict count in each panel header,
         and the "Your verdicts" summary panel the screenshots show below the
         benches. Player names were not links either; 7.2 made them so.
+  - [x] **6.3b — The scoreline card.** Done, against a redrawn reference and out
+        of order — it landed after 7.2. The header stops being a title and
+        becomes a card: a strip carrying the competition, the ground, the date
+        and the referee, over the two clubs either side of the score, each with a
+        40px crest mark. Every squad panel header gained its club's crest, which
+        **removed** the orphaned-bench special case rather than adding one. The
+        venue and referee were already synced and already arriving on the page —
+        this slice changed no query, no schema and no sync. It cost the token set
+        one new type role, `text-score`, and the icon subset two glyphs. The
+        referee renders as the provider spells it, `J. Gillett`, not the mock's
+        "Jarred Gillett". Deliberately absent: the reference's finer positions,
+        still `GK`/`DEF`/`MID`/`FWD` for 6.3's reason.
   - [x] **6.4 — Tagging.** Done. Three chips on every squad row, a Server Action
         writing `Judgement`, and tapping the active chip clears it. MVP transfers
         rather than duplicating — the rule is now in
@@ -227,10 +242,12 @@ empty list is the expected state.
   own narrow layout by judgement against those rules — 6.2 the fixture card, 6.3
   the squad panels, 6.4 the tag controls, 6.6 the stat tiles, 7.1 the diary
   entry, whose date moves above the badge below `md` because 85px of monospace
-  beside a player and a fixture does not fit on a phone, and 7.2 the profile
-  header and the split bar's legend. The diary and the profile each arrived with
-  a desktop drawing, so only half of either had to be invented; 7.3 and 7.4 have
-  no drawing at either width, and are designed at both at once.
+  beside a player and a fixture does not fit on a phone, 7.2 the profile header
+  and the split bar's legend, and 6.3b the scoreline, which stacks below `md`
+  because a 320px line leaves about 136px for two 24px club names. The diary, the
+  profile and the match page each arrived with a desktop drawing, so only half of
+  each had to be invented; 7.3 and 7.4 have no drawing at either width, and are
+  designed at both at once.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 

@@ -365,11 +365,23 @@
   text-transform: uppercase;
 }
 
-/* The two monospaced roles. If it is a number you can add up, it is one of
+/* The three monospaced roles. If it is a number you can add up, it is one of
    these — scores, tallies, shirt numbers, dates, minute marks. */
 @utility text-stat {
   font-family: var(--font-mono);
   font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* `text-display`'s 40px in the monospaced family, for the one screen where a
+   match's own result is the subject of the page rather than an entry in a list.
+   `text-stat` stays the stat tile's number: 32px beside a 24px club name is too
+   small a step for the scoreline to read as the thing being looked at. */
+@utility text-score {
+  font-family: var(--font-mono);
+  font-size: 40px;
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;

@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { playerHref } from '@/lib/back'
 import { positionLabel } from '@/lib/squad'
 import { countVerdicts, noteOf, verdictOf } from '@/lib/verdicts'
+import { CrestChip } from './crest-chip'
 import { PlayerControls } from './player-controls'
 import { VerdictControls } from './verdict-controls'
 import type { SquadEntry } from '@/lib/matches'
+import type { TeamIdentity } from '@/lib/teams/identity'
 
 /**
  * One list of players: a club's starting eleven, or its bench.
@@ -80,14 +82,25 @@ function Row({ entry, matchId }: { entry: SquadEntry; matchId: number }) {
 }
 
 type Props = {
-  /** The visible micro-label, exactly as the design draws it. */
-  title: string
   /**
-   * Named for a screen reader when the visible title does not name the club.
-   * Below `md` the panels stack, and a bare "SUBSTITUTES" heading is then
-   * attached to nothing.
+   * The club this list belongs to. It draws the crest chip and — because that
+   * chip is `aria-hidden`, as every club mark in this app is — it also names the
+   * club for a screen reader. Both unconditionally.
+   *
+   * That is what removed a special case rather than adding one. The club used to
+   * be named in the visible title only when a bench stood alone with no eleven
+   * above it, since below `md` the panels stack and a bare "SUBSTITUTES" is then
+   * attached to nothing. A crest in every header answers that case and the
+   * ordinary one at once, so the heading no longer depends on whether a sibling
+   * panel exists.
+   *
+   * `TeamIdentity` rather than the page's `MatchTeam`: it is what `crest()`
+   * needs, it is structural, and any row selected with a name, code and colour
+   * satisfies it without this file naming a query.
    */
-  team?: string
+  team: TeamIdentity
+  /** The visible micro-label, exactly as the design draws it: "Starting XI". */
+  label: string
   entries: SquadEntry[]
   /**
    * Where a player profile opened from this panel sends the reader back. A
@@ -97,7 +110,7 @@ type Props = {
   matchId: number
 }
 
-export function SquadPanel({ title, team, entries, matchId }: Props) {
+export function SquadPanel({ team, label, entries, matchId }: Props) {
   if (entries.length === 0) return null
 
   const verdicts = countVerdicts(entries)
@@ -110,9 +123,13 @@ export function SquadPanel({ title, team, entries, matchId }: Props) {
         Starting XI 3" — which reads as a squad numbered 3.
       */}
       <header className="flex items-center justify-between gap-3 bg-surface-header px-4 py-2">
-        <h2 className="truncate text-caps">
-          {team ? <span className="sr-only">{team} — </span> : null}
-          {title}
+        <h2 className="flex min-w-0 items-center gap-2 text-caps">
+          <CrestChip team={team} />
+          <span className="sr-only">{team.name} — </span>
+          {/* `truncate` on the label rather than on the `<h2>`: this heading is
+              now a flex container, and `white-space: nowrap` on it would apply
+              to the whole row and clip the crest instead of the words. */}
+          <span className="truncate">{label}</span>
         </h2>
         {/* Zero is shown, not hidden: the screenshots draw `0` on both benches,
             and a number that disappears reads as something failing to load. */}

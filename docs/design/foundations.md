@@ -108,6 +108,7 @@ The rule: **if it is a number you can add up, it is monospaced.**
 | `--text-caption` | 400 · 12px · 1.25 · Archivo | 0 | Sub-labels, meta |
 | `--text-caps` | 700 · 11px · 1.25 · Archivo | `+0.08em`, uppercase | Micro-labels: COMPETITION, STARTING XI |
 | `--text-stat` | 700 · 32px · 1.1 · JetBrains Mono | `-0.02em` | Stat tile numbers |
+| `--text-score` | 700 · 40px · 1.1 · JetBrains Mono | `-0.02em` | The match page's scoreline |
 | `--text-data` | 500 · 13px · 1.25 · JetBrains Mono | 0 | Shirt numbers, dates, counts |
 
 Sizes available: 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 56.
@@ -181,6 +182,7 @@ Content stays fluid up to `--container`.
 | — | 26px | Small button / small icon button |
 | — | 28px | VerdictChip (md), pill tab |
 | — | 24px | Tag |
+| — | 40px | Crest mark, square — the match page's scoreline |
 | — | 20px | Badge, crest chip |
 | — | 16px | Checkbox / radio box |
 | — | 34×18px | Switch track (14px thumb, travels 16px) |
@@ -268,7 +270,8 @@ Nothing else animates. No bounce, no spring, no scale-in, no page transitions, n
 
 Sizes: 14 in badges and micro-labels, 16 in chips, 18 in buttons and fields, 20 default, 22 for large icon buttons. Icons inherit `currentColor` and are never given their own colour except through the element holding them.
 
-Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`.
+Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
+(the referee's whistle).
 
 **No emoji, no unicode glyphs as icons, no hand-drawn SVG.** If a glyph does not exist in Material Symbols, use a word.
 
