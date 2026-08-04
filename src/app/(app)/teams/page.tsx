@@ -1,8 +1,8 @@
 import { PageHeader } from '@/components/page-header'
 
 /**
- * A placeholder the sidebar can point at. The team index and profile arrive in
- * step 7.4.
+ * A placeholder the sidebar can point at. The team profile arrives in step 7.4
+ * and this index in 7.5.
  */
 export default function Teams() {
   return (

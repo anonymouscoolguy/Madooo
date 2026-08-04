@@ -41,8 +41,9 @@ export async function playerHeader(playerId: number, season: number) {
         select: {
           shirtNumber: true,
           position: true,
-          // What `crest()` needs, and no more — `Team.logo` renders nowhere.
-          team: { select: { name: true, code: true, colour: true } },
+          // What `crest()` needs plus the id his club line links to, and no
+          // more — `Team.logo` renders nowhere.
+          team: { select: { id: true, name: true, code: true, colour: true } },
         },
       },
     },

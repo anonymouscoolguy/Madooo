@@ -89,6 +89,23 @@ export const PLAYER_TILES: readonly Tile<keyof VerdictCounts>[] = [
 ]
 
 /**
+ * A club profile: how often this club was watched, and what its players got.
+ *
+ * The same four keys as `PLAYER_TILES` and a second table anyway, because a
+ * table is what a screen owns — the four labels coinciding is not the two rows
+ * being one thing. **The word underneath differs**: a player's `watched` is
+ * matches he was named in, a club's is matches it played, and the two queries
+ * that produce them share no code. A single shared table would make that
+ * difference invisible at both call sites.
+ */
+export const TEAM_TILES: readonly Tile<keyof VerdictCounts>[] = [
+  { key: 'watched', icon: 'visibility', label: 'Watched', ink: 'text-text' },
+  { key: 'mvps', icon: 'star', label: 'MVPs', ink: 'text-mvp' },
+  { key: 'standouts', icon: 'trending_up', label: 'Standouts', ink: 'text-standout' },
+  { key: 'flops', icon: 'trending_down', label: 'Flops', ink: 'text-flop' },
+]
+
+/**
  * `/players`: what this reader has given out across the season.
  *
  * **The only row of the four with no count of the list beneath it.** The other

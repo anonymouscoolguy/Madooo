@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { playerHref } from '@/lib/back'
+import { playerHref, teamHref } from '@/lib/back'
 import { positionLabel } from '@/lib/squad'
 import { countVerdicts, noteOf, verdictOf } from '@/lib/verdicts'
 import { CrestChip } from './crest-chip'
@@ -94,11 +94,13 @@ type Props = {
    * ordinary one at once, so the heading no longer depends on whether a sibling
    * panel exists.
    *
-   * `TeamIdentity` rather than the page's `MatchTeam`: it is what `crest()`
-   * needs, it is structural, and any row selected with a name, code and colour
-   * satisfies it without this file naming a query.
+   * `TeamIdentity` plus the id, which is what the crest links to. Still
+   * structural rather than the page's `MatchTeam` — any row selected with an id,
+   * a name, a code and a colour satisfies it without this file naming a query —
+   * but the id is no longer optional, because the crest is the app's way into a
+   * club from a match.
    */
-  team: TeamIdentity
+  team: TeamIdentity & { id: number }
   /** The visible micro-label, exactly as the design draws it: "Starting XI". */
   label: string
   entries: SquadEntry[]
@@ -124,8 +126,23 @@ export function SquadPanel({ team, label, entries, matchId }: Props) {
       */}
       <header className="flex items-center justify-between gap-3 bg-surface-header px-4 py-2">
         <h2 className="flex min-w-0 items-center gap-2 text-caps">
-          <CrestChip team={team} />
-          <span className="sr-only">{team.name} — </span>
+          {/*
+            The crest is the link to the club, and the club's name inside it is
+            the link's accessible name — the chip itself is `aria-hidden`, so a
+            link wrapping it alone would announce nothing at all.
+
+            Padding rather than the bare 20px chip: a link has to be worth
+            aiming at, and negative margin keeps the extra area from moving the
+            heading off the crest's own alignment.
+          */}
+          <Link
+            href={teamHref(team.id, `/matches/${matchId}`)}
+            className="-m-1 shrink-0 rounded-sm p-1 text-text no-underline hover:no-underline focus-visible:focus-ring"
+          >
+            <CrestChip team={team} />
+            <span className="sr-only">{team.name}</span>
+          </Link>
+          <span className="sr-only"> — </span>
           {/* `truncate` on the label rather than on the `<h2>`: this heading is
               now a flex container, and `white-space: nowrap` on it would apply
               to the whole row and clip the crest instead of the words. */}

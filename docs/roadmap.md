@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-04 (7.3 — the players index)
+**Last updated:** 2026-08-04 (7.4 — the team profile)
 
 ---
 
@@ -24,7 +24,7 @@ bench, goalkeeper first, with shirt numbers and positions, each panel headed by
 its club's crest — and one without says so instead. The match opens with a card
 rather than a title: the competition, ground, date and referee on a strip, over
 the two clubs either side of the score. It sits in a responsive app shell alongside Players and Teams,
-whose index pages are still placeholders. `/` is a public landing page, now on the same tokens
+the second of which is still a placeholder at its index. `/` is a public landing page, now on the same tokens
 as everything else.
 
 **The app writes.** Every player on a match page carries three chips — standout,
@@ -67,6 +67,16 @@ visits in `localStorage`** rather than in the URL — the first screen state in 
 app that is not in the address bar. Sixty rows are drawn at a time under a "Show
 more"; the count in the card's header is always the true one.
 
+**And so does a club.** `/teams/[id]` opens on the crest at shirt-tile size, the
+competition it played in, four tallies of what its players were given, and the
+squad — every player who turned out for the club this season, most of them
+"Never judged", each row carrying his own split bar and seen count. *Watched*
+here means matches of theirs the reader recorded anything in, even where all of
+it was about the opponent, which is `/fixtures`' meaning of the word narrowed to
+a club. Three ways in: either club in the match page's scoreline, the crest in a
+squad panel header, and the club line on a player profile. Back returns to
+whichever it was, and to the tab the profile was left on.
+
 **And a player has a profile.** Every name in a squad list, in "Your verdicts",
 in the diary and now on the index is a link to one: the club and shirt number he was last
 named under, four tallies, a bar splitting his watched matches between the three
@@ -97,7 +107,8 @@ it, remembered across visits. Clerk's own modals follow it too.
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
-  fixtures page, the match page, the diary and the player profile as intended.
+  fixtures page, the match page, the diary, the player profile, the players
+  index and the team profile as intended — all of them at desktop width only.
   The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
@@ -239,9 +250,42 @@ says when it has nothing to show is part of the slice, not a later pass.
         the reference does not have. It also cost the app its first raw query.
         Deliberately absent: no verdict controls, for 7.2's reason, and no
         server-side search — see the open decision below.
-  - [ ] **7.4 — Teams.** A team index and a team profile carrying the user's
-        verdicts on that club's players. The one slice here likely to want
-        splitting in two.
+  - [x] **7.4 — Team profile.** Done, and a **directory** like 7.3 rather than a
+        diary: every player with a squad row for the club this season, most of
+        them never judged. A desktop drawing arrived with the slice, and like
+        7.2's its numbers had to be defined rather than copied — every row draws
+        `N judged` equal to `N seen` while the bars are part-filled, which no
+        single definition satisfies. What was agreed: *watched* is matches of
+        theirs the reader recorded anything in, so one word keeps one meaning
+        across three scopes, and it needs one `some` clause where a player's
+        needs two, because a club playing is a fact about `Match`'s own columns.
+        Each row's bar is a proportion of **that player's own seen count**,
+        identical to a players-index row, so grey still reads "watched him and
+        said nothing".
+
+        The slice's own decisions: the squad list is the players index's row,
+        extracted so the two cannot drift — the subtitle is all that differs,
+        and this screen puts what he has been judged where the index puts his
+        club. The header's crest is 64px to match the shirt tile a player
+        profile puts in the same slot, which cost `CrestChip` a third size and
+        `foundations.md` an exception for its letters. `backLink` learned both
+        profiles as origins and took its fallback from the caller. Deliberately
+        absent: no verdict controls, for 7.2's reason; no search or sort over
+        twenty-odd rows; no team-level split bar, since one match can carry
+        eleven verdicts and the remainder would mean nothing.
+
+        Three ways in, not the two first agreed: the scoreline's clubs were
+        added on sight, which cost the match page's `<h1>` its shape. The
+        arrangement moved out of the heading and beside it, because a link
+        inside an `aria-hidden` subtree is reachable by keyboard and absent from
+        the accessibility tree at once. Deliberately still absent: **no link
+        from the fixture card**, whose whole card is already a link, so a club
+        inside it would be a nested anchor.
+  - [ ] **7.5 — Teams index.** `/teams`, which is a live sidebar destination
+        still showing a placeholder, and whose rows now have a profile to point
+        at. Twenty clubs rather than ~600 players, so none of what made 7.3
+        expensive should be needed — no search, no `localStorage` preferences,
+        no row cap.
 - [ ] **8 — Chrome.** In the design, needed by nothing above it.
   - [x] **8.1 — Dark-mode toggle.** Done, and taken out of order on purpose:
         it puts every screen through a second theme while there are three of
@@ -274,8 +318,10 @@ empty list is the expected state.
   profile and the match page each arrived with a desktop drawing, so only half of
   each had to be invented; 7.3's two drawings arrived with the slice itself and
   are desktop-only like the rest, so its filter row, its two-line list row and its
-  card grid were all decided narrow without one. 7.4 has no drawing at either
-  width, and is designed at both at once.
+  card grid were all decided narrow without one. 7.4's drawing arrived with the
+  slice and is desktop-only like the rest, so its squad row inherited the
+  players index's narrow arrangement rather than being drawn one. 7.5 has no
+  drawing at either width, and is designed at both at once.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 

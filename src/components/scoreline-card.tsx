@@ -1,6 +1,8 @@
+import Link from 'next/link'
 import { BackLink } from './back-link'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
+import { teamHref } from '@/lib/back'
 import { kickoffDate, kickoffTime } from '@/lib/dates'
 import { scoreline } from '@/lib/text'
 import type { IconName } from './icon-names'
@@ -64,6 +66,44 @@ function Score({ match }: { match: MatchWithSquads }) {
     <span className="text-score">
       {match.homeGoals}–{match.awayGoals}
     </span>
+  )
+}
+
+/**
+ * One club in the scoreline, as a link to its profile.
+ *
+ * The two sides differ only in which team they read and which way round the
+ * crest and the name sit — the home block is mirrored so both crests stay
+ * inboard, beside the score. A prop rather than two copies, because the link's
+ * classes are the part that must not drift between them.
+ */
+function ClubLink({ match, side }: { match: MatchWithSquads; side: 'home' | 'away' }) {
+  const team = side === 'home' ? match.homeTeam : match.awayTeam
+
+  const name = (
+    <span className={`text-title ${side === 'home' ? 'text-right' : ''}`}>{team.name}</span>
+  )
+  const crest = <CrestChip team={team} size="lg" />
+
+  return (
+    <Link
+      href={teamHref(team.id, `/matches/${match.id}`)}
+      className={`-m-2 flex min-w-0 items-center gap-3 rounded-md p-2 text-text no-underline hover:bg-surface-alt hover:text-text hover:no-underline focus-visible:focus-ring ${
+        side === 'home' ? 'md:justify-end' : ''
+      }`}
+    >
+      {side === 'home' ? (
+        <>
+          {name}
+          {crest}
+        </>
+      ) : (
+        <>
+          {crest}
+          {name}
+        </>
+      )}
+    </Link>
   )
 }
 
@@ -132,56 +172,63 @@ export function ScorelineCard({
           ) : null}
         </div>
 
-        <h1>
+        {/*
+          The heading is the string and nothing else, and the drawn arrangement
+          is its sibling rather than its content. It used to be one `<h1>` with
+          the arrangement inside it and `aria-hidden` — which was right until the
+          clubs became links, because a focusable element inside a hidden subtree
+          is reachable by keyboard and absent from the accessibility tree at the
+          same time. Splitting them keeps both halves honest: the heading still
+          announces "Chelsea 1–1 Arsenal" as one name rather than two clubs
+          around a bare "1–2", and the links are ordinary links outside it.
+
+          Everything in the arrangement that is not a link stays hidden, so the
+          score is announced once, by the heading. That also keeps an unplayed
+          match from reading as "Manchester United 15:00 Leeds", a scoreline that
+          never happened.
+        */}
+        <h1 className="sr-only">{name}</h1>
+        <div
+          /*
+            Three columns with the middle sized to its content, so the score
+            sits on the card's centre line however long the club names are —
+            `FixtureCard`'s trick, and `md:justify-end` on the home block is
+            what pins both blocks against that middle column.
+
+            Below `md` it stacks instead, each crest staying inboard beside the
+            score. At 320px the row is arithmetically impossible: about 136px
+            left for two 24px club names. `FixtureCard` shrinks its names at
+            that width, and this deliberately does not — a dense repeated card
+            *becomes* a fixture line on a phone, a different element with a
+            different job, but the scoreline is still the thing the page is
+            about, and shrinking it would be scaling for its own sake.
+
+            `items-center` is written once and does double duty: `align-items`
+            on the flex column below `md`, and on the grid from `md` up.
+          */
+          className="flex flex-col items-center gap-3 px-4 py-5 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4"
+        >
           {/*
-            The name is a string, and the drawn arrangement below is hidden from
-            the accessibility tree entirely. Left visible it would arrive as two
-            club names split around a bare "1–2", and an unplayed match would
-            read as "Manchester United 15:00 Leeds" — a scoreline that never
-            happened. The hidden subtree holds nothing focusable.
+            No `truncate` anywhere here, and `min-w-0` so the 1fr columns may
+            shrink: at exactly 768px the content box is about 488px, and a pair
+            like Wolverhampton Wanderers against Manchester United genuinely
+            does not fit on one line. A long name wraps and the row grows.
+            Truncating a heading loses half the name instead.
+
+            The crest and the name are one link, as they are in a squad panel
+            header — a club is one thing to click. The padding is what makes the
+            hover surface worth aiming at and the negative margin cancels it
+            exactly, so the name sits where it always did against the score.
           */}
-          <span className="sr-only">{name}</span>
-          <span
-            aria-hidden
-            /*
-              Three columns with the middle sized to its content, so the score
-              sits on the card's centre line however long the club names are —
-              `FixtureCard`'s trick, and `md:justify-end` on the home block is
-              what pins both blocks against that middle column.
+          <ClubLink match={match} side="home" />
 
-              Below `md` it stacks instead, each crest staying inboard beside the
-              score. At 320px the row is arithmetically impossible: about 136px
-              left for two 24px club names. `FixtureCard` shrinks its names at
-              that width, and this deliberately does not — a dense repeated card
-              *becomes* a fixture line on a phone, a different element with a
-              different job, but a page's `<h1>` is still the thing the page is
-              about, and shrinking it would be scaling for its own sake.
-
-              `items-center` is written once and does double duty: `align-items`
-              on the flex column below `md`, and on the grid from `md` up.
-            */
-            className="flex flex-col items-center gap-3 px-4 py-5 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-4"
-          >
-            {/*
-              No `truncate` anywhere here, and `min-w-0` so the 1fr columns may
-              shrink: at exactly 768px the content box is about 488px, and a pair
-              like Wolverhampton Wanderers against Manchester United genuinely
-              does not fit on one line. A long name wraps and the row grows.
-              Truncating a heading loses half the name instead.
-            */}
-            <span className="flex min-w-0 items-center gap-3 md:justify-end">
-              <span className="text-right text-title">{match.homeTeam.name}</span>
-              <CrestChip team={match.homeTeam} size="lg" />
-            </span>
-
+          {/* Announced by the heading above, so it is not announced again here. */}
+          <span aria-hidden>
             <Score match={match} />
-
-            <span className="flex min-w-0 items-center gap-3">
-              <CrestChip team={match.awayTeam} size="lg" />
-              <span className="text-title">{match.awayTeam.name}</span>
-            </span>
           </span>
-        </h1>
+
+          <ClubLink match={match} side="away" />
+        </div>
       </div>
     </header>
   )

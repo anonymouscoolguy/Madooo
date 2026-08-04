@@ -27,20 +27,25 @@ import { crest, type TeamIdentity } from '@/lib/teams/identity'
  * sitting inside a row of other things. `lg` is 40px with `--radius-md`, which
  * foundations gives to "almost everything: buttons, fields, cards, tiles": a
  * mark carrying the identity of the whole page is a tile, not a label, and it is
- * the same reading that put `ShirtTile` on `--radius-md`.
+ * the same reading that put `ShirtTile` on `--radius-md`. `xl` is 64px, the size
+ * `ShirtTile` takes in the same header slot, so a club profile and a player
+ * profile open with a mark of one size.
  *
- * `text-caps` at both sizes rather than growing with the box. It is the only
+ * **The letter role belongs to the size**, which is why it is in this table
+ * rather than in the className below. `text-caps` at 20 and 40px: it is the only
  * role that is bold, tracked *and* capitalised, which is what three letters on a
- * saturated colour need to stay legible, and the reference draws both chips'
- * labels at the same optical size. `text-data` would be wrong outright — a club
- * code is not a number you can add up, which is the whole of the rule that picks
- * the monospaced family.
+ * saturated colour need to stay legible. At 64px it stops working — 11px of type
+ * in a 64px box reads as a smudge in the corner rather than as the identity of
+ * the screen — so `xl` takes `text-title`, a size the scale already has. Neither
+ * takes `text-data`: a club code is not a number you can add up, which is the
+ * whole of the rule that picks the monospaced family.
  */
 const SIZES = {
-  sm: 'h-5 rounded-sm px-1.5',
+  sm: 'h-5 rounded-sm px-1.5 text-caps',
   // No horizontal padding: a fixed square centres its content already, and
   // padding on it could only squeeze a four-letter code.
-  lg: 'size-10 rounded-md',
+  lg: 'size-10 rounded-md text-caps',
+  xl: 'size-16 rounded-md text-title',
 } as const
 
 export function CrestChip({
@@ -56,7 +61,7 @@ export function CrestChip({
     <span
       aria-hidden
       style={{ backgroundColor: background, color: ink }}
-      className={`inline-flex shrink-0 items-center justify-center text-caps ${SIZES[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center ${SIZES[size]}`}
     >
       {label}
     </span>

@@ -18,7 +18,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { compareSquadEntries, positionLabel, splitSquad } from './squad'
+import { compareRosterEntries, compareSquadEntries, positionLabel, splitSquad } from './squad'
 import { buildSquad } from './api-football/map'
 import type { ApiFootballEnvelope, RawLineup, RawPlayerStats } from './api-football/types'
 
@@ -126,5 +126,49 @@ describe('compareSquadEntries', () => {
   it('sorts a player with no grid or shirt number last, rather than first', () => {
     const sorted = [entry(null, null, 'a'), entry('2:1', 5, 'b')].sort(compareSquadEntries)
     expect(sorted.map((row) => row.player.name)).toEqual(['b', 'a'])
+  })
+})
+
+describe('compareRosterEntries', () => {
+  /**
+   * A club's roster, built out of the same captured lineup the rest of this file
+   * uses: every player Chelsea named, deduplicated the way `teamSquad` does it,
+   * with the grid dropped because a roster has none.
+   */
+  const roster = squad
+    .filter((entry) => entry.teamId === squad[0].teamId)
+    .map((entry) => ({
+      position: entry.position,
+      shirtNumber: entry.shirtNumber,
+      name: entry.player.name,
+    }))
+
+  it('reads back to front, goalkeepers first', () => {
+    const order = ['G', 'D', 'M', 'F']
+    const ranks = [...roster]
+      .sort(compareRosterEntries)
+      .map((entry) => order.indexOf(entry.position ?? ''))
+
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
+    expect(ranks[0]).toBe(0)
+  })
+
+  it('orders a position group by shirt number, then by name', () => {
+    const sorted = [
+      { position: 'M', shirtNumber: 25, name: 'b' },
+      { position: 'G', shirtNumber: 31, name: 'c' },
+      { position: 'M', shirtNumber: 8, name: 'a' },
+    ].sort(compareRosterEntries)
+
+    expect(sorted.map((entry) => entry.name)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('sorts a player with no shirt number last within his group, not first', () => {
+    const sorted = [
+      { position: 'D', shirtNumber: null, name: 'a' },
+      { position: 'D', shirtNumber: 6, name: 'b' },
+    ].sort(compareRosterEntries)
+
+    expect(sorted.map((entry) => entry.name)).toEqual(['b', 'a'])
   })
 })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { backLink, playerHref } from './back'
+import { backLink, playerHref, teamHref, TEAMS } from './back'
 import { DIARY_FILTERS } from './diary-filters'
+import { PLAYER_VIEWS } from './player-views'
 
 describe('backLink', () => {
   it('reads a match back', () => {
@@ -26,6 +27,29 @@ describe('backLink', () => {
   it('accepts every slug the diary actually offers', () => {
     for (const filter of DIARY_FILTERS) {
       expect(backLink(`/diary?filter=${filter.slug}`).label).toBe('Back to Diary')
+    }
+  })
+
+  it('reads a club back', () => {
+    expect(backLink('/teams/4')).toEqual({ href: '/teams/4', label: 'Back to the club' })
+  })
+
+  it('keeps the tab a player profile was left on', () => {
+    expect(backLink('/players/44?view=notes')).toEqual({
+      href: '/players/44?view=notes',
+      label: 'Back to the player',
+    })
+  })
+
+  it('drops the view when it is the default, and when nothing knows it', () => {
+    expect(backLink('/players/44?view=diary').href).toBe('/players/44')
+    expect(backLink('/players/44?view=nonsense').href).toBe('/players/44')
+    expect(backLink('/players/44').href).toBe('/players/44')
+  })
+
+  it('accepts every view a profile actually offers', () => {
+    for (const view of PLAYER_VIEWS) {
+      expect(backLink(`/players/44?view=${view.slug}`).label).toBe('Back to the player')
     }
   })
 
@@ -58,16 +82,35 @@ describe('backLink', () => {
   it('never returns an href it was given', () => {
     // The property the guard rests on: every href out of this function is one of
     // a handful of strings this module built itself.
-    const shapes = ['/players', '/diary', '/fixtures', '/matches/', '/diary?filter=', '/fixtures?matchday=']
-    for (const input of ['https://evil.com', '/matches/12', '/diary?filter=mvp', 'nonsense', '']) {
+    const shapes = ['/players', '/teams', '/diary', '/fixtures', '/matches/', '/diary?filter=', '/fixtures?matchday=']
+    for (const input of [
+      'https://evil.com',
+      '/matches/12',
+      '/diary?filter=mvp',
+      '/teams/4',
+      '/players/44?view=notes',
+      'nonsense',
+      '',
+    ]) {
       expect(shapes.some((shape) => backLink(input).href.startsWith(shape))).toBe(true)
     }
   })
 
   it('falls back for anything that is not a string, or is missing', () => {
-    for (const value of [undefined, null, 0, '', [], {}, '/players', '/teams/4']) {
+    for (const value of [undefined, null, 0, '', [], {}, '/players', '/teams']) {
       expect(backLink(value).href).toBe('/players')
     }
+  })
+
+  /**
+   * The fallback is the screen's, not the value's: a club reached by typing its
+   * URL belongs back at Teams, and one reached from the diary still belongs at
+   * the diary.
+   */
+  it('takes the fallback the caller supplies when it cannot tell', () => {
+    expect(backLink(undefined, TEAMS)).toEqual({ href: '/teams', label: 'Back to Teams' })
+    expect(backLink('https://evil.com', TEAMS).href).toBe('/teams')
+    expect(backLink('/diary?filter=mvp', TEAMS).href).toBe('/diary?filter=mvp')
   })
 
   it('takes the first value when the parameter is repeated', () => {
@@ -95,5 +138,22 @@ describe('playerHref', () => {
     const href = playerHref(1, '/matches/12')
     const from = new URL(href, 'https://example.test').searchParams.get('from')
     expect(backLink(from).href).toBe('/matches/12')
+  })
+})
+
+describe('teamHref', () => {
+  it('round-trips a player profile, tab and all', () => {
+    const href = teamHref(4, '/players/44?view=notes')
+    expect(href).toBe('/teams/4?from=%2Fplayers%2F44%3Fview%3Dnotes')
+
+    const from = new URL(href, 'https://example.test').searchParams.get('from')
+    expect(backLink(from, TEAMS).href).toBe('/players/44?view=notes')
+  })
+
+  /** The loop the two profiles make: a club lists players, and a player names his club. */
+  it('round-trips against playerHref', () => {
+    const toPlayer = playerHref(44, '/teams/4')
+    const backToClub = new URL(toPlayer, 'https://example.test').searchParams.get('from')
+    expect(backLink(backToClub).href).toBe('/teams/4')
   })
 })

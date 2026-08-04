@@ -100,6 +100,38 @@ export function compareSquadEntries(a: SquadOrderable, b: SquadOrderable): numbe
 }
 
 /**
+ * What a season roster carries. No `grid`, and that is the difference from
+ * `SquadOrderable` rather than an omission: where a player stood is a fact about
+ * one match, and a club's roster spans every match of the season.
+ */
+export interface RosterOrderable {
+  position: string | null
+  shirtNumber: number | null
+  name: string
+}
+
+/**
+ * The same reading as `compareSquadEntries` — goalkeeper, defence, midfield,
+ * attack — with the grid taken out of the middle of it.
+ *
+ * A shirt number orders a position group about as well as anything else does
+ * once the pitch is gone: it is broadly positional at a club, and it is stable,
+ * which is what a list drawn on every request needs. Ending in the name makes
+ * the order total, so two squad players sharing a number cannot swap places
+ * between requests.
+ */
+export function compareRosterEntries(a: RosterOrderable, b: RosterOrderable): number {
+  const byPosition = positionRank(a.position) - positionRank(b.position)
+  if (byPosition !== 0) return byPosition
+
+  const numberA = a.shirtNumber ?? Number.POSITIVE_INFINITY
+  const numberB = b.shirtNumber ?? Number.POSITIVE_INFINITY
+  if (numberA !== numberB) return numberA - numberB
+
+  return a.name.localeCompare(b.name)
+}
+
+/**
  * One team's half of the squad, split by `isStarter` and each half ordered.
  *
  * Both lists can come back empty and the caller has to cope: the sync's merge is

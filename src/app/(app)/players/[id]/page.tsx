@@ -1,6 +1,7 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireDbUser } from '@/lib/auth'
-import { backLink } from '@/lib/back'
+import { backLink, teamHref } from '@/lib/back'
 import { season } from '@/lib/env'
 import { playerEntries, playerHeader, playerTotals } from '@/lib/players'
 import { PLAYER_VIEWS, parseView } from '@/lib/player-views'
@@ -75,10 +76,27 @@ export default async function PlayerPage({ params, searchParams }: PageProps<'/p
           in no provider response — `MatchSquad.position` is one of four letters —
           and 6.3 settled that inventing one prints a confident falsehood about a
           real person. See architecture.md.
+
+          The club is the link; the position is not, so this is a node rather
+          than one joined string. What travels as the origin is this profile with
+          its tab, so Back from the club returns to the view he was reading.
         */}
-        {latest === null
-          ? 'Not named in a squad this season.'
-          : [latest.team.name, position].filter(Boolean).join(' · ')}
+        {latest === null ? (
+          'Not named in a squad this season.'
+        ) : (
+          <>
+            <Link
+              href={teamHref(
+                latest.team.id,
+                `/players/${header.id}${current === PLAYER_VIEWS[0] ? '' : `?view=${current.slug}`}`,
+              )}
+              className="rounded-sm text-muted underline-offset-2 hover:text-text focus-visible:focus-ring"
+            >
+              {latest.team.name}
+            </Link>
+            {position === null ? null : ` · ${position}`}
+          </>
+        )}
       </PageHeader>
 
       <StatTiles tiles={PLAYER_TILES} totals={totals} />

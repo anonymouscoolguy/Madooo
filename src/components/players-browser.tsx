@@ -18,8 +18,8 @@ import {
 } from '@/lib/players-index'
 import { positionLabel } from '@/lib/squad'
 import { verdictSplit } from '@/lib/verdict-split'
-import { Icon } from './icon'
 import { LayoutToggle } from './layout-toggle'
+import { PlayerRow } from './player-row'
 import { SearchField } from './search-field'
 import { SelectField } from './select-field'
 import { ShirtTile } from './shirt-tile'
@@ -59,70 +59,30 @@ import type { IndexTeam } from '@/lib/players'
  */
 const SHOWN_STEP = 60
 
+/**
+ * The row is `PlayerRow`; what this screen supplies is the subtitle. Club and
+ * position sit under the name at every width, which is what the grid card does
+ * too; the separate position column at `md` is the drawing's arrangement, and
+ * `PlayerRow` hides it below that rather than moving it.
+ */
 function Row({ player, team }: { player: PlayerIndexRow; team: IndexTeam | null }) {
   const position = positionLabel(player.position)
-  const segments = verdictSplit({
-    watched: player.seen,
-    mvps: player.mvps,
-    standouts: player.standouts,
-    flops: player.flops,
-  })
 
   return (
-    <li>
-      {/*
-        The whole row is the link, because the chevron promises it is. Ink rather
-        than the link colour and `no-underline` in both states: the base
-        stylesheet styles every <a> as prose, which is right for a sentence and
-        wrong for a row.
-
-        Two lines below `md`, one from `md` up. The reference is desktop-only, so
-        the narrow arrangement is a decision: at 320px a single line leaves no
-        room for a bar between a name and a count. `min-h` rather than a fixed
-        height, 6.3's choice — the touch row height is a floor the row may grow
-        past.
-
-        Club and position sit under the name at every width, which is what the
-        grid card does too; the separate position column at `md` is the drawing's
-        arrangement, and it is `hidden` below it rather than moved.
-      */}
-      <Link
-        href={playerHref(player.id, '/players')}
-        className="t-hover grid min-h-(--row-h-lg) grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 text-text no-underline hover:bg-surface-alt hover:text-text hover:no-underline focus-visible:focus-ring md:grid-cols-[auto_minmax(0,1fr)_4rem_12rem_auto]"
-      >
-        <ShirtTile team={team} shirtNumber={player.shirtNumber} size="sm" />
-
-        <span className="min-w-0">
-          <span className="block truncate text-body font-medium">{player.name}</span>
-          <span className="block truncate text-caption text-muted">
-            {[team?.name, position].filter(Boolean).join(' · ')}
-          </span>
-        </span>
-
-        {/* The drawing's own position column. Hidden below `md`, where the same
-            fact is already under the name. */}
-        <span className="hidden text-caps text-faint md:block">{position}</span>
-
-        {/*
-          The bar spans the full width on line two below `md`, and takes its own
-          column at `md`. `SplitBar` is aria-hidden, so the counts are stated
-          here — otherwise they would leave the accessibility tree entirely, and
-          the row would announce a name and a number with nothing between them.
-        */}
-        <span className="col-start-2 -col-end-1 md:col-start-4 md:col-end-auto">
-          <SplitBar segments={segments} />
-          <span className="sr-only">
-            {player.mvps} MVP, {player.standouts} standout, {player.flops} flop
-          </span>
-        </span>
-
-        <span className="col-start-3 row-start-1 flex shrink-0 items-center gap-1 justify-self-end md:col-start-5 md:row-start-auto">
-          <span className="text-data">{player.seen}</span>
-          <span className="text-caption text-muted">seen</span>
-          <Icon name="chevron_right" size="md" className="text-faint" />
-        </span>
-      </Link>
-    </li>
+    <PlayerRow
+      href={playerHref(player.id, '/players')}
+      team={team}
+      shirtNumber={player.shirtNumber}
+      name={player.name}
+      subtitle={[team?.name, position].filter(Boolean).join(' · ')}
+      position={position}
+      counts={{
+        watched: player.seen,
+        mvps: player.mvps,
+        standouts: player.standouts,
+        flops: player.flops,
+      }}
+    />
   )
 }
 
@@ -211,7 +171,7 @@ export function PlayersBrowser({
     against the new list. Comparing a signature with the last one rendered is
     React's documented way of adjusting state on a prop change.
   */
-  const signature = `${query} ${leagueId ?? ''} ${sort.slug}`
+  const signature = `${query}\0${leagueId ?? ''}\0${sort.slug}`
   const [lastSignature, setLastSignature] = useState(signature)
   if (signature !== lastSignature) {
     setLastSignature(signature)

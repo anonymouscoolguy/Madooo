@@ -159,6 +159,17 @@ satisfying both and so asks whether the user judged *this player* — a differen
 and much smaller number. What is wanted is that he was named and that somebody
 was judged, not necessarily him.
 
+**On a club profile it is scoped again, and needs only one `some` — which is the
+point rather than an oversight.** "This player was in the squad" can only be
+asked of a squad row, which is what forces the player's version into two clauses.
+"This club played in this match" is a fact about `Match`'s own `homeTeamId` and
+`awayTeamId`, so `teamTotals` states it in the same `where` without ambiguity.
+Reading it off squad rows instead would quietly drop a match whose lineup was
+never published while the opponent's was: the reader recorded something, the club
+played, and no `MatchSquad` row exists to prove it. So a club's *watched* is
+matches of theirs the reader had something to say about, even where all of it was
+about the opponent — one word, one meaning, three scopes.
+
 That definition is what makes the profile's split bar mean something: `unrated`
 is `watched` minus the three tags, so it reads as "you watched him and had
 nothing to say", which a count of entries could not express. It also cannot
@@ -175,6 +186,13 @@ his most recent squad row of the season, `take: 1` after ordering by
 `match.kickoff` — which is what makes a January transfer show the club he is at
 now. The list comes back empty for a player with no squad row that season, which
 is reachable by typing a URL and is a state the page has to draw.
+
+**A club's competition is the same shape one level up.** `Team` carries no
+`leagueId`; a club reaches a league only through the matches they share, so
+`teamHeader` reads it off one of that club's matches this season, `OR`-ed across
+both sides of the fixture because a club with no *home* match is a state
+round-by-round hydration can produce. A club with no match at all draws no
+league, which is the header's own empty state.
 
 ### Prisma resolves `distinct` and a nested `take` in Node, so "latest row per group" is raw SQL
 
@@ -194,12 +212,15 @@ against the real database with `log: ['query']` and their SQL read back:
 Postgres would do this with `DISTINCT ON`, and Prisma cannot emit it, because the
 distinct column has to lead the `ORDER BY` and the order wanted is
 `match.kickoff` — a column on a joined table. So `playersInSeason` in
-[`players.ts`](../src/lib/players.ts) is `$queryRaw`, the **only** raw SQL in the
-app. `$queryRaw` is a tagged template and binds its parameters; `$queryRawUnsafe`
-does not and has no business here. The generic on it is an assertion rather than
-a check: raw SQL bypasses Prisma's mapping, so the column names are the
-database's own — safe while no model carries `@map`, and silently wrong the day
-one does.
+[`players.ts`](../src/lib/players.ts) is `$queryRaw`, and `teamSquad` in
+[`teams/profile.ts`](../src/lib/teams/profile.ts) is the same query with a club
+in its `WHERE`. **They are the only raw SQL in the app**, and a third should
+have to argue for itself the way these two did. `$queryRaw` is a tagged template
+and binds its parameters; `$queryRawUnsafe` does not and has no business here.
+The generic on it is an assertion rather than a check: raw SQL bypasses Prisma's
+mapping, so the column names are the database's own — safe while no model carries
+`@map`, and silently wrong the day one does. That hazard now has two call sites
+to break at once.
 
 **Development cannot show you any of this.** With one round hydrated there is
 exactly one squad row per player, so all three forms return 400 rows and only the
@@ -407,10 +428,19 @@ string. [`back.ts`](../src/lib/back.ts) parses it against a handful of our own
 shapes and **reconstructs the href from the parsed parts**, so a value that is
 not one of them cannot survive: `?from=https://…` written straight into a
 `<Link>` is an open redirect, and reconstruction is a stronger guarantee than a
-list of things to reject. The filter or matchday travels with it, so Back returns
-to the screen the reader actually left rather than to an unparameterised one.
-`playerHref` does the `encodeURIComponent`, once, because a `from` carrying
-`?filter=mvp` has to survive being a value inside another query string.
+list of things to reject. The filter, the matchday or the profile's tab travels
+with it, so Back returns to the screen the reader actually left rather than to an
+unparameterised one. `playerHref` and `teamHref` do the `encodeURIComponent`,
+once each, because a `from` carrying `?filter=mvp` has to survive being a value
+inside another query string.
+
+**The two profiles are origins for each other, and the fallback belongs to the
+screen rather than to the value.** A club lists its players and a player names
+his club, so `/teams/N` and `/players/N` are both recognised shapes and the loop
+closes in either direction. What could not be shared is where an unrecognised
+`?from=` lands: a club reached by typing its URL belongs back at Teams, not at
+Players, so `backLink` takes the fallback as an argument and each screen passes
+its own.
 
 ### A location goes in the URL; a preference goes in `localStorage`
 
@@ -700,22 +730,51 @@ something. Both screens that list judgements use it, and nothing else does: on a
 squad row the same text is `--text-body` in `--text-muted`, indented under the
 name, so the row stays a row. A note's size is a fact about where it is read.
 
-**A heading that is drawn as a layout gets its name as a string and hides the
-rest.** The match page's `<h1>` is the scoreline — two club names, two crest
-marks and a score, arranged in three grid columns. Read as markup that name comes
-out as two names split around a bare `1–2`, and an unplayed match reads as
-"Manchester United 15:00 Leeds", a scoreline that never happened. So the heading
-holds an `sr-only` string from `scoreline()` — already the app's one way of naming
-a match, shared with the diary and the profile — over an `aria-hidden` subtree
-carrying the whole visible arrangement. That is only safe because the subtree
-contains nothing focusable; a heading with a control in it cannot take this shape.
+**A heading that is drawn as a layout gets its name as a string, and the drawn
+version is its sibling rather than its content.** The match page's scoreline is
+two club names, two crest marks and a score in three grid columns. Read as markup
+that comes out as two names split around a bare `1–2`, and an unplayed match
+reads as "Manchester United 15:00 Leeds", a scoreline that never happened. So the
+`<h1>` is an `sr-only` string from `scoreline()` — already the app's one way of
+naming a match, shared with the diary and the profile — and the arrangement sits
+beside it with everything that is not a link `aria-hidden`, so the score is
+announced once.
+
+**The two were one element until the clubs became links, and that is the rule
+worth keeping.** The arrangement used to live *inside* the heading under a single
+`aria-hidden`, which is the simpler shape and was correct while it held nothing
+focusable. A link inside a hidden subtree is the failure it cannot survive:
+reachable by keyboard, absent from the accessibility tree, announced as nothing.
+**Wrapping content in `aria-hidden` is a commitment that nothing in it will ever
+be focusable** — when that stops being true, the hidden part has to shrink to the
+decoration rather than the control being dropped in anyway.
 
 **A club mark is `aria-hidden` wherever it appears, so whatever holds it has to
-name the club.** `CrestChip` has two sizes — 20px in a row, 40px square in the
-scoreline — and both go through `crest()`, which is what foundations requires of
-anything carrying a club colour. Its letters stay `text-caps` at both sizes
-rather than growing with the box: it is the only role that is bold, tracked *and*
-capitalised, which is what three letters on a saturated colour need.
+name the club.** `CrestChip` has three sizes — 20px in a row, 40px square in the
+scoreline, 64px in a club profile's header — and all go through `crest()`, which
+is what foundations requires of anything carrying a club colour. **The letter
+role belongs to the size**, so it lives in the size table rather than in the
+component's className: `text-caps` at 20 and 40px, because it is the only role
+that is bold, tracked *and* capitalised, which is what three letters on a
+saturated colour need; `text-title` at 64px, because 11px of type in a 64px box
+reads as a smudge in the corner rather than as the identity of the screen. The
+64px size exists to match the 64px `ShirtTile`, so the two profiles open with a
+mark of one size.
+
+**A club mark can be the link into a club, and then the `sr-only` name has to
+move inside it.** The squad panel headers are one of the app's ways from a match
+to a club, and a link wrapping an `aria-hidden` chip alone would announce nothing
+at all — the name that was sitting beside the chip is what gives the link its
+accessible name, so it goes in the anchor. The scoreline's clubs are the other
+way, and there the visible name is already inside the link, so the crest joins it
+rather than standing alone: a club is one thing to click.
+
+**A link that has to sit exactly where static text sat takes padding and cancels
+it.** Both club links need a hover surface worth aiming at — a 20px chip is below
+anything tappable — and both sit in layouts tuned to the pixel, the squad
+header's crest alignment and the scoreline's centre column. `p-2` with `-m-2`
+grows the target without moving the content, which is the general answer whenever
+existing text becomes a link.
 
 **Putting the crest in every squad panel header deleted a special case rather
 than adding one.** The panels used to compose their own title, and a bench with
@@ -747,9 +806,22 @@ spacing**, which is what stops the six of them drifting apart.
 
 **A screen's stat tiles are one component and a table each.** `StatTiles` is
 generic over the union of keys it reads — `StatTiles<K extends string>` with
-`Record<K, number>` totals — so three screens draw the same four boxes over
+`Record<K, number>` totals — so four screens draw the same four boxes over
 different numbers and a tile naming a key its totals lack is a compile error
-rather than a blank. A new screen adds a table, not a component.
+rather than a blank. A new screen adds a table, not a component — including when
+its labels coincide exactly with another's, as a club's do with a player's. The
+word underneath differs even where the label does not: a player's *watched* is
+matches he was named in, a club's is matches it played, and the queries share no
+code. One table for both would hide that at both call sites.
+
+**A list row is one component across the screens that draw it, and the subtitle
+is what varies.** `PlayerRow` holds the shirt tile, the name, the `md:` position
+column, the split bar with its `sr-only` counts, the seen count and the chevron —
+everything except the one line under the name, which the caller passes. The
+players index puts the club and position there; a club's squad, which has already
+named the club in its own header, puts what the player has been judged. It
+carries no `'use client'` of its own, so it renders on the server inside the club
+profile and joins the bundle inside `players-browser`.
 
 **Two tab vocabularies, and which is which.** `foundations.md` lists a 40px
 `--control-h-lg` tab and a 28px pill tab as separate controls; the rule between

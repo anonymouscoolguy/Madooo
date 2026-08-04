@@ -78,6 +78,8 @@ A club mark's ink is picked by contrast against that colour and is `--gray-0` or
 
 Only a club mark may claim this exception, and a new one has to go through that same function to count as one.
 
+**A crest mark's letters take their size from the box, at one size only.** The three letters are `--text-caps` at 20px and 40px — the only role that is bold, tracked *and* capitalised, which is what a club code on a saturated colour needs, and small enough at both that it reads as a label. At 64px they are `--text-title` instead: 11px of type in a 64px square reads as a smudge in the corner rather than as the identity of the screen it heads. Not a new role, and never a raw size — 24px is on the scale already.
+
 ### Theming
 Light is the default and needs no attribute. Dark is `data-theme="dark"` on `<html>` (or any container — it re-points semantics on any subtree). Only semantics re-point; base tokens never change.
 
@@ -183,6 +185,7 @@ Content stays fluid up to `--container`.
 | — | 26px | Small button / small icon button |
 | — | 28px | VerdictChip (md), pill tab |
 | — | 24px | Tag |
+| — | 64px | Crest mark, square — a club profile's header, beside the 64px shirt tile |
 | — | 40px | Crest mark, square — the match page's scoreline |
 | — | 20px | Badge, crest chip |
 | — | 16px | Checkbox / radio box |
