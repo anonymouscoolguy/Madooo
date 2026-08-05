@@ -99,6 +99,11 @@ Decided:
   browser, then the next. Do not build whole layers speculatively.
 - Use plan mode for anything non-trivial: agree the approach before writing code.
 - Secrets live in `.env.local`, which is gitignored. Never echo their values.
+- **A doc correction is never local.** When a claim in one document turns out to
+  be wrong, grep the other docs — `AGENTS.md`, `docs/*.md`, `docs/design/`,
+  `.claude/skills/` — for the same claim and fix it everywhere, then report
+  every file touched. Docs drift, and a fix applied in one place leaves the
+  project contradicting itself.
 
 ## Known noise
 
