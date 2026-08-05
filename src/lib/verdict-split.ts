@@ -27,6 +27,16 @@ export interface VerdictCounts {
 }
 
 /**
+ * The three verdicts without the matches they were given in — what `verdictMix`
+ * takes, because it genuinely does not look at `watched`.
+ *
+ * Stated in the type rather than merely ignored in the body: a club row carries
+ * `seen` rather than `watched`, and a signature demanding a field it never reads
+ * would have every caller inventing one.
+ */
+export type VerdictTally = Omit<VerdictCounts, 'watched'>
+
+/**
  * The three verdicts, plus the state that exists only here: a match watched and
  * left unjudged. Exported so the component's colour tables can be exhaustive
  * over it, and a segment nobody gave a fill is a compile error.
@@ -64,5 +74,43 @@ export function verdictSplit(counts: VerdictCounts): Segment[] {
     { key: 'standouts', label: 'STANDOUT', count: standouts, percent: share(standouts) },
     { key: 'flops', label: 'FLOP', count: flops, percent: share(flops) },
     { key: 'unrated', label: 'UNRATED', count: unrated, percent: share(unrated) },
+  ]
+}
+
+/**
+ * The same three verdicts as a proportion of **each other**, with no remainder.
+ *
+ * **A club cannot use `verdictSplit`, and the reason is arithmetic rather than
+ * taste.** Above, `watched` counts matches and the three tags count judgements,
+ * and for one player those are the same unit: `@@unique([userId, matchSquadId])`
+ * allows him one judgement per match, so the tags can never outrun the matches
+ * and the difference between them is a real state — "watched him and said
+ * nothing".
+ *
+ * A club breaks that. One match carries eleven of their players, so a reader who
+ * tags five Arsenal players in one fixture has five judgements against one
+ * watched match. `unrated` would clamp to zero, the three segments would overrun
+ * their track, and the bar would quietly assert a remainder that does not exist.
+ * That is why the club profile draws no bar at all.
+ *
+ * So the club's bar answers the question the numbers can answer — *what is the
+ * mix of what you gave them* — and leaves *how much* to the `N seen` beside it
+ * and the counts in the legend. It is full width on any club with a verdict,
+ * which is the honest consequence: length carries no information here, colour
+ * does.
+ */
+export function verdictMix(counts: VerdictTally): Segment[] {
+  const { mvps, standouts, flops } = counts
+  const given = mvps + standouts + flops
+
+  // A percentage of nothing is zero, not NaN — `verdictSplit`'s reason, and here
+  // it is the common case rather than the edge one: most clubs on a directory
+  // have never been judged, and each draws a bare track.
+  const share = (count: number) => (given === 0 ? 0 : (count / given) * 100)
+
+  return [
+    { key: 'mvps', label: 'MVP', count: mvps, percent: share(mvps) },
+    { key: 'standouts', label: 'STANDOUT', count: standouts, percent: share(standouts) },
+    { key: 'flops', label: 'FLOP', count: flops, percent: share(flops) },
   ]
 }

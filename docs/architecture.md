@@ -168,9 +168,13 @@ Reading it off squad rows instead would quietly drop a match whose lineup was
 never published while the opponent's was: the reader recorded something, the club
 played, and no `MatchSquad` row exists to prove it. So a club's *watched* is
 matches of theirs the reader had something to say about, even where all of it was
-about the opponent — one word, one meaning, three scopes.
+about the opponent — one word, one meaning, four scopes. The teams index asks it
+of every club at once as `clubsSeen`, which is that same `where` in two
+`groupBy`s rather than twenty `count`s: Prisma has no `OR` across a `by`, so each
+side of the fixture is grouped separately and the two halves are summed in the
+fold.
 
-That definition is what makes the profile's split bar mean something: `unrated`
+That definition is what makes a *player's* split bar mean something: `unrated`
 is `watched` minus the three tags, so it reads as "you watched him and had
 nothing to say", which a count of entries could not express. It also cannot
 overflow — `@@unique([userId, matchSquadId])` and `@@unique([matchId, playerId])`
@@ -178,6 +182,18 @@ between them make a tagged match necessarily a watched one. The arithmetic is in
 [`verdict-split.ts`](../src/lib/verdict-split.ts), kept free of Prisma so it can
 be tested. The query runs against `MatchSquad @@index([playerId])`, in the schema
 since step 2 and unread until now.
+
+**A club's bar is a different function, because at club scope the two numbers
+stop being the same unit.** `watched` counts matches and the three tags count
+judgements, and one match carries eleven of a club's players — so a reader who
+tags five of them in one fixture has five judgements against one watched match.
+`unrated` would clamp to zero and the segments would overrun their track, which
+is why a club profile draws no bar at all. `verdictMix` is the teams index's
+answer: the same three verdicts as a proportion of *each other*, with no
+remainder. It is full width on any club with a verdict, so length carries no
+information there and colour does — the *how much* is the `N seen` beside it.
+Anything later that wants a bar over a scope wider than one player needs the same
+question asked of it first.
 
 **A player's club is a fact about a match, not a column.** `Player` holds a name,
 an unrendered photo URL and API-Football's id; which club he plays for lives on
@@ -193,6 +209,16 @@ is reachable by typing a URL and is a state the page has to draw.
 both sides of the fixture because a club with no *home* match is a state
 round-by-round hydration can produce. A club with no match at all draws no
 league, which is the header's own empty state.
+
+**That is also why the teams index reads its clubs from `Match` rather than from
+`MatchSquad`**, where `/players` reads its players from squad rows. Two things
+follow from the fixture that cannot follow from a lineup: a club whose lineup was
+never published still played and still belongs in a directory, and the fixture is
+the only row holding the club and its competition together. `clubLeagues` takes
+both from one `groupBy`, which is what makes `leagueId` non-nullable on an index
+row — two queries could disagree, and the fold would then have to draw a club
+whose competition is unknown. It returns each club once per side, so the fold
+dedupes and the first league wins.
 
 ### Prisma resolves `distinct` and a nested `take` in Node, so "latest row per group" is raw SQL
 
@@ -444,8 +470,9 @@ its own.
 
 ### A location goes in the URL; a preference goes in `localStorage`
 
-`/players` is the first screen whose state is not in the URL, and the distinction
-that admits it is the one to apply to anything later.
+The two indexes, `/players` and `/teams`, are the screens whose state is not in
+the URL, and the distinction that admits them is the one to apply to anything
+later.
 
 A **location** answers *what am I looking at* — `?matchday=6`, `?filter=mvp`,
 `?view=notes`. It belongs in the URL, which is what keeps those pages server
@@ -454,9 +481,18 @@ components and makes them linkable and reachable with the back button.
 A **preference** answers *how do I like this drawn* — rows or cards, which sort,
 which league to narrow to. Nobody bookmarks Grid, and the URL is the one store
 that does **not** survive closing the tab, so a preference put there is forgotten
-between visits and clutters a link that was never about it. `/players` keeps its
+between visits and clutters a link that was never about it. Each index keeps its
 three in `localStorage` and its search box in React state, since a search term is
 neither: it is worth nothing on the next visit.
+
+**Each screen owns its own keys** — `madooo-players-*` and `madooo-teams-*` —
+rather than sharing one trio. The two lists are narrowed and sorted
+independently: "Most flops" over twenty clubs is a different question from the
+same words over six hundred players, and a reader who asked for cards on one has
+said nothing about the other. What they *do* share is the vocabulary those keys
+hold, in [`rankings.ts`](../src/lib/rankings.ts): a club and a player are ranked
+on the same seven numbers and offered the same five sorts, so there is one sort
+table and one set of parsers, and the two lists cannot drift out of step.
 
 The cost is stated plainly because it is real: the server cannot read
 `localStorage`, so the page is a client island and **the first paint shows the

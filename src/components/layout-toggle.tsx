@@ -1,5 +1,5 @@
 import { Icon } from './icon'
-import type { PlayerLayout } from '@/lib/players-index'
+import type { Layout } from '@/lib/rankings'
 
 /**
  * Rows or cards: the app's first segmented control.
@@ -21,7 +21,7 @@ import type { PlayerLayout } from '@/lib/players-index'
  * tab stops that do not exist.
  */
 
-const OPTIONS: readonly { layout: PlayerLayout; icon: 'view_list' | 'grid_view'; label: string }[] = [
+const OPTIONS: readonly { layout: Layout; icon: 'view_list' | 'grid_view'; label: string }[] = [
   { layout: 'list', icon: 'view_list', label: 'Show as rows' },
   { layout: 'grid', icon: 'grid_view', label: 'Show as cards' },
 ]
@@ -34,8 +34,8 @@ export function LayoutToggle({
   layout,
   onChange,
 }: {
-  layout: PlayerLayout
-  onChange: (layout: PlayerLayout) => void
+  layout: Layout
+  onChange: (layout: Layout) => void
 }) {
   return (
     <div role="group" aria-label="Layout" className="flex items-center gap-1">

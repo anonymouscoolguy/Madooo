@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-04 (7.4 — the team profile)
+**Last updated:** 2026-08-05 (7.5 — the teams index)
 
 ---
 
@@ -67,6 +67,17 @@ visits in `localStorage`** rather than in the URL — the first screen state in 
 app that is not in the address bar. Sixty rows are drawn at a time under a "Show
 more"; the count in the card's header is always the true one.
 
+**And a way in to every club.** `/teams` is the same directory one level up:
+every club that has played this season, with its competition, how many of its
+players the reader has judged, the mix of what they gave them, and how many of
+its matches they watched. The same four controls as the players index, drawn from
+the same sort table and remembered under their own keys — nothing is shared
+between the two lists but the vocabulary. No row cap: twenty clubs is not six
+hundred players. A club's bar is the three verdicts as a proportion of **each
+other** rather than of matches watched, because one match carries eleven of a
+club's players and a remainder taken against it would not exist — which is the
+reason the club profile still draws no bar at all.
+
 **And so does a club.** `/teams/[id]` opens on the crest at shirt-tile size, the
 competition it played in, four tallies of what its players were given, and the
 squad — every player who turned out for the club this season, most of them
@@ -108,7 +119,8 @@ it, remembered across visits. Clerk's own modals follow it too.
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
   fixtures page, the match page, the diary, the player profile, the players
-  index and the team profile as intended — all of them at desktop width only.
+  index, the team profile and the teams index as intended — all of them at
+  desktop width only.
   The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
@@ -242,8 +254,8 @@ says when it has nothing to show is part of the slice, not a later pass.
         the standing remark below no longer claims 7.3 has none.
 
         The slice's own decisions, none of them drawn: the three controls are
-        **preferences and live in `localStorage`**, not the URL, which makes this
-        the app's one client-rendered list and costs a default-first paint; the
+        **preferences and live in `localStorage`**, not the URL, which made this
+        the app's first client-rendered list and costs a default-first paint; the
         whole roster ships to the browser, because that is what makes search
         reach an unjudged player without a round trip; and only 60 rows are
         drawn at once, since ~600 would stutter on every keystroke — a control
@@ -281,11 +293,40 @@ says when it has nothing to show is part of the slice, not a later pass.
         the accessibility tree at once. Deliberately still absent: **no link
         from the fixture card**, whose whole card is already a link, so a club
         inside it would be a nested anchor.
-  - [ ] **7.5 — Teams index.** `/teams`, which is a live sidebar destination
-        still showing a placeholder, and whose rows now have a profile to point
-        at. Twenty clubs rather than ~600 players, so none of what made 7.3
-        expensive should be needed — no search, no `localStorage` preferences,
-        no row cap.
+  - [x] **7.5 — Teams index.** Done, and a **directory** like 7.3 and 7.4: every
+        club that has played this season, most of them never judged. Two desktop
+        drawings arrived with the slice and settled the shape against this
+        entry's own prediction — it said none of what made 7.3 expensive would be
+        needed, and the drawings show the whole filter row. Search and the three
+        `localStorage` preferences are in; only the row cap stayed out, because
+        twenty clubs is not six hundred players and a cap that never triggers is
+        a control that does nothing.
+
+        Its numbers had to be defined rather than copied, for the third slice
+        running. *Seen* is `teamTotals`' *watched* unchanged, so one word now
+        keeps one meaning across four scopes, and it is asked of every club at
+        once in two `groupBy`s rather than twenty counts. **`N players` is how
+        many distinct players of theirs the reader has judged** — the drawing
+        leaves the phrase ambiguous and contradicts it on one row. The split bar
+        is the decision 7.4 refused: the drawing's is a proportion of matches
+        watched, which is exactly the shape that overruns its track once five of
+        a club's players are tagged in one fixture. **Agreed instead that a
+        club's bar is the mix of the three verdicts and nothing else** — always
+        full width, so length carries no information there and colour does, with
+        *how much* left to the `N seen` beside it.
+
+        The slice's own decisions: the five sorts, the layout type, the search
+        normaliser and the league parser were **extracted into one module both
+        indexes read**, since a club is ranked on the same seven numbers as a
+        player; the storage keys stay per screen, because the two lists are
+        narrowed and sorted independently. Clubs are read from `Match` rather
+        than `MatchSquad`, which is what keeps a club whose lineup was never
+        published in the directory and what makes a row's league non-nullable.
+        Deliberately absent: no stat tiles, which the drawing also omits and
+        which would count the reader's own season over a list that is not about
+        it; no verdict controls, for 7.2's reason; and the header keeps its
+        directory sentence rather than the drawing's "You have judged N teams so
+        far", which would describe something other than the list beneath it.
 - [ ] **8 — Chrome.** In the design, needed by nothing above it.
   - [x] **8.1 — Dark-mode toggle.** Done, and taken out of order on purpose:
         it puts every screen through a second theme while there are three of
@@ -320,8 +361,8 @@ empty list is the expected state.
   are desktop-only like the rest, so its filter row, its two-line list row and its
   card grid were all decided narrow without one. 7.4's drawing arrived with the
   slice and is desktop-only like the rest, so its squad row inherited the
-  players index's narrow arrangement rather than being drawn one. 7.5 has no
-  drawing at either width, and is designed at both at once.
+  players index's narrow arrangement rather than being drawn one, as did 7.5's
+  club row and card grid from the same pair of drawings.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 
@@ -354,10 +395,10 @@ must stay out of the Vercel build, are in
 - **The app now has two conventions for screen state, and the older one may be
   the wrong default. High priority — a refactor the author may want.** Every
   screen before 7.3 keeps its state in the URL: `/fixtures?matchday=6`,
-  `/diary?filter=mvp`, `/players/44?view=notes`. 7.3 keeps its three controls in
-  `localStorage` instead, on the argument that they are *preferences* — how the
-  reader likes a list drawn — where the others are *locations*. That distinction
-  is written up in
+  `/diary?filter=mvp`, `/players/44?view=notes`. Both indexes keep their three
+  controls in `localStorage` instead, on the argument that they are
+  *preferences* — how the reader likes a list drawn — where the others are
+  *locations*. That distinction is written up in
   [`architecture.md`](architecture.md#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
   and it holds; what is open is whether the older screens are on the right side
   of it.
@@ -370,9 +411,11 @@ must stay out of the Vercel build, are in
   undoing a filter change, the pages stop being server components, and a future
   share feature would want them back in the URL.
 
-  Deliberately not touched in 7.3, which was scoped to one screen. Whoever
-  settles it should decide for the diary's filter and the profile's view tab
-  together, since they are the same question twice.
+  Deliberately not touched in 7.3 or 7.5, both scoped to one screen — though 7.5
+  choosing `localStorage` again makes the newer convention the app's default in
+  practice rather than its exception. Whoever settles it should decide for the
+  diary's filter and the profile's view tab together, since they are the same
+  question twice.
 
 - **Search is in the browser's memory, and that stops being right somewhere past
   five leagues.** `/players` ships the season's whole roster — ~15 kB compressed

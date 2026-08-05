@@ -4,18 +4,20 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { playerHref } from '@/lib/back'
 import {
-  ALL_LEAGUES,
   PLAYERS_LAYOUT_KEY,
   PLAYERS_LEAGUE_KEY,
   PLAYERS_SORT_KEY,
-  PLAYER_SORTS,
-  filterPlayers,
+  type PlayerIndexRow,
+} from '@/lib/players-index'
+import {
+  ALL_LEAGUES,
+  SORTS,
+  filterRows,
   parseLayout,
   parseLeague,
   parseSort,
   type LeagueOption,
-  type PlayerIndexRow,
-} from '@/lib/players-index'
+} from '@/lib/rankings'
 import { positionLabel } from '@/lib/squad'
 import { verdictSplit } from '@/lib/verdict-split'
 import { LayoutToggle } from './layout-toggle'
@@ -30,13 +32,14 @@ import type { IndexTeam } from '@/lib/players'
 /**
  * The players index below its tiles: the controls, and the list they draw.
  *
- * **The slice's only client component, and the only screen in the app whose
- * state is not in the URL.** Everywhere else — the matchday, the diary's filter,
- * a profile's tab — the choice is a *location*, so it lives in the address bar
- * and the page stays a server component. The three controls here are
- * *preferences*: "how do I like this drawn" rather than "what am I looking at".
- * Nobody bookmarks Grid. So they live in `localStorage`, which is also the only
- * store that survives closing the tab.
+ * **One of the two screens in the app whose state is not in the URL**, the other
+ * being [`teams-browser.tsx`](./teams-browser.tsx), which this one is the
+ * template for. Everywhere else — the matchday, the diary's filter, a profile's
+ * tab — the choice is a *location*, so it lives in the address bar and the page
+ * stays a server component. The three controls here are *preferences*: "how do I
+ * like this drawn" rather than "what am I looking at". Nobody bookmarks Grid. So
+ * they live in `localStorage`, which is also the only store that survives
+ * closing the tab.
  *
  * The whole season's players arrive as a prop and the filtering happens here.
  * That is what makes the search box reach a player the reader has never judged
@@ -160,7 +163,7 @@ export function PlayersBrowser({
   const clubOf = (player: PlayerIndexRow) => teamsById.get(player.teamId) ?? null
 
   const visible = useMemo(
-    () => filterPlayers(players, query, leagueId).sort(sort.compare),
+    () => filterRows(players, query, leagueId).sort(sort.compare),
     [players, query, leagueId, sort],
   )
 
@@ -210,7 +213,7 @@ export function PlayersBrowser({
         <SelectField
           label="Sort by"
           value={sort.slug}
-          options={PLAYER_SORTS.map((candidate) => ({
+          options={SORTS.map((candidate) => ({
             value: candidate.slug,
             label: candidate.label,
           }))}
