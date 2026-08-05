@@ -8,14 +8,14 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-05 (7.5 — the teams index)
+**Last updated:** 2026-08-05 (matchdays 2 to 5 hydrated)
 
 ---
 
 ## Current state
 
 Real football is in the database and behind a login, inside the frame the
-designs ask for: the 2024 season's full fixture list, one gameweek hydrated down
+designs ask for: the 2024 season's full fixture list, five gameweeks hydrated down
 to individual players, and `/fixtures` drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
@@ -372,8 +372,8 @@ empty list is the expected state.
   screens.*
 
 - **A `Match` can exist with no squad rows, and code must cope with that.**
-  Right now only round 1 is hydrated: all 380 matches exist as rows, but the
-  other 370 have no `MatchLineup` and no `MatchSquad`. Anything that lets a user
+  Right now rounds 1 to 5 are hydrated: all 380 matches exist as rows, but the
+  other 330 have no `MatchLineup` and no `MatchSquad`. Anything that lets a user
   pick a match therefore has to handle a match nobody can be judged in, rather
   than assuming a squad is there. Hydrating one more round costs 21 requests.
   *Can be resolved when the entire database is produced.*

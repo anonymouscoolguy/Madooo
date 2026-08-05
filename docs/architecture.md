@@ -248,8 +248,8 @@ mapping, so the column names are the database's own — safe while no model carr
 `@map`, and silently wrong the day one does. That hazard now has two call sites
 to break at once.
 
-**Development cannot show you any of this.** With one round hydrated there is
-exactly one squad row per player, so all three forms return 400 rows and only the
+**Development cannot show you any of this.** With five rounds hydrated a player
+has at most five squad rows, so all three forms return 2,000 rows and only the
 emitted SQL tells them apart; a full season is ~15,200 rows fetched to keep ~600,
 on every request of a `force-dynamic` page. `defaultRound`'s `distinct: ['round']`
 in [`fixtures.ts`](../src/lib/fixtures.ts) is the same in-memory dedupe and is
@@ -321,7 +321,8 @@ anything that talks to API-Football. Two findings bind the client's design:
   going 77, 75, 78, 76 in one run.
 
 Quota is 100 requests/day *and* about 10 per minute, and is not generous during
-backfills. Sync one or two gameweeks in development, never a whole season.
+backfills. Sync a few gameweeks in development, never a whole season — a day's
+quota buys about four rounds, and five are hydrated.
 `npm run sync -- --round 1 --limit 2` is the cheap way to try it.
 
 ### What is deliberately unmapped

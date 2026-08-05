@@ -219,8 +219,9 @@ alongside our own primary keys, confined to the sync boundary.
 only place the free tier genuinely pinches. Pacing makes each day's 100 requests
 take about 11 minutes of wall clock, which is not the binding cost.
 
-**Development therefore syncs one or two gameweeks, not a season.** Twenty
-matches is ample to build against and costs 10–20 requests.
+**Development therefore syncs a few gameweeks, not a season.** Each round costs
+21 requests — one for the fixture list plus two per fixture — so a day's quota
+buys about four. Five rounds are hydrated, which is ample to build against.
 
 **Steady state in production** is negligible: ~10 fixtures per gameweek, one
 daily fixture poll for reschedules and results. Well inside 100/day even before
