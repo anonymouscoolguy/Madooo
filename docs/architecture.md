@@ -973,8 +973,8 @@ The players index added the other two — a text input and a `<select>`, in
   which is the part that cannot be restyled and the part not worth rebuilding.
 - **Both wrap their label rather than pointing at it with `htmlFor`**, so neither
   carries an `id`. An `id` baked into a shared component collides the moment two
-  of them share a page, which 8.2 makes likely — it puts a search field in the
-  top bar above whatever the screen already has. That is also why both were built
+  of them share a page, and a filter row is exactly where that happens — `/teams`
+  already draws two selects side by side. That is also why both were built
   general rather than inside `players-browser.tsx`.
 - **Neither carries `'use client'`.** A module imported by a client component
   joins the client graph on its own; the directive marks an *entry point* to the

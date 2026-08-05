@@ -8,10 +8,9 @@ import { Icon } from './icon'
  * used them. The `<textarea>` in the note dialog is the only field that existed
  * before this, and a dialog's one control is not a pattern.
  *
- * Built general rather than as part of the players index, because **8.2 wants
- * this box in the top bar** — the search field 6.1 deliberately left out, on the
- * grounds that a box which does nothing is worse than no box. Nothing here knows
- * what it is searching.
+ * Built general rather than as part of the players index, because every list
+ * screen that grows a filter row wants the same box. Nothing here knows what it
+ * is searching — the screen owns the term and the matching.
  *
  * No `'use client'` directive: a module imported by a client component joins the
  * client graph on its own. Adding one would declare a second entry point to the
@@ -35,8 +34,7 @@ export function SearchField({
     /*
       The label *wraps* the input rather than pointing at it with `htmlFor`, so
       the component needs no `id`. An id baked in here would collide the moment
-      two search boxes shared a page — which 8.2 makes likely, since it puts one
-      in the top bar above whatever the screen already has.
+      two of these shared a page, which a shared component cannot rule out.
     */
     <label className={`relative block ${className ?? ''}`}>
       <span className="sr-only">{label}</span>

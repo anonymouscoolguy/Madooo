@@ -18,10 +18,11 @@ type Props = {
 /**
  * The top bar: the theme toggle, and below `md` a menu button.
  *
- * The design puts a search field in here too, but that is step 8.2 and a search
- * box that does nothing is worse than no search box. The bar is doing work
- * either way: it is the fixed boundary the content scrolls under, and it holds
- * the frame at the height every later slice will drop its controls into.
+ * The design puts a search field in here too, and it is deliberately not here:
+ * search belongs to the screen that has something to search, next to the filters
+ * it works with, which is where `/players` and `/teams` each carry their own.
+ * The bar is doing work without it: it is the fixed boundary the content scrolls
+ * under, and it holds the frame at the height the page's own controls line up to.
  *
  * The menu button is not in the design at all. It is here because the reference
  * images have no mobile state to have put it in, and it exists only below `md`,

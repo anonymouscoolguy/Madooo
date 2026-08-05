@@ -159,9 +159,15 @@ says when it has nothing to show is part of the slice, not a later pass.
   - [x] **6.1 — App shell.** Done. The sidebar, top bar and shared design
         tokens. `/dashboard` became `/fixtures` inside an `(app)` route group,
         with Players, Teams and Diary as siblings behind placeholders, and the
-        signed-in identity moved into the sidebar's foot. The search field was
-        deliberately left out — a box that does nothing is worse than no box —
-        and is still 8.2's to add.
+        signed-in identity moved into the sidebar's foot. The search field the
+        design draws in the bar was deliberately left out — a box that does
+        nothing is worse than no box — and **search has since been settled the
+        other way: it belongs to the screens that have something to search.**
+        `/players` and `/teams` each carry their own box in their filter row,
+        where it sits beside the filters it works with and can say what it is
+        searching. The top bar keeps the theme toggle and, below `md`, the menu
+        button; nothing further is coming to it. A knowing departure from the
+        reference images.
   - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
         drawer below `md`. Nothing at `md` and above changed. The rules it was
         written against are now a `### Responsive` section in `foundations.md`,
@@ -334,7 +340,6 @@ says when it has nothing to show is part of the slice, not a later pass.
         everyone, remembered in `localStorage` and restored before first paint.
         The landing page came onto tokens with it, and Clerk's appearance
         variables were pointed at ours.
-  - [ ] **8.2 — Search.** Matches, teams and players.
   - [ ] **8.3 — The filled button's missing hover step.** A semantic token for
         one step below `--surface-inverse`, and both filled buttons onto it. See
         the open decision below.
@@ -457,8 +462,9 @@ must stay out of the Vercel build, are in
   the top bar is a menu button on an otherwise empty 56px rail. Putting the
   wordmark in the top bar below `md` is the obvious answer and was deliberately
   left out of 6.1b, which was scoped to the drawer. 8.1 has since put the theme
-  toggle in that bar without settling it; 8.2's search field is the other half,
-  and whichever of them is built last should decide what a narrow top bar holds.
+  toggle in that bar, and with search settled onto the screens themselves rather
+  than the bar, the wordmark is the only thing left that a narrow top bar might
+  hold. *Resolved by putting it there, or by deciding the menu button is enough.*
 - **The inverse surface has no hover step.** The landing page's "Create an
   account" is the app's first filled button — `bg-surface-inverse`, black on
   light and white on dark — and `foundations.md`'s hover rule is "surfaces
