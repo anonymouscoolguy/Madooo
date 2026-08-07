@@ -8,7 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-05 (matchdays 2 to 5 hydrated)
+**Last updated:** 2026-08-07 (step 7 closed; the remaining work to launch is
+steps 8 to 12)
 
 ---
 
@@ -23,9 +24,10 @@ squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions, each panel headed by
 its club's crest — and one without says so instead. The match opens with a card
 rather than a title: the competition, ground, date and referee on a strip, over
-the two clubs either side of the score. It sits in a responsive app shell alongside Players and Teams,
-the second of which is still a placeholder at its index. `/` is a public landing page, now on the same tokens
-as everything else.
+the two clubs either side of the score. It sits in a responsive app shell whose
+four destinations — Fixtures, Players, Teams and Diary — are all built; none is a
+placeholder any more. `/` is a public landing page, now on the same tokens as
+everything else.
 
 **The app writes.** Every player on a match page carries three chips — standout,
 flop, MVP — and tapping one records a private judgement against that player in
@@ -134,10 +136,14 @@ it, remembered across visits. Clerk's own modals follow it too.
 Each step ends with something runnable and a commit. Do not run ahead.
 
 Steps 6 to 8 are cut into slices, each its own branch and squash-merge. The
-designs are what cut them: the sidebar asks for four destinations where the
-roadmap had three, and several tiles and counts on the fixtures page have no
-data behind them yet. **Every slice owns its own empty state** — what its screen
+designs are what cut them: the sidebar asked for four destinations where the
+roadmap had three. **Every slice owns its own empty state** — what its screen
 says when it has nothing to show is part of the slice, not a later pass.
+
+Steps 9 to 12 are not screens. They are what stands between a working app and a
+launched one: the rest of the season's data, a sync that runs without a laptop,
+one end-to-end test, and the accounts to buy. They are listed in the order they
+unblock each other, not in the order they must be done.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -149,7 +155,7 @@ says when it has nothing to show is part of the slice, not a later pass.
       `npm test` and by reading the rows.
 - [x] **4 — Deploy to Vercel.** Live, with `/` reading fixtures from Neon at
       request time so the deployment proves the database path and not just the
-      hosting. Sync is still a local CLI; no cron.
+      hosting. Sync is still a local CLI; scheduling it is step 10.
 - [x] **5 — Auth.** Clerk wired up, with Google and email/password, signed in
       through a modal on the landing page. `/` is public and the fixture list
       moved to `/dashboard`, which shows the signed-in user's email. The `User`
@@ -224,10 +230,18 @@ says when it has nothing to show is part of the slice, not a later pass.
         below. The per-card tallies ride the query that was already fetching the
         cards, as a filtered relation beside its unfiltered `_count`. Plurals are
         real, unlike in the reference screenshot. The tiles were the last thing
-        step 6 had to resolve at narrow width without a drawing; step 7's screens
-        have no drawing at all, so the long-term remark stays.
-- [ ] **7 — Diary, players and teams.** Queries over what step 6 wrote, plus the
-      two destinations the sidebar adds.
+        step 6 had to resolve at narrow width without a drawing. This entry once
+        predicted that step 7's screens would have no drawing at all; every one
+        of them arrived with a desktop drawing, and the narrow-width remark
+        stayed for the opposite reason — the drawings are desktop-only.
+- [x] **7 — Diary, players and teams.** Done, in five slices. Queries over what
+      step 6 wrote, plus the two destinations the sidebar adds. What the five
+      have in common is worth stating once: three of them are **directories
+      rather than diaries** — they list every player, every club, judged or not —
+      and none of them carries a verdict control, because the place to change a
+      verdict is the match it was given in. Every screen's numbers had to be
+      *defined* rather than copied off its drawing, which is how *watched* came
+      to mean one thing across four scopes.
   - [x] **7.1 — Diary.** Done, and grouped by **month** rather than by match,
         which is what the reference screenshots turned out to draw. Ordered by
         `Judgement.createdAt`; the schema's `@@index([userId, createdAt])` has
@@ -341,8 +355,45 @@ says when it has nothing to show is part of the slice, not a later pass.
         The landing page came onto tokens with it, and Clerk's appearance
         variables were pointed at ours.
   - [ ] **8.3 — The filled button's missing hover step.** A semantic token for
-        one step below `--surface-inverse`, and both filled buttons onto it. See
-        the open decision below.
+        one step below `--surface-inverse`, and both filled buttons onto it —
+        the landing page's "Create an account" and 6.5's "Save note", neither of
+        which has a hover state today. See the open decision below. The only
+        unchecked screen work in the whole build order.
+- [ ] **9 — Backfill the season.** Rounds 1 to 5 are hydrated; the other 33 have
+      fixtures but no squads, so 330 of the 380 matches cannot be judged. At 21
+      requests a round this is bounded and dull, but it is not free: it is what
+      the free tier's budget is for, and it wants doing in batches rather than in
+      one run. Resolves the second long-term remark for development, though not
+      the case itself — see there for why an empty squad stays real in
+      production.
+- [ ] **10 — Schedule the sync.** The app's second non-negotiable assumes a
+      scheduled job writes into Postgres, and it does not exist yet: `npm run
+      sync` is a CLI the author runs by hand, which means the deployed app's data
+      is only as fresh as the last time a laptop was open. **This is an unsolved
+      problem, not an unstarted one.** The 6.5s pacing puts one round at about two
+      minutes, past a serverless function's timeout, so a cron route needs
+      chunking or resumability designed first; see
+      [`architecture.md`](architecture.md#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one).
+      Do the design before the plumbing. The single largest piece of unbuilt work
+      in the project.
+- [ ] **11 — Playwright, for one flow.** Log in → tag a player → see it in the
+      diary. One flow, not a suite; see [Testing](#testing) for why the line is
+      drawn there.
+- [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
+      Each of these was recorded as an open decision before it was clear they are
+      simply tasks with a date on them:
+  - [ ] **Paid API-Football tier.** One to two weeks before launch. The free
+        tier only exposes seasons roughly two years back, which is the whole
+        reason development runs on `SEASON=2024`; the switch is configuration,
+        never a literal, so this should be a variable change and nothing else.
+  - [ ] **Clerk production instance.** A development instance uses Clerk's
+        shared Google OAuth credentials, which a production one may not.
+        Promoting it means creating a Google Cloud project and an OAuth client,
+        then swapping the keys on Vercel. Same timing as the API tier.
+  - [ ] **Re-evaluate the `npm audit` warnings.** High-severity issues in
+        `postcss` and `sharp`, both transitive dependencies of Next itself,
+        whose suggested fix downgrades Next to 9. To be judged before launch,
+        not "fixed" — see [`AGENTS.md`](../AGENTS.md)'s "Known noise".
 
 ## Long-term remarks
 
@@ -376,7 +427,7 @@ empty list is the expected state.
   other 330 have no `MatchLineup` and no `MatchSquad`. Anything that lets a user
   pick a match therefore has to handle a match nobody can be judged in, rather
   than assuming a squad is there. Hydrating one more round costs 21 requests.
-  *Can be resolved when the entire database is produced.*
+  *Can be resolved when the entire database is produced — which is step 9.*
 
   Kept here by explicit decision rather than because it clears the bar above —
   the current hydration state is readable from the database, and the entry is a
@@ -392,7 +443,7 @@ must stay out of the Vercel build, are in
 [`architecture.md`](architecture.md#the-mappers-tests-read-scratch-which-is-gitignored).
 
 - **Playwright** later, for one flow only: log in → tag a player → see it in the
-  diary.
+  diary. Now step 11 in the build order.
 - Do not test Prisma, Next's rendering, or other third-party code.
 
 ## Open decisions
@@ -487,8 +538,7 @@ must stay out of the Vercel build, are in
   Its greys and shadows are therefore still Clerk's own in both themes. Whether
   that is visible enough to be worth solving is a thing to look at with the user
   menu open in dark.
-- **Paid API tier.** Buy one to two weeks before launch, not on launch day.
-- **Clerk production instance.** A development instance uses Clerk's shared
-  Google OAuth credentials, which a production one may not. Promoting it means
-  creating a Google Cloud project and an OAuth client, and swapping the keys on
-  Vercel. Same timing as the API tier — before launch, not on launch day.
+
+The paid API tier and the Clerk production instance used to sit here. Neither is
+a decision — nothing about them is unsettled but the date — so both moved into
+step 12.

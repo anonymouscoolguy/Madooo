@@ -1142,8 +1142,8 @@ applies; the newer `use cache` model does not.
 
 To reproduce what Vercel does: `rm -rf src/generated && npm run build`. Only that
 proves the build regenerates the client rather than leaning on a stale local copy.
-Every route under `(app)` should appear as `ƒ` (dynamic) in the route summary —
-even the placeholders, because the shell layout reads the session. `/` is `○`
+Every route under `(app)` should appear as `ƒ` (dynamic) in the route summary,
+because the shell layout reads the session. `/` is `○`
 (static) and should stay that way, since the landing page reads no database.
 
 `rm -rf .next` after adding, renaming or moving a route. Next writes typed-route
