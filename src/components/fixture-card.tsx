@@ -13,8 +13,8 @@ import type { Fixture } from '@/lib/fixtures'
  *
  * A match with no squad rows is **not openable**, and the roadmap's long-term
  * remark says that case is real and permanent: fixtures are published long
- * before team news, so an unplayed match has nobody to judge even once the
- * backfill is complete.
+ * before team news, so a season in progress always holds matches with nobody to
+ * judge, however current the sync is.
  */
 
 function Score({ match }: { match: Fixture }) {

@@ -9,7 +9,7 @@ How the system *works* is not here. That is
 you are about to touch before writing code in it.
 
 **Last updated:** 2026-08-08 (step 8 closed; every screen in the design is
-built, and the remaining work to launch is steps 9 to 12)
+built, and the next thing is step 9 — the paid tier and the live season)
 
 ---
 
@@ -146,9 +146,9 @@ roadmap had three. **Every slice owns its own empty state** — what its screen
 says when it has nothing to show is part of the slice, not a later pass.
 
 Steps 9 to 12 are not screens. They are what stands between a working app and a
-launched one: the rest of the season's data, a sync that runs without a laptop,
-and the accounts to buy. They are listed in the order they unblock each other,
-not in the order they must be done.
+launched one: real current data rather than a two-year-old season, a sync that
+runs without a laptop, and the last of the accounts to buy. They are listed in
+the order they unblock each other, not in the order they must be done.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -378,13 +378,25 @@ not in the order they must be done.
         `--surface-inverse` too and were deliberately left out: they are selected
         states, not buttons. See
         [`architecture.md`](architecture.md#hovering-a-filled-surface-and-hovering-a-tint-were-resolved-differently).
-- [ ] **9 — Backfill the season.** Rounds 1 to 5 are hydrated; the other 33 have
-      fixtures but no squads, so 330 of the 380 matches cannot be judged. At 21
-      requests a round this is bounded and dull, but it is not free: it is what
-      the free tier's budget is for, and it wants doing in batches rather than in
-      one run. Resolves the second long-term remark for development, though not
-      the case itself — see there for why an empty squad stays real in
-      production.
+- [ ] **9 — Move onto the paid tier and the current season. The next thing.**
+      The free tier only exposes seasons roughly two years back, which is the
+      only reason development runs on `SEASON=2024`. Paying removes that limit,
+      and `SEASON` is configuration rather than a literal, so pointing the app at
+      the live season should be a variable change and nothing else — that
+      non-negotiable exists precisely so this is not a refactor.
+
+      **This replaces the backfill, which was step 9 and is deleted.** That step
+      would have spent 33 rounds' worth of requests hydrating the rest of 2024, a
+      season the app is about to stop reading. The work does not vanish so much
+      as move: the live season needs hydrating for whatever has been played so
+      far, and step 10 is what keeps it current afterwards.
+
+      Two consequences worth knowing before starting. The reads are all filtered
+      by season, so the 2024 judgements do not disappear from the database but do
+      drop out of every screen — they are the author's own test data, so this is
+      a fact rather than a problem. And a live season is never fully hydrated:
+      fixtures are published long before team news, so the empty-squad case
+      stops being transitional and becomes permanent. See the long-term remark.
 - [ ] **10 — Schedule the sync.** The app's second non-negotiable assumes a
       scheduled job writes into Postgres, and it does not exist yet: `npm run
       sync` is a CLI the author runs by hand, which means the deployed app's data
@@ -398,14 +410,10 @@ not in the order they must be done.
 - [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
       Each of these was recorded as an open decision before it was clear they are
       simply tasks with a date on them:
-  - [ ] **Paid API-Football tier.** One to two weeks before launch. The free
-        tier only exposes seasons roughly two years back, which is the whole
-        reason development runs on `SEASON=2024`; the switch is configuration,
-        never a literal, so this should be a variable change and nothing else.
   - [ ] **Clerk production instance.** A development instance uses Clerk's
         shared Google OAuth credentials, which a production one may not.
         Promoting it means creating a Google Cloud project and an OAuth client,
-        then swapping the keys on Vercel. Same timing as the API tier.
+        then swapping the keys on Vercel. One to two weeks before launch.
   - [ ] **Re-evaluate the `npm audit` warnings.** High-severity issues in
         `postcss` and `sharp`, both transitive dependencies of Next itself,
         whose suggested fix downgrades Next to 9. To be judged before launch,
@@ -443,13 +451,14 @@ empty list is the expected state.
   other 330 have no `MatchLineup` and no `MatchSquad`. Anything that lets a user
   pick a match therefore has to handle a match nobody can be judged in, rather
   than assuming a squad is there. Hydrating one more round costs 21 requests.
-  *Can be resolved when the entire database is produced — which is step 9.*
+  *Cannot be resolved.*
 
-  Kept here by explicit decision rather than because it clears the bar above —
-  the current hydration state is readable from the database, and the entry is a
-  reminder that the empty case is real. Note that fixtures are published long
-  before team news, so a match with no squad will still occur in production for
-  anything not yet played, even once the backfill is complete.
+  It used to name the backfill as its exit. Deleting that step took the exit with
+  it, and moving to the live season turns the entry from a development condition
+  into a permanent one: fixtures are published long before team news, so a season
+  in progress always contains matches whose squads do not exist yet. The current
+  hydration state is readable from the database; what this entry is for is the
+  reminder that the empty case never stops being real.
 
 ## Testing
 
@@ -539,4 +548,5 @@ must stay out of the Vercel build, are in
 
 The paid API tier and the Clerk production instance used to sit here. Neither is
 a decision — nothing about them is unsettled but the date — so both moved into
-step 12.
+step 12. The API tier has since moved again, out of the checklist and into step 9:
+it is no longer a thing with a date on it but the next piece of work.

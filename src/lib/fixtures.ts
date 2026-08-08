@@ -45,11 +45,11 @@ export async function listRounds(season: number): Promise<Round[]> {
  * Which matchday to show when the URL does not say.
  *
  * **The latest round that has squad rows**, falling back to the round nearest to
- * now. That is the production rule, not a development convenience: once the
- * backfill is complete every played round is hydrated, so the latest hydrated
- * round *is* the most recent matchday played — which is the one a user opening
- * their diary wants. Today it also happens to be the only round hydrated, which
- * is why the page opens on something usable.
+ * now. That is the production rule, not a development convenience: with the sync
+ * running, every played round is hydrated and the rounds ahead are not, so the
+ * latest hydrated round *is* the most recent matchday played — which is the one
+ * a user opening their diary wants. Today it also happens to be the only round
+ * hydrated, which is why the page opens on something usable.
  *
  * The fallback matters for a season with nothing hydrated at all, where landing
  * on round 1 in August would be right and in May would not.
