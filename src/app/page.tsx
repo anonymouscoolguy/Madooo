@@ -28,18 +28,13 @@ export default function Landing() {
           {/*
             The primary action is the inverse surface — black on light, white on
             dark. No pill: the `rounded-full` radius belongs to Tags and pill
-            Tabs alone.
-
-            No hover colour, and that is a gap rather than a choice.
-            Foundations' hover rule is "surfaces darken one step", and there is
-            no step below the inverse surface and no semantic token for one.
-            This is the app's first filled button, so nothing established it
-            earlier; it is in the roadmap's open decisions.
+            Tabs alone. Hover, press and focus are the filled button's three
+            states in full, and the "Save note" button carries the same set.
           */}
           <SignUpButton mode="modal">
             <button
               type="button"
-              className="flex h-(--control-h-lg) cursor-pointer items-center rounded-md bg-surface-inverse px-5 text-label text-inverse focus-visible:focus-ring"
+              className="t-hover flex h-(--control-h-lg) cursor-pointer items-center rounded-md bg-surface-inverse px-5 text-label text-inverse hover:bg-surface-inverse-hover active:translate-y-px focus-visible:focus-ring"
             >
               Create an account
             </button>

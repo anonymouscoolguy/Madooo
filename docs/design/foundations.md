@@ -53,6 +53,7 @@ The inks are darkened versions of the raw accents so the label passes contrast o
 | `--surface-sunken` | `#eeeeee` | `#191919` |
 | `--surface-header` | `#eeeeee` | `#333333` |
 | `--surface-inverse` | `#000000` | `#ffffff` |
+| `--surface-inverse-hover` | `#333333` | `#eeeeee` |
 | `--border` | `#dddddd` | `#3d3d3d` |
 | `--border-strong` | `#b0b0b0` | `#5c5c5c` |
 | `--border-focus` | `#000000` | `#ffffff` |
@@ -271,7 +272,11 @@ Nothing else animates. No bounce, no spring, no scale-in, no page transitions, n
 
 **Hover** — surfaces darken one step (`--surface` → `--surface-alt` → `--surface-sunken`); bordered controls darken their border to `--border-strong`; muted text goes to `--text`. Never opacity fades, never lightening on light backgrounds.
 
-**Press** — one step darker again, plus `translateY(1px)`. No scale.
+**"One step" means one step along the ramp, away from the page — not always downward in value.** The dark theme already reads that way: `--surface` `#212121` hovers to `--surface-alt` `#2b2b2b`, which is lighter. A **filled surface** inverts the direction for the same reason, so `--surface-inverse` hovers to `--surface-inverse-hover` — `#000000` → `#333333` in light. That is not the lightening the rule forbids: the clause is about a light *background*, and a filled button is a dark object sitting on one.
+
+**A selected control is not a filled button.** A selected pill tab, a selected segmented button and a selected verdict chip all take no hover colour at all — clicking one again is a no-op, and press plus focus is affordance enough.
+
+**Press** — one step darker again, plus `translateY(1px)`. No scale. A filled surface takes the transform alone: the step below `--surface-inverse-hover` would land on `#595959`, close enough to `--text-muted` to read as disabled. Same for a tint, which has no step below it either.
 
 **Focus** — `--focus-ring` on `:focus-visible`. Fields instead take `border-color: var(--border-focus)` plus `box-shadow: inset 0 0 0 1px var(--border-focus)`. Focus is never removed.
 

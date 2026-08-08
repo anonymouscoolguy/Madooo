@@ -30,7 +30,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
 - [Writing data](#writing-data)
 - [Design tokens and CSS](#design-tokens-and-css)
   - [Responsive rules are in `foundations.md` and are binding](#responsive-rules-are-in-foundationsmd-and-are-binding)
-  - [A selected verdict chip has no hover state, and that is the decision](#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision)
+  - [Hovering a filled surface and hovering a tint were resolved differently](#hovering-a-filled-surface-and-hovering-a-tint-were-resolved-differently)
   - [The dialog is the platform's, and so are the fields](#the-dialog-is-the-platforms-and-so-are-the-fields)
   - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
@@ -723,16 +723,35 @@ the rest of the file.
 instead, so it can grow past the floor without the height being restated — which
 is what let the squad row become two lines below `md` without touching it.
 
-### A selected verdict chip has no hover state, and that is the decision
+### Hovering a filled surface and hovering a tint were resolved differently
 
-`foundations.md`'s hover rule is "surfaces darken one step", and a verdict tint —
-`--mvp-bg` and friends — has nothing below it to darken to and no semantic token
-for one. So a **resting** chip takes the standard hover (surface to
-`--surface-alt`, border to `--border-strong`, muted ink to full) and a
-**selected** one takes no colour change at all. Press and the focus ring apply to
-both, which is affordance enough. Inventing a hex to manufacture the missing step
-would break the rule the whole token system exists for; anything else later that
-sits on a tint should do the same.
+Both are the same gap in `foundations.md`'s "surfaces darken one step": neither
+black nor a verdict tint has anything below it. The difference in how they were
+closed is the useful part.
+
+**The inverse surface got a token.** `--surface-inverse-hover` is `#333333` in
+light and `#eeeeee` in dark — both existing ramp steps, so no hex was invented.
+The two filled buttons carry the complete state set as one string:
+
+```
+t-hover … bg-surface-inverse … hover:bg-surface-inverse-hover
+active:translate-y-px focus-visible:focus-ring
+```
+
+A third filled button copies that. Press is the transform with no second colour
+step, and in light theme the hover *lightens*; foundations' Interaction states
+says why both are the rule rather than a breach of it.
+
+**A tint did not get one.** `--mvp-bg` and friends still have nothing below them,
+and nothing was invented: a **resting** verdict chip takes the standard hover
+(surface to `--surface-alt`, border to `--border-strong`, muted ink to full) and
+a **selected** one takes no colour change at all. Anything later that sits on a
+tint should do the same.
+
+The selected pill tab and the selected segmented button fill with
+`--surface-inverse` too and were deliberately left outside the new token's scope.
+They are selected states rather than buttons — clicking either again is a no-op —
+which is the same reason a selected chip has no hover.
 
 The note button on the same row is the rule applied one step up the ramp: resting
 it is borderless and takes the standard hover to `--surface-alt`, and once there

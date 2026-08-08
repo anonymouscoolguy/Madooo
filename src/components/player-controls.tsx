@@ -224,9 +224,7 @@ function NoteDialog({ playerName, note, onSave, onClose }: DialogProps) {
         </button>
         {/*
           Saving an empty box is how a note is deleted — there is no delete
-          button, and the design draws none. No hover colour on this one, which
-          is the gap the roadmap records under 8.3: foundations' hover rule is
-          "surfaces darken one step" and nothing sits below `--surface-inverse`.
+          button, and the design draws none.
         */}
         <button
           type="button"
@@ -234,7 +232,7 @@ function NoteDialog({ playerName, note, onSave, onClose }: DialogProps) {
             onSave(draft)
             close()
           }}
-          className="flex h-(--control-h-lg) cursor-pointer items-center rounded-md bg-surface-inverse px-5 text-label text-inverse active:translate-y-px focus-visible:focus-ring"
+          className="t-hover flex h-(--control-h-lg) cursor-pointer items-center rounded-md bg-surface-inverse px-5 text-label text-inverse hover:bg-surface-inverse-hover active:translate-y-px focus-visible:focus-ring"
         >
           Save note
         </button>

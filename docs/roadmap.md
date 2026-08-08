@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-07 (step 7 closed; the remaining work to launch is
-steps 8 to 12)
+**Last updated:** 2026-08-08 (step 8 closed; every screen in the design is
+built, and the remaining work to launch is steps 9 to 12)
 
 ---
 
@@ -102,7 +102,12 @@ tab strip; the league row keeps its pill.
 
 Every screen renders in light or dark. Light is the default for everyone — the
 app no longer follows the operating system — and the top bar's toggle switches
-it, remembered across visits. Clerk's own modals follow it too.
+it, remembered across visits. Clerk's own modals follow it too. The chrome is
+complete: the last gap in it was the filled button, which had no hover in either
+theme and now has one, along with the token the design system was missing for it.
+
+**Every screen in the design is built.** What remains between here and launch is
+data, scheduling, one test and a checklist — no more markup.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -347,18 +352,32 @@ unblock each other, not in the order they must be done.
         it; no verdict controls, for 7.2's reason; and the header keeps its
         directory sentence rather than the drawing's "You have judged N teams so
         far", which would describe something other than the list beneath it.
-- [ ] **8 — Chrome.** In the design, needed by nothing above it.
+- [x] **8 — Chrome.** In the design, needed by nothing above it. 8.2 was dropped
+      rather than built — search settled onto the screens themselves — so the
+      step closes on two children, and with it the last of the screen work.
   - [x] **8.1 — Dark-mode toggle.** Done, and taken out of order on purpose:
         it puts every screen through a second theme while there are three of
         them rather than a dozen. The moon icon in the top bar, light-first for
         everyone, remembered in `localStorage` and restored before first paint.
         The landing page came onto tokens with it, and Clerk's appearance
         variables were pointed at ours.
-  - [ ] **8.3 — The filled button's missing hover step.** A semantic token for
-        one step below `--surface-inverse`, and both filled buttons onto it —
-        the landing page's "Create an account" and 6.5's "Save note", neither of
-        which has a hover state today. See the open decision below. The only
-        unchecked screen work in the whole build order.
+  - [x] **8.3 — The filled button's missing hover step.** One semantic token,
+        `--surface-inverse-hover`, and both filled buttons onto it — the landing
+        page's "Create an account" and 6.5's "Save note", neither of which had a
+        hover state.
+
+        What unlocked it was reading the rule properly rather than finding a
+        colour. "Surfaces darken one step" has nothing below black, but the dark
+        theme has always *lightened* on hover — `--surface` to `--surface-alt` —
+        so the rule means one step along the ramp away from the page, and an
+        inverse surface inverts that direction like everything else about it.
+        Both values were already in the ramp; no hex was invented, which was the
+        whole difficulty. Press stays `translateY(1px)` with no second colour
+        step, because the step below it lands on `--text-muted`'s grey and reads
+        as disabled. The selected pill tab and segmented button fill with
+        `--surface-inverse` too and were deliberately left out: they are selected
+        states, not buttons. See
+        [`architecture.md`](architecture.md#hovering-a-filled-surface-and-hovering-a-tint-were-resolved-differently).
 - [ ] **9 — Backfill the season.** Rounds 1 to 5 are hydrated; the other 33 have
       fixtures but no squads, so 330 of the 380 matches cannot be judged. At 21
       requests a round this is bounded and dull, but it is not free: it is what
@@ -516,22 +535,6 @@ must stay out of the Vercel build, are in
   toggle in that bar, and with search settled onto the screens themselves rather
   than the bar, the wordmark is the only thing left that a narrow top bar might
   hold. *Resolved by putting it there, or by deciding the menu button is enough.*
-- **The inverse surface has no hover step.** The landing page's "Create an
-  account" is the app's first filled button — `bg-surface-inverse`, black on
-  light and white on dark — and `foundations.md`'s hover rule is "surfaces
-  darken one step", which has nothing below it to darken to and no semantic
-  token for one. It currently has no hover state at all.
-
-  This was recorded as needed by 6.4's tag controls. It was not: a verdict chip
-  fills with a *tint*, never with `--surface-inverse`, so nothing in 6.4 touched
-  it. What 6.4 did hit is the same gap one level down — a verdict tint has no
-  step below it either — and that half is settled; see
-  [`architecture.md`](architecture.md#a-selected-verdict-chip-has-no-hover-state-and-that-is-the-decision).
-
-  6.5's "Save note" is now the second filled button, and it has no hover either,
-  deliberately: one control should not behave two ways while the gap is open.
-  Closing it is **8.3** — a semantic token for the step below the inverse
-  surface, applied to both.
 - **Clerk's `colorNeutral` and `colorShadow` are unbound.** Every other
   appearance variable is a `var(--…)` pointing at our tokens, but Clerk derives
   alpha shades from those two in JavaScript and cannot interpolate a `var()`.

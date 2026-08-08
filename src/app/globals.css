@@ -95,6 +95,15 @@
   --surface-header: light-dark(var(--gray-2), var(--gray-8));
   --surface-inverse: light-dark(var(--gray-9), var(--gray-0));
 
+  /* Foundations' hover rule is "surfaces darken one step", and this is the step
+     below the inverse surface — so in light it *lightens*, #000000 to #333333,
+     which looks like a violation and is not. The rule means "one step along the
+     ramp, away from the page", and the dark column above already reads that way:
+     --surface #212121 hovers to --surface-alt #2b2b2b, lighter. An inverse
+     surface inverts the direction too. Both values are existing ramp steps; no
+     hex was invented to fill the gap. */
+  --surface-inverse-hover: light-dark(var(--gray-8), var(--gray-2));
+
   --border: light-dark(var(--gray-3), var(--gray-d-border));
   --border-strong: light-dark(var(--gray-5), var(--gray-d-border-strong));
   --border-focus: light-dark(var(--gray-9), var(--gray-0));
@@ -192,6 +201,7 @@
   --color-surface-sunken: var(--surface-sunken);
   --color-surface-header: var(--surface-header);
   --color-surface-inverse: var(--surface-inverse);
+  --color-surface-inverse-hover: var(--surface-inverse-hover);
 
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
