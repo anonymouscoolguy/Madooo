@@ -107,7 +107,7 @@ complete: the last gap in it was the filled button, which had no hover in either
 theme and now has one, along with the token the design system was missing for it.
 
 **Every screen in the design is built.** What remains between here and launch is
-data, scheduling, one test and a checklist — no more markup.
+data, scheduling and a checklist — no more markup.
 
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
@@ -147,8 +147,8 @@ says when it has nothing to show is part of the slice, not a later pass.
 
 Steps 9 to 12 are not screens. They are what stands between a working app and a
 launched one: the rest of the season's data, a sync that runs without a laptop,
-one end-to-end test, and the accounts to buy. They are listed in the order they
-unblock each other, not in the order they must be done.
+and the accounts to buy. They are listed in the order they unblock each other,
+not in the order they must be done.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -395,9 +395,6 @@ unblock each other, not in the order they must be done.
       [`architecture.md`](architecture.md#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one).
       Do the design before the plumbing. The single largest piece of unbuilt work
       in the project.
-- [ ] **11 — Playwright, for one flow.** Log in → tag a player → see it in the
-      diary. One flow, not a suite; see [Testing](#testing) for why the line is
-      drawn there.
 - [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
       Each of these was recorded as an open decision before it was clear they are
       simply tasks with a date on them:
@@ -461,8 +458,6 @@ payloads — never JSON invented for the test. The mechanics, and why `npm test`
 must stay out of the Vercel build, are in
 [`architecture.md`](architecture.md#the-mappers-tests-read-scratch-which-is-gitignored).
 
-- **Playwright** later, for one flow only: log in → tag a player → see it in the
-  diary. Now step 11 in the build order.
 - Do not test Prisma, Next's rendering, or other third-party code.
 
 ## Open decisions
