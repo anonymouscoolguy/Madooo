@@ -9,6 +9,14 @@ import { SignInButton, SignUpButton } from '@clerk/nextjs'
  * JavaScript. `mode="modal"` opens the form over this page instead of
  * navigating, which is why there are no `/sign-in` or `/sign-up` routes.
  *
+ * Not navigating is also why both buttons name a destination. The modal closes
+ * onto this same page, and by then the session exists and Clerk's buttons have
+ * gone inert — so without `fallbackRedirectUrl` a fresh sign-in would strand the
+ * user here. `fallback` rather than `force`: it yields to a `redirect_url` in
+ * the query string, so a protected deep link can still land where it was
+ * headed. The proxy handles the other way in, someone arriving at `/` with a
+ * session already in place.
+ *
  * There is no theme toggle here — the top bar it lives in belongs to the app
  * shell, and a signed-out visitor has no chrome. The page still honours a
  * choice made inside the app, because that choice is an attribute on <html>
@@ -31,7 +39,7 @@ export default function Landing() {
             Tabs alone. Hover, press and focus are the filled button's three
             states in full, and the "Save note" button carries the same set.
           */}
-          <SignUpButton mode="modal">
+          <SignUpButton mode="modal" fallbackRedirectUrl="/fixtures">
             <button
               type="button"
               className="t-hover flex h-(--control-h-lg) cursor-pointer items-center rounded-md bg-surface-inverse px-5 text-label text-inverse hover:bg-surface-inverse-hover active:translate-y-px focus-visible:focus-ring"
@@ -39,7 +47,7 @@ export default function Landing() {
               Create an account
             </button>
           </SignUpButton>
-          <SignInButton mode="modal">
+          <SignInButton mode="modal" fallbackRedirectUrl="/fixtures">
             <button
               type="button"
               className="t-hover flex h-(--control-h-lg) cursor-pointer items-center rounded-md px-5 text-label text-muted hover:bg-surface-alt hover:text-text focus-visible:focus-ring"

@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-09 (Clerk promoted to a production instance on
-`madooo.app`; the next thing is step 9 — the paid tier and the live season)
+**Last updated:** 2026-08-09 (`/` now redirects a signed-in visitor to
+`/fixtures`; the next thing is step 9 — the paid tier and the live season)
 
 ---
 
@@ -26,8 +26,10 @@ its club's crest — and one without says so instead. The match opens with a car
 rather than a title: the competition, ground, date and referee on a strip, over
 the two clubs either side of the score. It sits in a responsive app shell whose
 four destinations — Fixtures, Players, Teams and Diary — are all built; none is a
-placeholder any more. `/` is a public landing page, now on the same tokens as
-everything else.
+placeholder any more. `/` is a public landing page, on the same tokens as
+everything else, and it is only ever seen signed out — a visitor who already has
+a session is redirected to `/fixtures`, because the sign-in buttons it offers
+are inert once there is one.
 
 **The app writes.** Every player on a match page carries three chips — standout,
 flop, MVP — and tapping one records a private judgement against that player in

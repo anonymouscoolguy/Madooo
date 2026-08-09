@@ -7,12 +7,20 @@ import { NextResponse } from 'next/server'
  * says `middleware.ts`; that convention is deprecated here.
  *
  * Two jobs: `clerkMiddleware()` reads the session cookie so that `auth()` works
- * during rendering, and the callback bounces signed-out visitors off the app.
+ * during rendering, and the callback keeps each visitor on the side of the login
+ * they belong on — signed-out visitors off the app, signed-in ones off `/`.
  *
- * The redirect goes to `/` rather than to a sign-in page, because there is no
- * sign-in page — the form is a modal on the landing page. Clerk's own
- * `auth.protect()` would redirect to its hosted account portal on another
+ * The signed-out redirect goes to `/` rather than to a sign-in page, because
+ * there is no sign-in page — the form is a modal on the landing page. Clerk's
+ * own `auth.protect()` would redirect to its hosted account portal on another
  * domain, which is why it is not used here.
+ *
+ * That modal is also why the redirect has to run in both directions. Clerk's
+ * `<SignInButton>` is inert once a session exists, so a signed-in user who
+ * reaches `/` gets a page whose only two controls do nothing, and no other
+ * navigation — the sidebar belongs to the app shell. The bounce to `/fixtures`
+ * lives here rather than in the page itself because reading the session during
+ * render would make `/` dynamic, and it is the one route that prerenders.
  *
  * This is an optimistic check, not the security boundary. Next's guide is
  * explicit that proxy "should not be used as a full session management or
@@ -38,9 +46,18 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isProtectedRoute(req)) return
+  /**
+   * An exact match rather than a `createRouteMatcher` entry: there is no pattern
+   * to express, and the rule must not reach any path below `/`.
+   */
+  const isLanding = req.nextUrl.pathname === '/'
+  if (!isLanding && !isProtectedRoute(req)) return
 
   const { userId } = await auth()
+
+  if (isLanding) {
+    return userId ? NextResponse.redirect(new URL('/fixtures', req.url)) : undefined
+  }
   if (!userId) return NextResponse.redirect(new URL('/', req.url))
 })
 

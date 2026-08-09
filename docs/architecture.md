@@ -419,6 +419,16 @@ visitor to `/`, where the buttons are. Clerk's `auth.protect()` is deliberately
 unused: with no sign-in URL to go to it redirects to Clerk's hosted account
 portal on another domain.
 
+**A modal closes without navigating, so both buttons carry
+`fallbackRedirectUrl="/fixtures"`.** By the time it closes the session exists,
+and Clerk's `<SignInButton>` and `<SignUpButton>` are inert once it does — so
+without a named destination a fresh sign-in leaves the user on `/` looking at
+two controls that no longer do anything. `fallback` rather than `force` because
+it yields to a `redirect_url` in the query string, which is what would carry a
+protected deep link through the login. The proxy covers the other way in,
+arriving at `/` with a session already in place; it cannot cover this one,
+because no request is made.
+
 **Next 16 renamed `middleware.ts` to `proxy.ts`, and almost every Clerk guide
 still says otherwise.** The file lives at `src/proxy.ts` — alongside `app`, not
 at the repo root. Clerk's current quickstart has caught up; most third-party
@@ -426,12 +436,19 @@ writing and most model training data has not. The same applies to
 `<ClerkProvider>`, which now belongs inside `<body>` rather than wrapped around
 `<html>`.
 
-`src/proxy.ts` runs `clerkMiddleware()` on every matched request and redirects
-signed-out visitors away from each of the four signed-in destinations. That
-redirect is an optimistic check. The check that guards data is `requireDbUser()`
-itself, because Next's own guidance is that a proxy may run separately from the
-render, and because a check placed in a layout would not re-run on client-side
-navigation.
+`src/proxy.ts` runs `clerkMiddleware()` on every matched request and redirects in
+both directions: signed-out visitors away from each of the signed-in
+destinations, and signed-in ones off `/` to `/fixtures`. The second half lives
+here rather than in the landing page because reading the session during render
+would make `/` dynamic, and it is [the one route that
+prerenders](#build-and-deploy). It is also an exact path test rather than a
+matcher entry, since it must not reach anything below `/`.
+
+Both redirects are optimistic checks. The check that guards data is
+`requireDbUser()` itself, because Next's own guidance is that a proxy may run
+separately from the render, and because a check placed in a layout would not
+re-run on client-side navigation. Nothing is exposed if the signed-in redirect
+fails to fire — it only shows a signed-in user the landing page.
 
 **The `(app)` route group is invisible to the proxy.** `src/proxy.ts` lists every
 route inside it one by one, because there is no shared URL segment to match on.
@@ -1195,8 +1212,10 @@ applies; the newer `use cache` model does not.
 To reproduce what Vercel does: `rm -rf src/generated && npm run build`. Only that
 proves the build regenerates the client rather than leaning on a stale local copy.
 Every route under `(app)` should appear as `ƒ` (dynamic) in the route summary,
-because the shell layout reads the session. `/` is `○`
-(static) and should stay that way, since the landing page reads no database.
+because the shell layout reads the session. `/` is `○` (static) and should stay
+that way, since the landing page reads no database. That is a live constraint,
+not an observation: it is why the signed-in bounce off `/` sits in the proxy
+rather than in the page, where an `auth()` call would flip it to `ƒ`.
 
 `rm -rf .next` after adding, renaming or moving a route. Next writes typed-route
 definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail — either
