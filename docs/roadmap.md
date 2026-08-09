@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-08 (step 8 closed; every screen in the design is
-built, and the next thing is step 9 — the paid tier and the live season)
+**Last updated:** 2026-08-09 (Clerk promoted to a production instance on
+`madooo.app`; the next thing is step 9 — the paid tier and the live season)
 
 ---
 
@@ -109,9 +109,16 @@ theme and now has one, along with the token the design system was missing for it
 **Every screen in the design is built.** What remains between here and launch is
 data, scheduling and a checklist — no more markup.
 
+Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
+signing in through Madooo's own Google OAuth client and sending mail from
+`notifications@madooo.app`; the development instance survives on the laptop and
+on Vercel's preview environment. What remains of the launch checklist is the
+`npm audit` judgement.
+
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
-- Clerk 7.x for auth, with Google and email/password enabled
+- Clerk 7.x for auth, with Google and email/password enabled, on a production
+  instance bound to `madooo.app`
 - Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
   squash-merged into `main`
 - Deployed on Vercel from `main`, built with `prisma generate && next build`
@@ -133,8 +140,8 @@ data, scheduling and a checklist — no more markup.
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
-  `DATABASE_URL_DEV` and four Clerk variables; `.env.example` documents the full
-  set
+  `DATABASE_URL_DEV` and four Clerk variables — the development instance's test
+  keys, which are what a laptop must use; `.env.example` documents the full set
 
 ## Build order
 
@@ -410,10 +417,11 @@ the order they unblock each other, not in the order they must be done.
 - [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
       Each of these was recorded as an open decision before it was clear they are
       simply tasks with a date on them:
-  - [ ] **Clerk production instance.** A development instance uses Clerk's
-        shared Google OAuth credentials, which a production one may not.
-        Promoting it means creating a Google Cloud project and an OAuth client,
-        then swapping the keys on Vercel. One to two weeks before launch.
+  - [x] **Clerk production instance.** Done, ahead of the "one to two weeks
+        before launch" it was written for, because the domain was already live.
+        Bound to `madooo.app`, with Madooo's own Google OAuth client and the
+        five CNAMEs at Namecheap; see
+        [`architecture.md`](architecture.md#auth-and-routing).
   - [ ] **Re-evaluate the `npm audit` warnings.** High-severity issues in
         `postcss` and `sharp`, both transitive dependencies of Next itself,
         whose suggested fix downgrades Next to 9. To be judged before launch,

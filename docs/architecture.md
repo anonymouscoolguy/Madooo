@@ -61,7 +61,9 @@ All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
 production branch is worth filling. So of the database variables it sets
 `DATABASE_URL_DEV` and nothing else — no `DATABASE_TARGET`, no `DATABASE_URL` —
 and the default above carries it to the right place with no code involved.
-(It also carries `SEASON` and the four Clerk variables.) Pointing a deployment
+(It also carries `SEASON` and the four Clerk variables, the last of which differ
+between the Production and Preview environments — see
+[Auth and routing](#auth-and-routing).) Pointing a deployment
 at the dev branch by putting the dev connection string in `DATABASE_URL` would
 work equally well and label it a lie; this way the variable names stay true.
 
@@ -542,8 +544,39 @@ is already resource-based — `requireDbUser()` is the real guard and the proxy
 check is documented as optimistic — so removing the matcher would cost little,
 but it is a behaviour change: the bounce moves from the edge to the render.
 
-**Clerk is on a development instance.** Its keys work on Vercel, but sessions are
-capped and Clerk's components show a development badge.
+**`madooo.app` runs Clerk's production instance; everywhere else runs the
+development one.** The two cannot be mixed, because live keys are locked to the
+domain — Clerk refuses a `pk_live_` on any other host with *"Production Keys are
+only allowed for domain madooo.app"*. So the keys are scoped per Vercel
+environment: `pk_live_`/`sk_live_` on Production, the `_test_` pair on Preview,
+and `.env.local` untouched so a laptop keeps the development instance. Two rows
+per variable name in Vercel's panel is the intended end state, not a mistake.
+Vercel classes `CLERK_SECRET_KEY` as sensitive and refuses to apply it to the
+Development environment at all; nothing reads that environment, since local runs
+take `.env.local` and `vercel dev` is not used.
+
+**The production instance mints its own `clerkId`s, so signing in on
+`madooo.app` creates a second `User` row.** Judgements recorded through the
+development instance belong to the old id and are invisible to the live site,
+though both rows sit in the same Neon development branch. Nothing is lost and
+nothing needs migrating — an empty live diary is the expected reading, not a
+bug.
+
+**`x-clerk-auth-reason` and `x-clerk-auth-status` on any response are the first
+thing to read when auth misbehaves.** `curl -sSI` against a protected route
+gives them without a session. `session-token-and-uat-missing` is the ordinary
+signed-out case; `unexpected-error` means the middleware *threw* while verifying
+and points at `CLERK_SECRET_KEY` rather than at the browser, which is the
+opposite of where instinct sends you.
+
+**DNS for `madooo.app` is answered at Namecheap, not Vercel** — the nameservers
+were never delegated, so Vercel serves the site from an apex `A` record while
+every other record is added in Namecheap's Advanced DNS panel. Clerk's five
+CNAMEs (`clerk`, `accounts`, `clkmail`, and the two `_domainkey` records) live
+there. Namecheap's Host field takes the subdomain alone, so a pasted FQDN
+becomes `clerk.madooo.app.madooo.app` and fails validation with nothing to
+suggest why. The apex is the canonical host; `www` 308s to it, and the Clerk
+instance is bound to the apex.
 
 ---
 
