@@ -8,30 +8,36 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-11 (the app is on the paid tier and pointed at the
-live 2026-27 season, whose calendar is in the database and whose first match is
-on 21 August; the next thing is step 10 — scheduling the sync)
+**Last updated:** 2026-08-12 (a second league — the Primeira Liga, whose season
+is already under way — so there is played football on the screens for the first
+time; the next thing is step 10, scheduling the sync)
 
 ---
 
 ## Current state
 
-**The app is pointed at football that has not been played yet.** It runs on
-API-Football's Pro tier against `SEASON=2026` — the 2026-27 Premier League, which
-kicks off on 21 August 2026 — and the whole 380-match calendar is in the
-database. None of it is hydrated, because none of it has happened: every fixture
-is `NS`, every screen's tallies are zero, and **no fixture is clickable** — 6.2
-decided that a card with no squad does not navigate, which was a rare state then
-and is every card now. So `/fixtures` is effectively the whole app until the
-first round is pulled after the opening weekend; `/matches/[id]` still renders
-correctly, but only if the URL is typed. The 2024 judgements are still in the
-database and no longer on any screen, since every read filters by season; they
-were the author's own test data.
+**There are two leagues, and one of them is being played.** The app runs on
+API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94`: the 2026-27
+Premier League, which kicks off on 21 August, and the Primeira Liga, which
+started in August and whose first matchday is hydrated. Both calendars are in the
+database — 380 matches and 306 — and the Primeira Liga's opening nine are
+clickable, with lineups, squads and player statistics. The Premier League's are
+not, and will not be until the opening weekend: 6.2 decided a card with no squad
+does not navigate.
+
+That asymmetry is the reason the second league was added before the sync was
+scheduled. Until it landed nothing on any screen had been played, so nothing past
+`/fixtures` could be exercised at all.
+
+The 2024 judgements are still in the database and no longer on any screen, since
+every read filters by season; they were the author's own test data.
 
 What was built against 2024 is unchanged and still true of the frame: `/fixtures`
 drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
-matchday pager, server-rendered out of Neon on every request. A fixture with a
+matchday pager, server-rendered out of Neon on every request. The league row is
+a working control now rather than the drawing of one: each pill scopes the whole
+page to a competition, and the matchday travels beside it in the URL. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions, each panel headed by
 its club's crest — and one without says so instead. The match opens with a card
@@ -483,7 +489,37 @@ ordering.
       timeout, so resumability is no longer a precondition; see
       [`architecture.md`](architecture.md#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone).
       What is unsettled is which matches a run should hydrate. Do the design
-      before the plumbing.
+      before the plumbing — and design it against two calendars, not one. Step 11
+      made "the current round" ambiguous: the two leagues play different
+      weekends, have different numbers of rounds, and are at different points of
+      their seasons, so a run has to decide per league rather than once.
+- [x] **11 — A second league.** Done, and deliberately **before** step 10 rather
+      than after it. The Primeira Liga's season was already under way while the
+      Premier League's had not started, so it was the only way to put played
+      football — hydrated squads, real statistics, clickable cards — on the
+      screens before 21 August. Everything downstream of `/fixtures` had been
+      unexercisable against live data until it landed.
+
+      **It cost one environment variable and a parameter**, which is the second
+      real test of the non-negotiable that promised exactly that. `LEAGUES=39,94`
+      is read by the sync alone; every page discovers its leagues from our own
+      `League` table, so no page and no Vercel environment had to be told. The
+      schema needed no migration — `Match.leagueId` and its index had been there
+      since step 2 and were simply never used.
+
+      What did cost code was `/fixtures`, whose four queries had all been scoped
+      by season alone. Two leagues both label a round `"Regular Season - 1"`, so
+      grouping across them collapsed two matchdays three weeks apart into one
+      pager row. The league became a slug in the URL, the league row became real
+      links rather than the placeholder it had been since 6.2, and back links
+      learned to carry it. `seasonTotals` deliberately did **not** take a league:
+      the tiles count the reader's whole season, as `/diary` does.
+
+      Two things the probe settled that had been assumptions. Entitlement is per
+      league as well as per season — the same coverage-is-not-entitlement rule,
+      on a new axis — and it had only ever been checked for league 39. And the
+      provider calls the competition **Primeira Liga**, not Liga Portugal, which
+      is what `League.name` holds and therefore what the URL slug is built from.
 - [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
       Each of these was recorded as an open decision before it was clear they are
       simply tasks with a date on them:
@@ -538,12 +574,12 @@ empty list is the expected state.
 
   It used to name the backfill as its exit, and read as a development condition —
   rounds 1 to 5 of 2024 hydrated, the other 330 matches bare. Moving to the live
-  season made it permanent and, for now, total: all 380 of 2026-27 are in the
-  database and none has a squad, because none has been played. Fixtures are
-  published months before team news, so a season in progress always contains
-  matches whose squads do not exist yet. The current hydration state is readable
-  from the database; what this entry is for is the reminder that the empty case
-  never stops being real.
+  season made it permanent: fixtures are published months before team news, so a
+  season in progress always contains matches whose squads do not exist yet. It
+  was briefly total, with all 380 of 2026-27 bare; the Primeira Liga's first
+  matchday broke that, and the two leagues now sit either side of the line at
+  once. The current hydration state is readable from the database; what this
+  entry is for is the reminder that the empty case never stops being real.
 
 ## Testing
 
@@ -583,7 +619,8 @@ must stay out of the Vercel build, are in
 
 - **Search is in the browser's memory, and that stops being right somewhere past
   five leagues.** `/players` ships the season's whole roster — ~15 kB compressed
-  for one league, ~60 kB for five — so a keystroke never waits on the network.
+  for one league, and two leagues have not visibly moved that — so a keystroke
+  never waits on the network.
   At a few thousand players it is still the better trade; well past that, the box
   should ask Postgres instead. The swap is self-contained: the search field
   changes where it gets its answers and nothing else moves. It costs a route

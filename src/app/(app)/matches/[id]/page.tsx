@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { requireDbUser } from '@/lib/auth'
+import { leagueSlug } from '@/lib/leagues'
 import { matchWithSquads, type MatchTeam, type SquadEntry } from '@/lib/matches'
 import { roundNumber } from '@/lib/rounds'
 import { splitSquad } from '@/lib/squad'
@@ -88,8 +89,14 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
   if (match === null) notFound()
 
   // Back to the matchday the reader came from, not to whichever one `/fixtures`
-  // opens on by default.
+  // opens on by default — and to the league it belongs to, since a matchday
+  // number alone would land in whichever competition sorts first. The league
+  // name is already on the match, so this costs no query; both sides derive the
+  // slug through the same pure function, so they agree by construction.
   const matchday = roundNumber(match.round)
+  const league = leagueSlug(match.league.name)
+  const backToFixtures =
+    matchday === null ? `/fixtures?league=${league}` : `/fixtures?league=${league}&matchday=${matchday}`
 
   const home = splitSquad(match.squadEntries, match.homeTeam.id)
   const away = splitSquad(match.squadEntries, match.awayTeam.id)
@@ -98,10 +105,7 @@ export default async function MatchPage({ params }: PageProps<'/matches/[id]'>) 
     <>
       <ScorelineCard
         match={match}
-        back={{
-          href: matchday === null ? '/fixtures' : `/fixtures?matchday=${matchday}`,
-          label: 'Back to fixtures',
-        }}
+        back={{ href: backToFixtures, label: 'Back to fixtures' }}
       />
 
       {match.squadEntries.length === 0 ? (

@@ -67,6 +67,40 @@ export function season(): number {
   return parsed
 }
 
+/**
+ * Which leagues the sync fetches — API-Football's own ids, `LEAGUES=39,94`.
+ *
+ * **Only the sync reads this, and nothing under `src/app/` ever may.** The sync
+ * writes `League` rows; every read side discovers leagues from Postgres instead
+ * — `leaguesWithMatches`, `leaguesInSeason`, `parseLeague`. A page reading this
+ * variable would have two sources for "which leagues exist" and could disagree
+ * with its own database. It is configuration *for* the sync, exactly as
+ * `apiFootballKey()` is, which is why it sits beside it and why the function is
+ * named `syncLeagues` rather than `leagues`.
+ *
+ * That asymmetry is also why a Vercel environment still needs only
+ * DATABASE_URL_DEV and SEASON, and will need this one only once the sync runs
+ * there.
+ *
+ * Parsed as strictly as `season()`, for the same reason: a bad value must
+ * present as a configuration error rather than as "the API returned nothing".
+ * Order is preserved because it is the order the CLI syncs and prints in.
+ */
+export function syncLeagues(): number[] {
+  const ids: number[] = []
+  for (const token of required('LEAGUES').split(',')) {
+    const trimmed = token.trim()
+    if (trimmed === '') continue
+    const parsed = Number(trimmed)
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`LEAGUES must be whole league ids, got: ${trimmed}`)
+    }
+    if (!ids.includes(parsed)) ids.push(parsed)
+  }
+  if (ids.length === 0) throw new Error('LEAGUES is empty — nothing to sync')
+  return ids
+}
+
 /** API-Football credential, sent as the `x-apisports-key` header. */
 export function apiFootballKey(): string {
   return required('API_FOOTBALL_KEY')

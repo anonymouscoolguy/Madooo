@@ -127,21 +127,11 @@ export async function clubJudgements(season: number, userId: number) {
 }
 
 /**
- * The competitions the league select offers.
- *
- * Deliberately **not** `leaguesInSeason` from [`players.ts`](../players.ts),
- * whose extra `squadEntries: { some: {} }` clause asks for leagues with published
- * lineups. That is the right question for a list of players, who only exist as
- * squad rows, and the wrong one here: it would leave a league holding clubs on
- * this list that the select could not narrow to, and `parseLeague` would then
- * silently discard a perfectly valid stored preference.
- *
- * The set matches `clubLeagues` exactly, which is what that guarantee needs.
+ * `leaguesWithMatches` lives in [`fixtures.ts`](../fixtures.ts) now — it is the
+ * scope the whole of `/fixtures` is drawn for, and this select is its second
+ * caller rather than its first. Re-exported so `/teams` keeps one import site
+ * for its directory, and so the guarantee it carries stays findable from the
+ * file that needs it: the set matches `clubLeagues` exactly, which is what stops
+ * `parseLeague` silently discarding a valid stored preference.
  */
-export async function leaguesWithMatches(season: number) {
-  return prisma.league.findMany({
-    where: { matches: { some: { season } } },
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  })
-}
+export { leaguesWithMatches } from '../fixtures'

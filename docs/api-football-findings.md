@@ -1,13 +1,15 @@
 # API-Football: what we verified before building
 
-**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
+**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro, league 94 added 2026-08-12 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
 
 Madooo cannot exist without knowing which matches happened and who played in
 them. That makes API-Football a single point of failure, so we probed it before
 writing any application code. This document records what the API actually does,
 as opposed to what its documentation and its own metadata imply.
 
-Re-run with `python3 scripts/verify_api.py`. It costs about 5 requests.
+Re-run with `python3 scripts/verify_api.py`. It costs about 5 requests per league
+in `LEAGUES`; `--league <id>` probes one, which is how a league is checked before
+being added.
 
 ---
 
@@ -82,6 +84,12 @@ and falls back to an older one when the newest has no played match to check the
 payload shape against. Filtering on coverage would have hidden the live season
 every summer.
 
+**Entitlement is per league as well as per season.** The third face of the same
+trap, and the one the document had not tested: every finding above was taken
+against league 39 alone, which proves nothing about any other. Checked on
+2026-08-12 by asking, because asking is the only way — `verify_api.py` now takes
+`--league` and loops over `LEAGUES`.
+
 ### Seasons actually fetchable
 
 **2010 through 2026** — everything `/leagues` lists. Pro removes the free tier's
@@ -90,6 +98,24 @@ every summer.
 The app runs on **`SEASON=2026`**, the 2026-27 season, which kicks off
 **2026-08-21**. This is the switch constraint #1 in `AGENTS.md` exists to
 protect, and it cost exactly one variable in two places.
+
+### Leagues actually fetchable
+
+| id | `league.name` | Clubs | Rounds | Fixtures | Round labels |
+|---|---|---|---|---|---|
+| 39 | Premier League | 20 | 38 | 380 | `Regular Season - N` |
+| 94 | **Primeira Liga** | 18 | 34 | 306 | `Regular Season - N` |
+
+Both are entitled on Pro for every season 2010–2026, coverage flagged true
+throughout.
+
+Two things worth having written down. **The provider calls league 94 "Primeira
+Liga"**, not Liga Portugal, which is how the competition is usually named — and
+since `League.name` is stored from the payload, that is the string every label
+and the URL slug are built from. And **its round labels are the Premier League's
+exactly**, which is what lets [`rounds.ts`](../src/lib/rounds.ts) parse both with
+no change; a cup competition would not be, and is the thing to re-check before
+adding one.
 
 > **Tentative observation:** on the free tier, a refused request did not appear
 > to decrement `x-ratelimit-requests-remaining`, which would have made probing
@@ -251,8 +277,11 @@ and pacing puts it at around three minutes of wall clock. The constraint that
 shaped the CLI's round-at-a-time discipline is gone.
 
 **Steady state** is negligible either way: ~10 fixtures per gameweek, one daily
-fixture poll for reschedules and results. Adding the other top leagues multiplies
-the backfill, not the weekly load — and at 7,500/day there is room for several.
+fixture poll for reschedules and results. Adding a league multiplies the
+backfill, not the weekly load — and at 7,500/day there is room for several. The
+Primeira Liga measured it rather than predicted it: **613 requests** for its full
+306-fixture season, 8% of a day, and its calendar alone is one request like any
+other league's.
 
 What still costs something is **wall clock, not quota.** At 300/minute the pacing
 is a quarter-second per request, so a ten-fixture round takes about five seconds

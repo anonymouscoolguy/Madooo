@@ -23,7 +23,7 @@ config({ path: '.env.local', quiet: true })
 interface Identity {
   /** The name as API-Football spells it. Checked, not written — see below. */
   name: string
-  /** The official Premier League three-letter abbreviation. */
+  /** The league's own three-letter abbreviation for the club. */
   code: string
   colour: string
 }
@@ -35,10 +35,11 @@ interface Identity {
  * rather than painting some other club in the wrong colours. Nothing here
  * overwrites `Team.name`.
  *
- * The ids for the 2024/25 clubs were read out of `scratch/fixtures_2024.json`.
- * The three at the end are the clubs promoted since, included so that changing
- * `SEASON` does not silently blank three chips; if an id is wrong the guard will
- * say so.
+ * The ids for the 2024/25 clubs were read out of `scratch/fixtures_39_2024.json`
+ * and the Primeira Liga's out of `scratch/fixtures_94_2026.json` — read, never
+ * transcribed, which is what makes the guard below meaningful. The promoted
+ * clubs are included so that changing `SEASON` does not silently blank a chip;
+ * if an id is wrong the guard will say so.
  *
  * Codes are the league's own abbreviations rather than the first three letters
  * of the name. That is a deliberate departure from the reference screenshots,
@@ -79,6 +80,33 @@ const IDENTITIES: Record<number, Identity> = {
   64: { name: 'Hull City', code: 'HUL', colour: '#f18a00' },
   746: { name: 'Sunderland', code: 'SUN', colour: '#eb172b' },
   1346: { name: 'Coventry', code: 'COV', colour: '#78d0f3' },
+
+  // Primeira Liga, 2026/27. The codes are the clubs' own initials, which is the
+  // same rule the Premier League block follows — SLB and FCP identify a club to
+  // a Portuguese reader the way MUN and AVL do to an English one, where the
+  // first three letters of "Sporting CP" and "Santa Clara" would not.
+  //
+  // The colours are the weakest data in this file. The big six are safe; the
+  // smaller clubs are a best reading of commonly published primaries and are
+  // meant to be corrected on sight, exactly as the note above says.
+  211: { name: 'Benfica', code: 'SLB', colour: '#e30613' },
+  212: { name: 'FC Porto', code: 'FCP', colour: '#00428c' },
+  214: { name: 'Maritimo', code: 'MAR', colour: '#00913f' },
+  215: { name: 'Moreirense', code: 'MOR', colour: '#007a3d' },
+  217: { name: 'SC Braga', code: 'SCB', colour: '#c8102e' },
+  224: { name: 'Guimaraes', code: 'VSC', colour: '#000000' },
+  225: { name: 'Nacional', code: 'NAC', colour: '#000000' },
+  226: { name: 'Rio Ave', code: 'RAV', colour: '#00843d' },
+  227: { name: 'Santa Clara', code: 'SCL', colour: '#d2232a' },
+  228: { name: 'Sporting CP', code: 'SCP', colour: '#008057' },
+  230: { name: 'Estoril', code: 'EST', colour: '#ffd200' },
+  238: { name: 'Academico Viseu', code: 'ACV', colour: '#c8102e' },
+  240: { name: 'Arouca', code: 'ARO', colour: '#ffd200' },
+  242: { name: 'Famalicao', code: 'FAM', colour: '#164194' },
+  762: { name: 'GIL Vicente', code: 'GIL', colour: '#d5222a' },
+  4716: { name: 'Casa Pia', code: 'CPA', colour: '#000000' },
+  4724: { name: 'Alverca', code: 'ALV', colour: '#c8102e' },
+  15130: { name: 'Estrela', code: 'ESA', colour: '#008057' },
 }
 
 async function main() {

@@ -38,7 +38,7 @@ function load<T>(name: string): ApiFootballEnvelope<T> {
   }
 }
 
-const fixtures = load<RawFixture>('fixtures_2024.json')
+const fixtures = load<RawFixture>('fixtures_39_2024.json')
 const lineups = load<RawLineup>('lineup_1208021.json')
 const playerStats = load<RawPlayerStats>('players_1208021.json')
 
@@ -52,7 +52,7 @@ const sampleFixture = fixtures.response.find(
   (entry) => entry.fixture.id === sampleFixtureId,
 )
 if (sampleFixture === undefined) {
-  throw new Error(`Fixture ${sampleFixtureId} is not in scratch/fixtures_2024.json`)
+  throw new Error(`Fixture ${sampleFixtureId} is not in scratch/fixtures_39_2024.json`)
 }
 
 describe('parseRating', () => {

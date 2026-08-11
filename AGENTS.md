@@ -11,7 +11,8 @@ A match-diary app for football fans. After a match, a user tags players as
 can open a player's profile, or their own diary, and read those judgements back
 as dated, diary-like entries.
 
-Scope: Premier League only to start, other top leagues afterwards. Diaries are
+Scope: the Premier League and the Primeira Liga, other top leagues afterwards.
+Diaries are
 **private** — single-user, no sharing, no public profiles, no moderation.
 
 Product rules settled so far:
@@ -38,12 +39,17 @@ deep in the JS/TS ecosystem.
 
 ## Non-negotiable constraints
 
-1. **The season is configuration, never a literal.** `SEASON` comes from the
-   environment. It ran against an older season while API-Football's free tier
-   exposed only seasons roughly two years past; on the paid tier it runs against
-   the live one. That switch cost one variable and no code, which is the whole
-   point — a hardcoded year anywhere would have made it a refactor. The next
-   season rolls over the same way, and so does a second league.
+1. **The season and the leagues are configuration, never literals.** `SEASON`
+   and `LEAGUES` come from the environment. The season ran against an older one
+   while API-Football's free tier exposed only seasons roughly two years past; on
+   the paid tier it runs against the live one, and that switch cost one variable
+   and no code. The second league then cost one variable and one parameter. Both
+   are the whole point — a hardcoded year or league id anywhere would have made
+   either a refactor. The next season and the third league go the same way.
+
+   **`LEAGUES` is read by the sync alone.** Every page discovers its leagues from
+   our own `League` table, so nothing under `src/app/` may read it; a page that
+   did would have two sources for which leagues exist.
 2. **Never call API-Football on page load.** A scheduled sync job writes into our
    own Postgres; the app only ever reads our own tables. The request budget this
    once protected is no longer scarce, but the rule is not really about quota: a
@@ -59,7 +65,9 @@ deep in the JS/TS ecosystem.
 Verified facts about the data source, including the real season entitlement, the
 rate-limit headers and the per-endpoint request costs, are in
 [`docs/api-football-findings.md`](docs/api-football-findings.md). The app runs on
-the **Pro** tier and `SEASON=2026`.
+the **Pro** tier with `SEASON=2026` and `LEAGUES=39,94`. Entitlement is per
+league as well as per season, so check a new id with
+`python3 scripts/verify_api.py --league <id>` before adding it.
 
 **Start here:** [`docs/roadmap.md`](docs/roadmap.md) records what is built, what
 is next, and which decisions are still open. Read it before proposing work, and

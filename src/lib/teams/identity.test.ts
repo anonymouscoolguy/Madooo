@@ -3,7 +3,7 @@
  *
  * The codes and colours themselves are ours, not the provider's, so there is no
  * payload to assert them against. What *is* ground truth is the set of team
- * names — read out of `scratch/fixtures_2024.json` — and those are what the
+ * names — read out of `scratch/fixtures_39_2024.json` — and those are what the
  * fallback has to survive.
  */
 
@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { crest, crestInk, teamCode } from './identity'
 import type { ApiFootballEnvelope, RawFixture } from '../api-football/types'
 
-const path = join(process.cwd(), 'scratch', 'fixtures_2024.json')
+const path = join(process.cwd(), 'scratch', 'fixtures_39_2024.json')
 let payload: ApiFootballEnvelope<RawFixture>
 try {
   payload = JSON.parse(readFileSync(path, 'utf8')) as ApiFootballEnvelope<RawFixture>

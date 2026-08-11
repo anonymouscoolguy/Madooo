@@ -266,14 +266,18 @@ export async function playerJudgements(season: number, userId: number) {
 /**
  * The leagues the select offers, beside its "All leagues" option.
  *
- * **Derived, never written down.** The requirement is that the select shows
- * exactly "All leagues" and "Premier League", and hardcoding either would put a
- * literal in product code: `League.id` is our own autoincrement, and 39 is
- * API-Football's id, which stops at the sync boundary. Asking which leagues have
- * squads this season answers it today with one row and answers it by itself when
- * La Liga lands.
+ * **Derived, never written down.** Hardcoding a league would put a literal in
+ * product code: `League.id` is our own autoincrement, and 39 is API-Football's
+ * id, which stops at the sync boundary. Asking which leagues have squads this
+ * season answered it with one row when there was one league and answered it by
+ * itself when the second landed. `LEAGUES` in the environment is not a second
+ * source for this — the sync reads it, pages read the database.
  *
  * Only leagues with squad rows, so an option cannot filter the list to nothing.
+ * That is a stricter question than `leaguesWithMatches` asks, and deliberately:
+ * a league whose season has not kicked off has no players to list, so in August
+ * this offers the Primeira Liga and not the Premier League. It is also why the
+ * league row on `/fixtures` cannot be built from this one.
  */
 export async function leaguesInSeason(season: number) {
   return prisma.league.findMany({

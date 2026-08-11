@@ -62,6 +62,26 @@ describe('backLink', () => {
     expect(backLink('/fixtures').href).toBe('/fixtures')
   })
 
+  it('keeps the league, with or without a matchday', () => {
+    expect(backLink('/fixtures?league=primeira-liga&matchday=6').href).toBe(
+      '/fixtures?league=primeira-liga&matchday=6',
+    )
+    expect(backLink('/fixtures?league=primeira-liga').href).toBe('/fixtures?league=primeira-liga')
+    // Order is this module's, not the input's: it rebuilds both halves rather
+    // than echoing the query it was handed.
+    expect(backLink('/fixtures?matchday=6&league=premier-league').href).toBe(
+      '/fixtures?league=premier-league&matchday=6',
+    )
+  })
+
+  it('drops a league that is not slug-shaped, keeping the matchday', () => {
+    // Shape alone is checkable here; whether the league exists is decided on
+    // arrival, where an unknown slug falls back to the default competition.
+    expect(backLink('/fixtures?league=../../evil&matchday=6').href).toBe('/fixtures?matchday=6')
+    expect(backLink('/fixtures?league=Premier%20League').href).toBe('/fixtures')
+    expect(backLink(`/fixtures?league=${'a'.repeat(65)}`).href).toBe('/fixtures')
+  })
+
   /**
    * The reason this module rebuilds rather than echoes. Each of these would be a
    * link to somewhere else rendered under our own chrome if the value survived.
@@ -82,13 +102,24 @@ describe('backLink', () => {
   it('never returns an href it was given', () => {
     // The property the guard rests on: every href out of this function is one of
     // a handful of strings this module built itself.
-    const shapes = ['/players', '/teams', '/diary', '/fixtures', '/matches/', '/diary?filter=', '/fixtures?matchday=']
+    const shapes = [
+      '/players',
+      '/teams',
+      '/diary',
+      '/fixtures',
+      '/matches/',
+      '/diary?filter=',
+      '/fixtures?matchday=',
+      '/fixtures?league=',
+    ]
     for (const input of [
       'https://evil.com',
       '/matches/12',
       '/diary?filter=mvp',
       '/teams/4',
       '/players/44?view=notes',
+      '/fixtures?league=primeira-liga&matchday=3',
+      '/fixtures?league=javascript:alert(1)',
       'nonsense',
       '',
     ]) {

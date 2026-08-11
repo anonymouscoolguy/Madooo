@@ -6,6 +6,32 @@
 import { compareRounds } from './rounds'
 import { prisma } from './prisma'
 
+/**
+ * The competitions the league row offers, and the scope every query below is
+ * drawn for.
+ *
+ * Deliberately **not** `leaguesInSeason` from [`players.ts`](./players.ts),
+ * whose extra `squadEntries: { some: {} }` clause asks for leagues with
+ * published lineups. That is the right question for a list of players, who only
+ * exist as squad rows, and the wrong one here twice over: it would offer a pill
+ * the pager could not fill, and it would hide a league whose season has not
+ * kicked off yet — which in August is the Premier League, on the very screen
+ * this exists for.
+ *
+ * The set matches what `listRounds` groups over exactly, which is the guarantee
+ * that keeps the page from drawing a scope it has no matchdays for.
+ *
+ * Also read by `/teams`, whose select needs the same guarantee against
+ * `clubLeagues`.
+ */
+export async function leaguesWithMatches(season: number) {
+  return prisma.league.findMany({
+    where: { matches: { some: { season } } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  })
+}
+
 /** One matchday: its provider label and the dates it is played over. */
 export interface Round {
   round: string
@@ -14,16 +40,23 @@ export interface Round {
 }
 
 /**
- * Every round of the season, in playing order.
+ * Every round of one league's season, in playing order.
  *
  * A `groupBy` rather than a scan: the pager needs one row per matchday with its
  * date range, and there are 380 matches to derive 38 of them from. Postgres is
  * better placed to do that than we are.
+ *
+ * **`leagueId` is not optional, and the grouping is why.** Two leagues both
+ * label a round "Regular Season - 1", so grouping across them would collapse
+ * two matchdays into one row whose date range spanned both competitions — the
+ * Premier League's opening weekend and the Primeira Liga's, three weeks apart,
+ * reported as a single matchday. The same reasoning binds the two functions
+ * below.
  */
-export async function listRounds(season: number): Promise<Round[]> {
+export async function listRounds(season: number, leagueId: number): Promise<Round[]> {
   const grouped = await prisma.match.groupBy({
     by: ['round'],
-    where: { season },
+    where: { season, leagueId },
     _min: { kickoff: true },
     _max: { kickoff: true },
   })
@@ -53,10 +86,20 @@ export async function listRounds(season: number): Promise<Round[]> {
  *
  * The fallback matters for a season with nothing hydrated at all, where landing
  * on round 1 in August would be right and in May would not.
+ *
+ * **Both branches are live at once now, one per league.** In August the
+ * Primeira Liga is hydrated and takes the first; the Premier League has not
+ * kicked off and takes the second. Asked without a league, the hydrated one
+ * would answer for both, and the Premier League pill would open on a Portuguese
+ * matchday.
  */
-export async function defaultRound(season: number, now = new Date()): Promise<string | null> {
+export async function defaultRound(
+  season: number,
+  leagueId: number,
+  now = new Date(),
+): Promise<string | null> {
   const hydrated = await prisma.match.findMany({
-    where: { season, squadEntries: { some: {} } },
+    where: { season, leagueId, squadEntries: { some: {} } },
     select: { round: true },
     distinct: ['round'],
   })
@@ -65,14 +108,14 @@ export async function defaultRound(season: number, now = new Date()): Promise<st
   }
 
   const next = await prisma.match.findFirst({
-    where: { season, kickoff: { gte: now } },
+    where: { season, leagueId, kickoff: { gte: now } },
     orderBy: { kickoff: 'asc' },
     select: { round: true },
   })
   if (next !== null) return next.round
 
   const last = await prisma.match.findFirst({
-    where: { season },
+    where: { season, leagueId },
     orderBy: { kickoff: 'desc' },
     select: { round: true },
   })
@@ -102,9 +145,14 @@ const teamFields = {
  * here rather than in Postgres because one relation can carry only one `_count`,
  * and this needs two different tallies out of the same rows.
  */
-export async function fixturesForRound(season: number, round: string, userId: number) {
+export async function fixturesForRound(
+  season: number,
+  leagueId: number,
+  round: string,
+  userId: number,
+) {
   return prisma.match.findMany({
-    where: { season, round },
+    where: { season, leagueId, round },
     orderBy: [{ kickoff: 'asc' }, { id: 'asc' }],
     include: {
       homeTeam: teamFields,
@@ -136,6 +184,13 @@ export interface SeasonTotals {
  * The stat tiles. Season-wide, which is what the first tile's "this season"
  * says out loud and the other three inherit — a tally that moved as you paged
  * through matchdays would not be a tally.
+ *
+ * **The absence of a `leagueId` here is deliberate, and it is the one thing on
+ * this page most likely to be "fixed" by a later reader.** Every query above
+ * takes one; this does not. The argument is the same one, extended an axis: a
+ * tally that changed when you switched league pill would not be a tally either.
+ * These four numbers are the reader's whole season across every competition,
+ * which is also what `/diary` counts and what makes the two agree.
  *
  * **"Watched" is a match this user has recorded anything against** — a tag or a
  * note. It is a query rather than a column: nothing marks a match as watched,

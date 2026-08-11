@@ -169,9 +169,11 @@ export function foldTeamRows(
 
   for (const club of clubs) {
     // `clubLeagues` returns a club once per side of the fixture, so most arrive
-    // twice. First league wins — a club playing two competitions in one season is
-    // unreachable while syncing is league-scoped, and if it ever happens the
-    // directory should name one rather than list the club twice.
+    // twice. First league wins — no club plays in two domestic leagues, so with
+    // the Premier League and the Primeira Liga synced there is nothing to
+    // choose between. A cup competition is the case that breaks it, and if it
+    // ever lands the directory should name one league rather than list the club
+    // twice.
     if (drawn.has(club.teamId)) continue
 
     const identity = identityById.get(club.teamId)

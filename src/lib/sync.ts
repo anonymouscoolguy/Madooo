@@ -31,13 +31,6 @@ import { prisma } from './prisma'
 export { roundLabel } from './rounds'
 
 /**
- * Premier League. Not a season literal — the season is configuration and comes
- * from `season()`. Scope is Premier-League-only for now by product decision; a
- * second league becomes a parameter here when one is added.
- */
-export const PREMIER_LEAGUE_ID = 39
-
-/**
  * Run `work` over `items` a few at a time.
  *
  * A season is 380 upserts. Sequentially that is 380 round trips to Neon; all at
@@ -109,7 +102,10 @@ async function upsertMatch(
 
 export interface FixturesSyncResult {
   season: number
-  leagues: number
+  /** The API-Football id this run asked for — known even when nothing came back. */
+  leagueApiFootballId: number
+  /** Our own row, and its name for printing. */
+  league: { id: number; name: string }
   teams: number
   matches: number
   remaining: number | null
@@ -119,34 +115,41 @@ export interface FixturesSyncResult {
 }
 
 /**
- * One request: every fixture of the season. Writes the league, all 20 teams and
- * all 380 matches — the calendar, without lineups or squads.
+ * One request: every fixture of one league's season. Writes the league, its
+ * clubs and its matches — the calendar, without lineups or squads.
+ *
+ * One league per call rather than a loop over the configured list, so that a
+ * failure names the league that failed. The caller runs the loop and owns the
+ * summary; this returns *which* league it wrote rather than a count of them.
  */
-export async function syncSeasonFixtures(season: number): Promise<FixturesSyncResult> {
+export async function syncSeasonFixtures(
+  season: number,
+  leagueApiFootballId: number,
+): Promise<FixturesSyncResult> {
   const { response, remaining, limit } = await apiGet<RawFixture>('fixtures', {
-    league: PREMIER_LEAGUE_ID,
+    league: leagueApiFootballId,
     season,
   })
 
   const mapped = response.map(mapFixture)
+  // `apiGet` throws on the `errors` field, so a refusal never reaches here. An
+  // empty response therefore means a league id that does not exist, or one with
+  // no such season — a configuration error, and one worth refusing loudly
+  // rather than recording as a quiet zero. Every write above is an upsert, so
+  // throwing after an earlier league succeeded costs nothing.
   if (mapped.length === 0) {
-    return {
-      season,
-      leagues: 0,
-      teams: 0,
-      matches: 0,
-      remaining,
-      limit,
-      fixtures: [],
-    }
+    throw new Error(
+      `League ${leagueApiFootballId} has no fixtures in ${season} — check LEAGUES and SEASON`,
+    )
   }
 
   const league = mapped[0].league
-  const { id: leagueId } = await prisma.league.upsert({
+  const row = await prisma.league.upsert({
     where: { apiFootballId: league.apiFootballId },
     create: league,
     update: { name: league.name, country: league.country, logo: league.logo },
   })
+  const leagueId = row.id
 
   const teams = new Map<number, MappedTeam>()
   for (const { homeTeam, awayTeam } of mapped) {
@@ -159,7 +162,8 @@ export async function syncSeasonFixtures(season: number): Promise<FixturesSyncRe
 
   return {
     season,
-    leagues: 1,
+    leagueApiFootballId,
+    league: { id: row.id, name: row.name },
     teams: teamIds.size,
     matches: mapped.length,
     remaining,

@@ -2,7 +2,7 @@
  * Round parsing, against the round labels the provider actually sends.
  *
  * Same rule as `api-football/map.test.ts`: the strings under test are read out
- * of `scratch/fixtures_2024.json` at runtime rather than transcribed here. The
+ * of `scratch/fixtures_39_2024.json` at runtime rather than transcribed here. The
  * exact shape of `league.round` is a fact about API-Football, and a test that
  * asserted against a remembered `"Regular Season - 1"` would prove only that the
  * parser matches the same memory that wrote it.
@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest'
 import { compareRounds, roundDisplay, roundLabel, roundNumber } from './rounds'
 import type { ApiFootballEnvelope, RawFixture } from './api-football/types'
 
-const path = join(process.cwd(), 'scratch', 'fixtures_2024.json')
+const path = join(process.cwd(), 'scratch', 'fixtures_39_2024.json')
 let payload: ApiFootballEnvelope<RawFixture>
 try {
   payload = JSON.parse(readFileSync(path, 'utf8')) as ApiFootballEnvelope<RawFixture>

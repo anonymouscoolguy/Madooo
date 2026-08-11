@@ -2,7 +2,7 @@
  * Date formatting, against the kickoff timestamps the provider actually sends.
  *
  * Same rule as the mapper's tests: the inputs come out of
- * `scratch/fixtures_2024.json` at runtime. That matters more here than it looks —
+ * `scratch/fixtures_39_2024.json` at runtime. That matters more here than it looks —
  * the payload's timestamps carry an explicit offset and a real season crosses
  * both a month boundary and a daylight-saving change, neither of which a date
  * typed from memory would exercise.
@@ -17,7 +17,7 @@ import { dateRange, entryDate, groupByMonth, kickoffDate, kickoffTime, monthLabe
 import { roundNumber } from './rounds'
 import type { ApiFootballEnvelope, RawFixture } from './api-football/types'
 
-const path = join(process.cwd(), 'scratch', 'fixtures_2024.json')
+const path = join(process.cwd(), 'scratch', 'fixtures_39_2024.json')
 let payload: ApiFootballEnvelope<RawFixture>
 try {
   payload = JSON.parse(readFileSync(path, 'utf8')) as ApiFootballEnvelope<RawFixture>

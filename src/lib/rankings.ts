@@ -169,12 +169,14 @@ export const ALL_LEAGUES = 'all'
  * Which league id was stored, or `null` for all of them.
  *
  * **Validated against the leagues actually found**, not merely parsed as a
- * number. Nothing is written down about which leagues exist — hardcoding either
- * "Premier League" or an id would put a literal in product code, and
- * `League.id` is our own autoincrement while `39` is API-Football's id crossing
- * the sync boundary. So the caller passes what the database returned, and a
- * stored id naming a league that is no longer being played falls back to all
- * rather than filtering the list to nothing.
+ * number. Nothing is written down in product code about which leagues exist —
+ * hardcoding a name or an id would put a literal there, and `League.id` is our
+ * own autoincrement while `39` is API-Football's id crossing the sync boundary.
+ * (`LEAGUES` in the environment is not a counter-example: the sync reads it, no
+ * page does, which is what keeps the database the single source here.) So the
+ * caller passes what the database returned, and a stored id naming a league that
+ * is no longer being played falls back to all rather than filtering the list to
+ * nothing.
  */
 export function parseLeague(raw: string | null, leagues: readonly LeagueOption[]): number | null {
   if (raw === null || raw === ALL_LEAGUES) return null

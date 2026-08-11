@@ -29,6 +29,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
 - [Auth and routing](#auth-and-routing)
   - [The landing page reads nothing, and everything on it is fiction](#the-landing-page-reads-nothing-and-everything-on-it-is-fiction)
   - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
+  - [The league is a slug in the URL, and is neither our id nor the provider's](#the-league-is-a-slug-in-the-url-and-is-neither-our-id-nor-the-providers)
 - [Writing data](#writing-data)
 - [Design tokens and CSS](#design-tokens-and-css)
   - [Responsive rules are in `foundations.md` and are binding](#responsive-rules-are-in-foundationsmd-and-are-binding)
@@ -224,6 +225,11 @@ row — two queries could disagree, and the fold would then have to draw a club
 whose competition is unknown. It returns each club once per side, so the fold
 dedupes and the first league wins.
 
+**"First league wins" is safe because no club plays in two domestic leagues** —
+not, as it used to be, because only one league was synced. The exit is the same
+either way: a cup competition, where a club would legitimately hold two, and
+where the directory would have to name one rather than list the club twice.
+
 ### Prisma resolves `distinct` and a nested `take` in Node, so "latest row per group" is raw SQL
 
 `/players` needs that same club-and-shirt lookup for every player at once, and
@@ -299,13 +305,31 @@ upgrade cannot quietly downgrade it.
 
 ## Sync and the provider boundary
 
-`npm run sync -- --round 1` costs 21 requests: one for the season's whole
-fixture list, then two per fixture for lineups and player statistics.
+`npm run sync -- --round 1` costs one request per league for its whole season of
+fixtures, then two per fixture for lineups and player statistics — 21 for a
+Premier League round.
 
 The provider boundary is [`src/lib/api-football/`](../src/lib/api-football/) —
 raw types, a thin client, and a pure mapper. [`src/lib/sync.ts`](../src/lib/sync.ts)
 turns mapped objects into rows, and [`scripts/sync.ts`](../scripts/sync.ts) is
 the CLI. Nothing under `src/app/` imports any of it.
+
+**Which leagues to sync is configuration, `LEAGUES=39,94`, and only the sync
+reads it.** The asymmetry is the point: the sync *writes* `League` rows, while
+every read side *discovers* leagues from Postgres — `leaguesWithMatches`,
+`leaguesInSeason`, `parseLeague`. A page reading the variable would have two
+sources for which leagues exist and could disagree with its own database, so
+`syncLeagues()` is named for its one caller and sits beside `apiFootballKey()`,
+which is withheld from the deployed app for the same kind of reason. Adding a
+league is a variable and a sync run; no page and no Vercel environment is told.
+
+`syncSeasonFixtures` takes one league and the CLI runs the loop, so a failure
+names the competition that failed rather than reporting a count. **`--round N`
+means matchday N of every league in scope**, and a league that does not have that
+round is skipped rather than failing — the Primeira Liga plays 34 to the Premier
+League's 38, so `--round 36` is a real asymmetry and only *no* league matching
+means the label is wrong. `--league <id>` narrows a run to one configured id and
+cannot reach outside the list, so a typo costs an error rather than a request.
 
 **Every write is an upsert on a natural key, and nothing is ever deleted.**
 `Judgement` cascades off `MatchSquad`, so rewriting squad rows by deleting them
@@ -610,6 +634,40 @@ A stored value is **exactly as untrusted as a URL parameter** — it outlives
 deploys, it is editable in devtools, and it can name a league that no longer has
 squads. So every one of them goes through a `parse*` that falls back, in the same
 table-plus-parser shape `diary-filters.ts` established for the URL.
+
+### The league is a slug in the URL, and is neither our id nor the provider's
+
+`/fixtures?league=primeira-liga&matchday=6`. Three candidates were available and
+the existing conventions ruled out two:
+
+- **`League.id`** is our own autoincrement, assigned in sync order, so it is not
+  stable across Neon branches — one bookmarked URL could name different
+  competitions on a laptop and in production.
+- **`apiFootballId`** is the provider's vocabulary, and the pager already keeps
+  that out of our addresses deliberately: the same boundary the sync draws,
+  applied to the address bar. It is also meaningless to a reader.
+
+The slug is derived from `League.name` and never written down, which is the rule
+`leaguesInSeason` and `parseLeague` already state for league identity. It is
+built on `searchKey`, the app's one name-flattening rule, so a competition with
+diacritics comes out typeable. Its risks — a provider rename, two leagues sharing
+a name — degrade to the default league rather than to an error, exactly as
+`parseFilter` and `backLink` treat unrecognised input.
+
+**A league is a location here and a preference on the two indexes, and that is
+not two answers to one question.** On `/fixtures` a pill decides what the server
+queried; on `/players` a select narrows rows already shipped. `foundations.md`
+draws that line and its test is what the control changes, not what it names.
+
+[`back.ts`](../src/lib/back.ts) validates the slug's **shape** only — it is pure
+and must stay so — and existence is decided on arrival, where
+`parseLeagueScope` falls back. It rebuilds the query rather than echoing it,
+which is what keeps the open-redirect guarantee intact.
+
+**A league pill carries no matchday.** Round 6 is a different weekend in each
+competition and the two do not have the same number of rounds, so carrying the
+number across is a false equivalence that can also land out of range. Dropping it
+lets `defaultRound` choose for the league just switched to.
 
 `src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
 row for everything below it. Nothing there renders anything from the result —
@@ -1036,6 +1094,14 @@ the diary's filters, a player's Diary and Notes — while a **pill chooses the
 scope the screen is drawn for**, which so far is only the league row.
 [`tab-strip.tsx`](../src/components/tab-strip.tsx) is the first;
 [`league-tabs.tsx`](../src/components/league-tabs.tsx) is the second.
+
+They share `TabStrip`'s `Tab` type, because the two differ in rendering rule
+rather than in what a tab is, and both take `current` as a prop for the same
+reason: the page has already parsed the parameter to run its query, and asking
+again in a client hook would give the answer two sources. Only the unselected
+state differs — foundations draws the pill selected and disabled but never
+unselected, so `league-tabs.tsx` sets that itself, borrowing the muted-to-ink
+treatment the pager's arrows and the inactive underline tab already use.
 
 The underline sits under the selected tab alone, with **no rule spanning the
 strip**. That is how the design draws it and it is also what lets the strip wrap:

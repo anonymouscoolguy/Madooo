@@ -213,7 +213,7 @@ The table above lists both, and this is the rule that decides between them.
 
 An **underline tab** (40px, `--text-label`) changes the *view of the screen you are already on* — which of your entries the diary shows, whether a player's profile is reading his verdicts or his notes. The selected one carries a 2px underline in `--text` and nothing else; the rest are `--text-muted` going to `--text` on hover. **The underline is under the selected tab alone — no rule spans the strip**, which is what lets the strip wrap on a narrow screen without a selected tab on the first row being detached from a rule under the last.
 
-A **pill tab** (28px, `--radius-pill`) chooses the *scope the screen is drawn for* — which league. The selected one fills with `--surface-inverse`.
+A **pill tab** (28px, `--radius-pill`) chooses the *scope the screen is drawn for* — which league. The selected one fills with `--surface-inverse`; the rest are `--text-muted` on no fill, going to `--text` on `--surface-alt` on hover, which is the same muted-to-ink move the underline tab and the pager's arrows make.
 
 Both wrap rather than scrolling sideways, because a horizontal scroller hides its own overflow.
 
