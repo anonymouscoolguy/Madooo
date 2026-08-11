@@ -26,6 +26,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
   - [Scheduling the sync is an unsolved problem, not an unstarted one](#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one)
 - [Auth and routing](#auth-and-routing)
+  - [The landing page reads nothing, and everything on it is fiction](#the-landing-page-reads-nothing-and-everything-on-it-is-fiction)
   - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
 - [Writing data](#writing-data)
 - [Design tokens and CSS](#design-tokens-and-css)
@@ -488,6 +489,44 @@ closes in either direction. What could not be shared is where an unrecognised
 Players, so `backLink` takes the fallback as an argument and each screen passes
 its own.
 
+### The landing page reads nothing, and everything on it is fiction
+
+`/` is the project's only public screen and its only prerendered one, and those
+two facts are the same fact: it renders no database call, no `auth()` and no
+`searchParams`, so there is nothing for a request to vary. Anything later that
+wants a live number on it — a count of matches in the database, say — costs the
+page its prerender, which is a trade to make deliberately rather than by
+accident.
+
+What it shows instead is a constant: a mock fixture, four players, their verdicts
+and their notes, in
+[`landing-preview.tsx`](../src/components/landing-preview.tsx), and three sample
+totals in the page itself. A signed-out visitor has no diary to show and a
+stranger's is private, so there was never a real answer to draw.
+
+- **It sits on `--surface`, not `--page`.** Every other screen takes the page
+  tone, which is what makes the cards on it read as raised off something. This
+  one is flat — one card, separated by its border, which foundations calls the
+  primary separator — and the drawing is white edge to edge, including behind
+  the header. The two grounds differ only in light; in dark they are the same
+  colour.
+- **The mock is built from the app's own objects but not from its components.**
+  The card, the header strip, `ShirtTile`, the note's rule and `Badge` are shared,
+  so what a visitor is shown is what they get; `SquadPanel` is not, because its
+  types are shaped by the match page's query and naming them here would drag
+  Prisma onto a page that must never reach it.
+- **It draws `FWD`/`MID`/`DEF`, not the drawing's `RW`/`CM`/`CB`.** Same decision
+  as [everywhere else](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more),
+  and it binds hardest here: a landing page promising a detail the product cannot
+  render would be advertising the mock rather than the app.
+- **The whole card is `aria-hidden`.** It is a picture of the product, not
+  information — read aloud it puts four strangers and their invented verdicts
+  between the hero's heading and the first real content.
+- **The page claims "free and open source", so the repository has to be.** MIT,
+  in `LICENSE`, with the README the GitHub button lands on. The claim is in the
+  markup twice and the URL appears three times, which is why the URL is a
+  constant.
+
 ### A location goes in the URL; a preference goes in `localStorage`
 
 The two indexes, `/players` and `/teams`, are the screens whose state is not in
@@ -781,16 +820,19 @@ closed is the useful part.
 
 **The inverse surface got a token.** `--surface-inverse-hover` is `#333333` in
 light and `#eeeeee` in dark — both existing ramp steps, so no hex was invented.
-The two filled buttons carry the complete state set as one string:
+Every filled button carries the complete state set as one string:
 
 ```
 t-hover … bg-surface-inverse … hover:bg-surface-inverse-hover
 active:translate-y-px focus-visible:focus-ring
 ```
 
-A third filled button copies that. Press is the transform with no second colour
-step, and in light theme the hover *lightens*; foundations' Interaction states
-says why both are the rule rather than a breach of it.
+Press is the transform with no second colour step, and in light theme the hover
+*lightens*; foundations' Interaction states says why both are the rule rather
+than a breach of it. The landing page holds that string in a `FILLED` constant
+because it draws two of them, one a `<button>` and one an `<a>` — which is also
+why it is a string rather than a component. A link needs `no-underline` on top
+of it, since the base stylesheet styles every `<a>` as prose.
 
 **A tint did not get one.** `--mvp-bg` and friends still have nothing below them,
 and nothing was invented: a **resting** verdict chip takes the standard hover
@@ -818,10 +860,19 @@ This applies to every future tinted thing, not just these.
 members and a judgement list draws four badges: a judgement carrying a note and
 no tag is a valid row, and it is rendered in the informational blue with
 `edit_note` — the same distinction that keeps notes out of the match page's
-header counts. The key type is `JudgementTag | 'NOTE'`, a local union in
-[`judgement-entry.tsx`](../src/components/judgement-entry.tsx). Nothing named
-`NOTE` reaches the database, and nothing should: the reference screenshots have
-no example of this case, so it is a drawing decision, not a schema one.
+header counts. The key type is `JudgementTag | 'NOTE'`, exported from
+[`badge.tsx`](../src/components/badge.tsx) beside the table of tints. Nothing
+named `NOTE` reaches the database, and nothing should: the reference screenshots
+have no example of this case, so it is a drawing decision, not a schema one.
+
+**The badge itself is one component, and callers with a key of their own write
+it beside the table rather than into it.** The landing page draws an `UNRATED`
+badge, which corresponds to nothing in the app — an unrated player is one
+carrying no judgement, and the match page draws that as three chips nobody has
+pressed. So `VERDICT_BADGE` stays the four a real judgement can be, and the
+landing page's fifth lives in its own file. `<Badge>` takes an optional glyph for
+it, because the three verdicts own the three glyphs and there is none for the
+absence of one.
 
 **A judgement row is one component and a `children` slot.** `/diary` and a player
 profile draw the same row — date, badge, note underneath — and differ in one

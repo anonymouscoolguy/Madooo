@@ -8,8 +8,9 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-09 (`/` now redirects a signed-in visitor to
-`/fixtures`; the next thing is step 9 — the paid tier and the live season)
+**Last updated:** 2026-08-11 (`/` is the landing page the design draws, and the
+repository has a licence and a README to back what it claims; the next thing is
+step 9 — the paid tier and the live season)
 
 ---
 
@@ -26,10 +27,19 @@ its club's crest — and one without says so instead. The match opens with a car
 rather than a title: the competition, ground, date and referee on a strip, over
 the two clubs either side of the score. It sits in a responsive app shell whose
 four destinations — Fixtures, Players, Teams and Diary — are all built; none is a
-placeholder any more. `/` is a public landing page, on the same tokens as
-everything else, and it is only ever seen signed out — a visitor who already has
-a session is redirected to `/fixtures`, because the sign-in buttons it offers
-are inert once there is one.
+placeholder any more.
+
+**And there is a front door.** `/` is the page the design draws: a header
+carrying both ways in, a hero beside a mock match card, three features each
+showing a piece of the real interface, and a "Free, forever." block over a
+GitHub button. It reads nothing — no database, no session — which is what keeps
+it the one route that prerenders, so the fixture on it was never played and the
+three numbers under "Build a database" are a sample rather than anyone's totals.
+It is only ever seen signed out: a visitor who already has a session is
+redirected to `/fixtures`, because the sign-in buttons it offers are inert once
+there is one. What it claims is now true — the repository carries an MIT licence
+and a README, in place of the `create-next-app` boilerplate that had survived
+since step 1.
 
 **The app writes.** Every player on a match page carries three chips — standout,
 flop, MVP — and tapping one records a private judgement against that player in
@@ -108,8 +118,9 @@ it, remembered across visits. Clerk's own modals follow it too. The chrome is
 complete: the last gap in it was the filled button, which had no hover in either
 theme and now has one, along with the token the design system was missing for it.
 
-**Every screen in the design is built.** What remains between here and launch is
-data, scheduling and a checklist — no more markup.
+**Every screen in the design is built.** That claim was made once before the
+landing page had a drawing; two arrived afterwards and 8.4 built it. What remains
+between here and launch is data, scheduling and a checklist.
 
 Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
 signing in through Madooo's own Google OAuth client and sending mail from
@@ -135,8 +146,8 @@ on Vercel's preview environment. What remains of the launch checklist is the
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
   reference sheets and [`screenshots/`](design/screenshots/) showing the
   fixtures page, the match page, the diary, the player profile, the players
-  index, the team profile and the teams index as intended — all of them at
-  desktop width only.
+  index, the team profile, the teams index and the landing page as intended —
+  all of them at desktop width only.
   The tokens are now CSS, in
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
@@ -363,7 +374,7 @@ the order they unblock each other, not in the order they must be done.
         far", which would describe something other than the list beneath it.
 - [x] **8 — Chrome.** In the design, needed by nothing above it. 8.2 was dropped
       rather than built — search settled onto the screens themselves — so the
-      step closes on two children, and with it the last of the screen work.
+      step closes on three children, and with it the last of the screen work.
   - [x] **8.1 — Dark-mode toggle.** Done, and taken out of order on purpose:
         it puts every screen through a second theme while there are three of
         them rather than a dozen. The moon icon in the top bar, light-first for
@@ -387,6 +398,36 @@ the order they unblock each other, not in the order they must be done.
         `--surface-inverse` too and were deliberately left out: they are selected
         states, not buttons. See
         [`architecture.md`](architecture.md#hovering-a-filled-surface-and-hovering-a-tint-were-resolved-differently).
+  - [x] **8.4 — The landing page.** Done, from two drawings that arrived long
+        after the screen they replace. `/` had been a centred heading, a
+        paragraph and two buttons since step 5; it is now a marketing page — a
+        header, a hero beside a mock match card, three features, an open-source
+        block and a footer.
+
+        The whole of it is a constant, which is the point: `/` is the one route
+        that prerenders, and it stays that way by reading nothing. So the fixture
+        is invented and the three totals are a sample, agreed as such rather than
+        dressed up as live. The mock is assembled from the app's own objects but
+        not from `SquadPanel`, whose types would drag Prisma onto a page that
+        must never reach it, and it draws `FWD`/`MID`/`DEF` rather than the
+        drawing's `RW`/`CM`/`CB` for 6.3's reason — which binds harder here,
+        since advertising a detail the product cannot render is advertising the
+        mock. The badge that reads a verdict back was extracted out of
+        `JudgementEntry` so the two screens cannot draw it differently; the
+        landing page's fifth key, `UNRATED`, stays in its own file, because the
+        app has no such state.
+
+        It cost the icon subset two glyphs, `lock` and `code`, and
+        `foundations.md` a description of the Tag — a 24px pill it had listed a
+        height for and never defined. The header wraps to two lines below ~360px
+        rather than shrinking its buttons, which is the narrow decision the
+        drawings have no answer for.
+
+        **The page claims "free and open source", so the repository had to
+        become it**: an MIT `LICENSE`, and a README replacing the
+        `create-next-app` boilerplate that had been there since step 1.
+        Deliberately absent: no call to action in the hero, no theme toggle —
+        the drawings have neither, and the toggle belongs to the app shell.
 - [ ] **9 — Move onto the paid tier and the current season. The next thing.**
       The free tier only exposes seasons roughly two years back, which is the
       only reason development runs on `SEASON=2024`. Paying removes that limit,
@@ -452,7 +493,10 @@ empty list is the expected state.
   card grid were all decided narrow without one. 7.4's drawing arrived with the
   slice and is desktop-only like the rest, so its squad row inherited the
   players index's narrow arrangement rather than being drawn one, as did 7.5's
-  club row and card grid from the same pair of drawings.
+  club row and card grid from the same pair of drawings. 8.4's two drawings are
+  desktop-only again, so the landing page's stacking order, and its header
+  wrapping to two lines rather than shrinking its buttons, were decided the same
+  way.
   *Can be resolved when narrow-width reference designs exist for the app's
   screens.*
 

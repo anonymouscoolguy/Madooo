@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Madooo
 
-## Getting Started
+A match diary for football fans. After a match you tag the players who left an
+impression — **MVP**, **STANDOUT** or **FLOP** — and write a note against anyone
+worth remembering. Later you read it back: as a player's own history, as a
+club's, or as a diary of the season in the order you wrote it.
 
-First, run the development server:
+Diaries are **private**. Single user, no sharing, no public profiles. The app is
+free to use and the code is here to read, fork or self-host.
 
-```bash
+Live at [madooo.app](https://madooo.app). Premier League to start.
+
+## Stack
+
+Next 16 (App Router, Turbopack) and React 19 in TypeScript, Tailwind 4, Prisma
+against Postgres on Neon, Clerk for auth, hosted on Vercel. Fixtures, lineups
+and squads come from [API-Football](https://www.api-football.com), pulled by a
+sync job into our own database — no page ever calls the provider.
+
+## Running your own copy
+
+You need Node 24, a Postgres database (Neon or otherwise), a Clerk application
+and an API-Football key. The free API tier is enough; it only serves seasons
+roughly two years back, which is why development runs against `SEASON=2024`.
+
+```sh
+npm install
+cp .env.example .env.local     # then fill it in — it documents every variable
+npm run db:migrate             # create the schema
+npm run db:seed-teams          # club codes and colours the provider does not publish
+npm run sync -- --round 1      # pull a matchday's fixtures, lineups and players
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` is gitignored and is the only place secrets belong.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts: `npm test` runs Vitest over the sync mapper and the pages' pure
+helpers, `npm run db:check` proves the database layer end to end, `npm run
+icons` refetches the Material Symbols subset from the vocabulary in
+`src/components/icon-names.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Documentation
 
-## Learn More
+The project documents itself as it goes, and these are worth reading before
+changing anything:
 
-To learn more about Next.js, take a look at the following resources:
+- [`AGENTS.md`](AGENTS.md) — the product rules and the four non-negotiables.
+- [`docs/roadmap.md`](docs/roadmap.md) — what is built, what is next, what is
+  still undecided.
+- [`docs/architecture.md`](docs/architecture.md) — how each subsystem works, and
+  the things that were surprising enough to write down.
+- [`docs/design/foundations.md`](docs/design/foundations.md) — the design tokens
+  and the rules about when each applies.
+- [`docs/api-football-findings.md`](docs/api-football-findings.md) — what the
+  provider actually does, as opposed to what its documentation says.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Licence
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[MIT](LICENSE).

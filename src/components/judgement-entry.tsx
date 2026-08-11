@@ -1,6 +1,5 @@
-import { Icon } from './icon'
+import { Badge, VERDICT_BADGE } from './badge'
 import { entryDate } from '@/lib/dates'
-import type { IconName } from './icon-names'
 import type { JudgementTag } from '@/lib/verdicts'
 
 /**
@@ -17,27 +16,6 @@ import type { JudgementTag } from '@/lib/verdicts'
  * its types.
  */
 
-/**
- * **A fourth badge over a three-value enum.** `NOTE` is not a `JudgementTag` and
- * never reaches the database — it is how a judgement that carries a note and no
- * tag is drawn, which 6.5 made a valid row and the reference screenshots have no
- * example of. It takes the informational blue for the same reason the Notes tile
- * does: a note is not a verdict.
- *
- * Written out per key rather than composed, for the reason Tailwind forces: it
- * finds class names by scanning source text, so a name assembled at runtime
- * never reaches the stylesheet. The three tags reuse the selected-chip
- * vocabulary from [`verdict-controls.tsx`](./verdict-controls.tsx) exactly.
- */
-type BadgeKey = JudgementTag | 'NOTE'
-
-const BADGE: Record<BadgeKey, { icon: IconName; classes: string }> = {
-  MVP: { icon: 'star', classes: 'border-mvp bg-mvp-bg text-mvp' },
-  STANDOUT: { icon: 'trending_up', classes: 'border-standout bg-standout-bg text-standout' },
-  FLOP: { icon: 'trending_down', classes: 'border-flop bg-flop-bg text-flop' },
-  NOTE: { icon: 'edit_note', classes: 'border-info bg-info-bg text-info' },
-}
-
 type Props = {
   createdAt: Date
   tag: JudgementTag | null
@@ -49,7 +27,7 @@ type Props = {
 export function JudgementEntry({ createdAt, tag, note, children }: Props) {
   // A tagless entry always has a note — the schema's CHECK constraint requires
   // one of the two, so there is no third case to draw.
-  const badge = BADGE[tag ?? 'NOTE']
+  const badge = VERDICT_BADGE[tag ?? 'NOTE']
 
   return (
     /*
@@ -63,15 +41,9 @@ export function JudgementEntry({ createdAt, tag, note, children }: Props) {
       <span className="text-data uppercase text-muted">{entryDate(createdAt)}</span>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        {/* 28px, the chip height — this is the same object as a selected verdict
-            chip, read back. `filled` because FILL 1 means "on", and every entry
-            in this list is a verdict that was applied. */}
-        <span
-          className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-caps ${badge.classes}`}
-        >
-          <Icon name={badge.icon} size="sm" filled />
-          {tag ?? 'NOTE'}
-        </span>
+        {/* Filled by default, and right to be: every entry in this list is a
+            verdict that was applied. */}
+        <Badge icon={badge.icon} label={tag ?? 'NOTE'} classes={badge.classes} />
 
         {children}
       </div>
