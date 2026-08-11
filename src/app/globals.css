@@ -313,6 +313,22 @@
    (`md:text-title`).
    ========================================================================== */
 
+/* One heading in the app is the whole point of the screen it opens — the
+   landing page's opening line, read by someone who does not yet know what the
+   app is — and that is the only thing this size is for.
+
+   48px was settled by measuring rather than by eye: in the hero's own column it
+   is the size that sets the sentence in three lines, where 40px sets two and
+   56px four. It holds three across the whole range of widths that column takes,
+   which 52px does not. */
+@utility text-hero {
+  font-family: var(--font-sans);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
 @utility text-display {
   font-family: var(--font-sans);
   font-size: 40px;

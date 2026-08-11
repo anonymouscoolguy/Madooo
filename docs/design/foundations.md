@@ -102,6 +102,7 @@ The rule: **if it is a number you can add up, it is monospaced.**
 ### Scale
 | Role | Weight / Size / Line-height / Family | Tracking | Used for |
 | --- | --- | --- | --- |
+| `--text-hero` | 700 · 48px · 1.1 · Archivo | `-0.02em` | The landing page's opening line, and nothing else |
 | `--text-display` | 700 · 40px · 1.1 · Archivo | `-0.02em` | Reserved for large headers |
 | `--text-title` | 700 · 24px · 1.25 · Archivo | `-0.02em` | Page titles ("Fixtures", player name) |
 | `--text-heading` | 600 · 18px · 1.25 · Archivo | 0 | Dialog titles, team names on MatchCard |
@@ -115,7 +116,9 @@ The rule: **if it is a number you can add up, it is monospaced.**
 | `--text-tally` | 700 · 20px · 1.1 · JetBrains Mono | `-0.02em` | The 40px shirt tile, in a list row |
 | `--text-data` | 500 · 13px · 1.25 · JetBrains Mono | 0 | Shirt numbers, dates, counts |
 
-Sizes available: 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 56.
+Sizes available: 11, 12, 13, 14, 16, 18, 20, 24, 32, 40, 48, 56.
+
+48 was added for `--text-hero`. 56 remains on the list and is used by nothing.
 Line heights: tight 1.1, snug 1.25, normal 1.45, loose 1.65.
 
 **Caps appear in exactly two places**: the three verdict words (STANDOUT / FLOP / MVP) and micro-labels. Everything else is sentence case.

@@ -151,7 +151,12 @@ function Hero() {
           Free and open source
         </span>
 
-        <h1 className="mt-6 text-display">A personal database for the football you watched.</h1>
+        {/* The only use of `text-hero`, which exists for this line alone. One
+            size at every width, like every other role: 48px still holds its
+            longest word inside a 320px screen. */}
+        <h1 className="mt-6 text-hero">
+          A personal database for the football you watched.
+        </h1>
 
         <p className="mt-6 text-body-lg text-muted">
           After full time, mark the players that made an impression on you and write down what you

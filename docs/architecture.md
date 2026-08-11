@@ -784,7 +784,7 @@ line-height, tracking — and a `text-title` that left the weight to the caller
 would be a different design.
 
 **A role is added when a screen needs a size the scale does not have, not when a
-screen wants one.** Two have been added, and both were the same shape of problem:
+screen wants one.** Three have been added. Two were the same shape of problem:
 foundations mandates monospace for a number you can add up, and its mono scale
 has three sizes with large gaps between them.
 
@@ -797,7 +797,21 @@ has three sizes with large gaps between them.
   colour swatch. 20-in-40 is the ratio the existing 32-in-64 tile has, which is
   what makes the two read as one object at two scales.
 
-The alternative in both cases was `text-[40px]` at the call site — a raw px in
+The third, `text-hero` — 48px — is the case the rule was written to be careful
+about, since a landing page's opening line *wanting* to be large is not the same
+as needing a size. What settled it was measuring instead of judging: in the
+hero's own column, 40px sets that sentence in two lines and 56px in four, and
+48px is the only value that holds three across the range of widths that column
+takes. It cost the scale a size rather than only a role, which is the more
+expensive of the two and is why 56px was tried first.
+
+**Line count is a function of two numbers, and the column is the one that is
+easy to forget.** The hero's is not `--container` halved: page padding comes off
+first, then the grid gap, so at desktop it is about 512px rather than the 560 the
+arithmetic suggests. Measuring a heading against the wrong width picks the wrong
+size by a whole step.
+
+The alternative in every case was `text-[40px]` at the call site — a raw px in
 product code, the one thing the token system exists to prevent.
 
 ### Responsive rules are in `foundations.md` and are binding
