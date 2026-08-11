@@ -8,17 +8,28 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-11 (`/` is the landing page the design draws, and the
-repository has a licence and a README to back what it claims; the next thing is
-step 9 — the paid tier and the live season)
+**Last updated:** 2026-08-11 (the app is on the paid tier and pointed at the
+live 2026-27 season, whose calendar is in the database and whose first match is
+on 21 August; the next thing is step 10 — scheduling the sync)
 
 ---
 
 ## Current state
 
-Real football is in the database and behind a login, inside the frame the
-designs ask for: the 2024 season's full fixture list, five gameweeks hydrated down
-to individual players, and `/fixtures` drawn as the design asks — a card per
+**The app is pointed at football that has not been played yet.** It runs on
+API-Football's Pro tier against `SEASON=2026` — the 2026-27 Premier League, which
+kicks off on 21 August 2026 — and the whole 380-match calendar is in the
+database. None of it is hydrated, because none of it has happened: every fixture
+is `NS`, every screen's tallies are zero, and **no fixture is clickable** — 6.2
+decided that a card with no squad does not navigate, which was a rare state then
+and is every card now. So `/fixtures` is effectively the whole app until the
+first round is pulled after the opening weekend; `/matches/[id]` still renders
+correctly, but only if the URL is typed. The 2024 judgements are still in the
+database and no longer on any screen, since every read filters by season; they
+were the author's own test data.
+
+What was built against 2024 is unchanged and still true of the frame: `/fixtures`
+drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
@@ -166,9 +177,10 @@ roadmap had three. **Every slice owns its own empty state** — what its screen
 says when it has nothing to show is part of the slice, not a later pass.
 
 Steps 9 to 12 are not screens. They are what stands between a working app and a
-launched one: real current data rather than a two-year-old season, a sync that
-runs without a laptop, and the last of the accounts to buy. They are listed in
-the order they unblock each other, not in the order they must be done.
+launched one: real current data, a sync that runs without a laptop, and the last
+of the accounts to buy. Two of the three are done — what is left is the sync, and
+the season starting on 21 August is what gives it a deadline rather than an
+ordering.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -428,35 +440,50 @@ the order they unblock each other, not in the order they must be done.
         `create-next-app` boilerplate that had been there since step 1.
         Deliberately absent: no call to action in the hero, no theme toggle —
         the drawings have neither, and the toggle belongs to the app shell.
-- [ ] **9 — Move onto the paid tier and the current season. The next thing.**
-      The free tier only exposes seasons roughly two years back, which is the
-      only reason development runs on `SEASON=2024`. Paying removes that limit,
-      and `SEASON` is configuration rather than a literal, so pointing the app at
-      the live season should be a variable change and nothing else — that
-      non-negotiable exists precisely so this is not a refactor.
+- [x] **9 — Move onto the paid tier and the current season.** Done. Pro,
+      `SEASON=2026`, and the 2026-27 calendar in the database. **The season
+      switch cost one variable in two places and no code at all**, which is the
+      first real test of the non-negotiable that exists to make that true.
 
-      **This replaces the backfill, which was step 9 and is deleted.** That step
+      What did cost code was everything the free tier had been quietly shaping.
+      The client's 6.5s request interval was sized for 10 requests a minute and
+      said so in its own comment; it now derives itself from the per-minute
+      ceiling the response headers carry, so the next plan change needs no code
+      either. `verify_api.py` probed only seasons flagged for lineup coverage,
+      which can never include one that has not kicked off — the same
+      coverage-is-not-entitlement trap as before, sprung from the other side, and
+      it had recommended `SEASON=2025`. And two promoted clubs, Coventry and Hull
+      City, had no code or colour in the identity seed.
+
+      **This replaced the backfill, which was step 9 and is deleted.** That step
       would have spent 33 rounds' worth of requests hydrating the rest of 2024, a
-      season the app is about to stop reading. The work does not vanish so much
-      as move: the live season needs hydrating for whatever has been played so
-      far, and step 10 is what keeps it current afterwards.
+      season the app has now stopped reading. Hydration did not move to this step
+      either: on 11 August the live season had no played match to hydrate, so
+      there was nothing to select and nothing to test a selection against. It is
+      step 10's, entire.
 
-      Two consequences worth knowing before starting. The reads are all filtered
-      by season, so the 2024 judgements do not disappear from the database but do
-      drop out of every screen — they are the author's own test data, so this is
-      a fact rather than a problem. And a live season is never fully hydrated:
-      fixtures are published long before team news, so the empty-squad case
-      stops being transitional and becomes permanent. See the long-term remark.
-- [ ] **10 — Schedule the sync.** The app's second non-negotiable assumes a
-      scheduled job writes into Postgres, and it does not exist yet: `npm run
-      sync` is a CLI the author runs by hand, which means the deployed app's data
-      is only as fresh as the last time a laptop was open. **This is an unsolved
-      problem, not an unstarted one.** The 6.5s pacing puts one round at about two
-      minutes, past a serverless function's timeout, so a cron route needs
-      chunking or resumability designed first; see
-      [`architecture.md`](architecture.md#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one).
-      Do the design before the plumbing. The single largest piece of unbuilt work
-      in the project.
+      Two things learned that were not expected. The Pro subscription renews
+      **monthly**, where the free tier ran a year — a lapse three weeks into the
+      season would cut the app off mid-season, so it is now in the checklist. And
+      the live fixture list is **provisional**: only the first five rounds carry
+      real kickoff times, the rest sitting at a placeholder Saturday 14:00 until
+      broadcast selections move them. See
+      [`architecture.md`](architecture.md#a-live-seasons-calendar-is-provisional-and-a-closed-ones-is-not).
+- [ ] **10 — Schedule the sync. The next thing, and now urgent.** The app's
+      second non-negotiable assumes a scheduled job writes into Postgres, and it
+      does not exist: `npm run sync` is a CLI the author runs by hand, so the
+      deployed app's data is only as fresh as the last time a laptop was open.
+      **The season starts on 21 August, which turns this from the largest piece
+      of unbuilt work into the one with a date on it.** Nothing can be judged
+      until a round is hydrated, and nobody's fixture list stays right without a
+      daily re-read of a calendar that is still provisional past round 5.
+
+      Step 9 removed the obstacle this step was blocked on — a round is now about
+      five seconds rather than two minutes, comfortably inside a function's
+      timeout, so resumability is no longer a precondition; see
+      [`architecture.md`](architecture.md#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone).
+      What is unsettled is which matches a run should hydrate. Do the design
+      before the plumbing.
 - [ ] **12 — Launch checklist.** Not code, and not to be left to launch day.
       Each of these was recorded as an open decision before it was clear they are
       simply tasks with a date on them:
@@ -469,6 +496,11 @@ the order they unblock each other, not in the order they must be done.
         `postcss` and `sharp`, both transitive dependencies of Next itself,
         whose suggested fix downgrades Next to 9. To be judged before launch,
         not "fixed" — see [`AGENTS.md`](../AGENTS.md)'s "Known noise".
+  - [ ] **Confirm the API-Football subscription renews.** Pro is billed
+        **monthly** and the current term ends 2026-09-11, three weeks into the
+        season. The free tier ran a year at a time, so nothing in the project has
+        ever had to think about this. A lapse stops the app reaching the live
+        season while the season is being played.
 
 ## Long-term remarks
 
@@ -501,18 +533,17 @@ empty list is the expected state.
   screens.*
 
 - **A `Match` can exist with no squad rows, and code must cope with that.**
-  Right now rounds 1 to 5 are hydrated: all 380 matches exist as rows, but the
-  other 330 have no `MatchLineup` and no `MatchSquad`. Anything that lets a user
-  pick a match therefore has to handle a match nobody can be judged in, rather
-  than assuming a squad is there. Hydrating one more round costs 21 requests.
-  *Cannot be resolved.*
+  Anything that lets a user pick a match has to handle a match nobody can be
+  judged in, rather than assuming a squad is there. *Cannot be resolved.*
 
-  It used to name the backfill as its exit. Deleting that step took the exit with
-  it, and moving to the live season turns the entry from a development condition
-  into a permanent one: fixtures are published long before team news, so a season
-  in progress always contains matches whose squads do not exist yet. The current
-  hydration state is readable from the database; what this entry is for is the
-  reminder that the empty case never stops being real.
+  It used to name the backfill as its exit, and read as a development condition —
+  rounds 1 to 5 of 2024 hydrated, the other 330 matches bare. Moving to the live
+  season made it permanent and, for now, total: all 380 of 2026-27 are in the
+  database and none has a squad, because none has been played. Fixtures are
+  published months before team news, so a season in progress always contains
+  matches whose squads do not exist yet. The current hydration state is readable
+  from the database; what this entry is for is the reminder that the empty case
+  never stops being real.
 
 ## Testing
 
@@ -600,7 +631,8 @@ must stay out of the Vercel build, are in
   that is visible enough to be worth solving is a thing to look at with the user
   menu open in dark.
 
-The paid API tier and the Clerk production instance used to sit here. Neither is
-a decision — nothing about them is unsettled but the date — so both moved into
-step 12. The API tier has since moved again, out of the checklist and into step 9:
-it is no longer a thing with a date on it but the next piece of work.
+The paid API tier and the Clerk production instance used to sit here. Neither was
+a decision — nothing about them was unsettled but the date — so both moved into
+step 12, and the API tier moved again into step 9, which has now landed. Both are
+done. What the tier left behind is a smaller thing of the same kind, back in the
+checklist: the subscription is monthly now, so it has a date that recurs.

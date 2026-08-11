@@ -20,11 +20,12 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The connection strings pin `sslmode=verify-full`](#the-connection-strings-pin-sslmodeverify-full)
 - [Sync and the provider boundary](#sync-and-the-provider-boundary)
   - [What the API does that its own docs do not say](#what-the-api-does-that-its-own-docs-do-not-say)
+  - [A live season's calendar is provisional, and a closed one's is not](#a-live-seasons-calendar-is-provisional-and-a-closed-ones-is-not)
   - [What is deliberately unmapped](#what-is-deliberately-unmapped)
   - [A position is one of four letters, and the designs ask for more](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more)
   - [Anything a page needs from a round string lives in `src/lib/rounds.ts`](#anything-a-page-needs-from-a-round-string-lives-in-srclibroundsts)
   - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
-  - [Scheduling the sync is an unsolved problem, not an unstarted one](#scheduling-the-sync-is-an-unsolved-problem-not-an-unstarted-one)
+  - [Scheduling the sync is unbuilt, and the obstacle it had is gone](#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone)
 - [Auth and routing](#auth-and-routing)
   - [The landing page reads nothing, and everything on it is fiction](#the-landing-page-reads-nothing-and-everything-on-it-is-fiction)
   - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
@@ -317,16 +318,44 @@ intact.
 Read [`api-football-findings.md`](api-football-findings.md) before touching
 anything that talks to API-Football. Two findings bind the client's design:
 
-- **There is an undocumented per-minute limit**, found the hard way when a full
-  round died after two fixtures with an HTTP 429. The client paces itself at one
-  request every 6.5s, so a ten-fixture round takes about two minutes to pull.
+- **The client's pace is read off the response, not written into the code.**
+  There are two ceilings, per-minute and per-day, and both arrive as headers.
+  `intervalForLimit` in [`client.ts`](../src/lib/api-football/client.ts) turns
+  `x-ratelimit-limit` into the gap to leave between requests — 80% of the stated
+  rate, bounded at both ends, falling back to a slow 6.5s when the header is
+  missing or unreadable. It was a constant until the plan changed underneath it
+  and made both the number and its explanatory comment wrong. A missing header
+  must fall back *slow*: an unparseable limit is not evidence of a generous plan.
 - **The daily counter in the response headers is not monotonic** — it was seen
   going 77, 75, 78, 76 in one run.
 
-Quota is 100 requests/day *and* about 10 per minute, and is not generous during
-backfills. Sync a few gameweeks in development, never a whole season — a day's
-quota buys about four rounds, and five are hydrated.
-`npm run sync -- --round 1 --limit 2` is the cheap way to try it.
+Quota is no longer a design constraint. Pro allows 7,500 a day and 300 a minute,
+against 21 requests for a round and 761 for an entire season. What still costs
+something is wall clock, and API-Football's terms warn that sustained
+over-consumption can get the key or the IP firewalled — which is why the pacing
+keeps a margin rather than sitting on the limit.
+`npm run sync -- --round 1 --limit 2` is the cheap way to try a change.
+
+### A live season's calendar is provisional, and a closed one's is not
+
+A finished season re-syncs byte-identically. A season in progress does not, and
+the 2026-27 fixture list shows why: **only the first five rounds carry real
+kickoff times.** From round 6 on, all ten fixtures of a round sit at exactly
+14:00 on one Saturday — placeholders standing in until broadcast selections move
+them. Round 1, already selected, spans Friday to Monday.
+
+Three things follow, none of them true of the 2024 data everything was built
+against:
+
+- **The fixture list has to be re-read, not just read once.** Dates, kickoff
+  times and `status` all change under us. It is one request for the whole season,
+  so this is cheap; what it is not is optional.
+- **A round is a poor unit of work.** It is not atomic in time — a selected round
+  spans several days — and beyond round 5 its dates are not even the real ones.
+- **Anything that groups or orders by date is standing on provisional data.**
+  The matchday pager is safe, since it groups by the round label, which does not
+  move. A screen that grouped by week or by date would reshuffle itself as
+  selections land.
 
 ### What is deliberately unmapped
 
@@ -398,11 +427,17 @@ test reaches has to import its neighbours relatively — including
 `../generated/prisma/enums`, which is the one generated module a pure helper has
 reason to touch.
 
-### Scheduling the sync is an unsolved problem, not an unstarted one
+### Scheduling the sync is unbuilt, and the obstacle it had is gone
 
-The 6.5s pacing puts a round at about two minutes, past a serverless function's
-timeout. A cron route needs chunking or resumability first, so sync deliberately
-remains a local CLI.
+It used to be blocked on arithmetic: the free tier's 6.5s pacing put one round at
+about two minutes, past a serverless function's timeout, so a cron route needed
+chunking or resumability before it could exist at all. Pro's pacing puts a round
+at about five seconds and a whole season at about three minutes, both inside
+Vercel's 300s ceiling. **That objection no longer holds, and a scheduled run no
+longer has to be resumable to be possible.**
+
+What is unsettled is which matches a run should hydrate, and the round is a poor
+unit for it — see the provisional-calendar note above. Sync remains a local CLI.
 
 ---
 

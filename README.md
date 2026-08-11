@@ -20,8 +20,10 @@ sync job into our own database — no page ever calls the provider.
 ## Running your own copy
 
 You need Node 24, a Postgres database (Neon or otherwise), a Clerk application
-and an API-Football key. The free API tier is enough; it only serves seasons
-roughly two years back, which is why development runs against `SEASON=2024`.
+and an API-Football key. **The free tier only serves seasons roughly two years
+back**, so it is enough to run the app and see it work, but not to follow a
+season as it happens — set `SEASON` to a season your key can actually fetch.
+Madooo itself runs on the Pro tier against the current season.
 
 ```sh
 npm install

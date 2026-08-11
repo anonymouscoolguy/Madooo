@@ -3,7 +3,11 @@
 Answers three questions:
   1. What does our key actually entitle us to (plan, daily quota)?
   2. Which Premier League seasons can we reach, and which have lineup coverage?
-  3. For the newest usable season, can we fetch fixtures and a real lineup?
+  3. What is the newest season we can fetch, and does a real lineup come back?
+
+Note that (2) and (3) are different questions: coverage says what data exists,
+entitlement says what this key may ask for, and the newest fetchable season is
+often one that has not kicked off and so has neither lineups nor coverage yet.
 
 Raw responses are dumped to scratch/ so we can design the schema against the
 actual payload shape rather than guessing.
@@ -81,6 +85,14 @@ def api_get(key: str, path: str, **params) -> dict:
     return body
 
 
+def finished(body: dict) -> list:
+    """The fixtures in a /fixtures response that have been played."""
+    return [
+        f for f in body.get("response", [])
+        if f.get("fixture", {}).get("status", {}).get("short") == "FT"
+    ]
+
+
 def dump(name: str, body: dict) -> None:
     SCRATCH.mkdir(exist_ok=True)
     path = SCRATCH / f"{name}.json"
@@ -131,8 +143,15 @@ def main() -> None:
     print("      plan may fetch. Probing downwards to find the real entitlement.")
 
     print("\n[3] Newest fetchable season")
+    # Probe *every* listed season, not only those flagged for lineup coverage.
+    # A season that has not kicked off has no lineups and so no coverage, but
+    # its fixture list is published months ahead — and that is precisely the
+    # season the app wants to run against. Filtering on coverage here would hide
+    # the live season every summer, which is the same trap as trusting coverage
+    # for entitlement, sprung from the other side.
+    listed = sorted((s["year"] for s in seasons), reverse=True)
     season, fixtures = None, None
-    for candidate in sorted(usable, reverse=True)[:8]:
+    for candidate in listed[:8]:
         try:
             fixtures = api_get(key, "fixtures", league=PREMIER_LEAGUE_ID, season=candidate)
         except ApiError as exc:
@@ -147,13 +166,30 @@ def main() -> None:
 
     dump(f"fixtures_{season}", fixtures)
 
-    played = [
-        f for f in fixtures.get("response", [])
-        if f.get("fixture", {}).get("status", {}).get("short") == "FT"
-    ]
+    played = finished(fixtures)
     print(f"      {len(played)} finished matches of {len(fixtures.get('response', []))} total")
+
+    # The newest season is the one to run against, but it may not have kicked
+    # off, and the payload-shape checks below need a match that has been played.
+    # Drop to the newest season that has one; the shape is not season-specific.
+    sample_season = season
     if not played:
-        sys.exit("No finished fixtures — cannot test lineups.")
+        print(f"      {season} has not started — falling back for the shape checks.")
+        for candidate in (year for year in listed if year < season):
+            try:
+                older = api_get(key, "fixtures", league=PREMIER_LEAGUE_ID, season=candidate)
+            except ApiError as exc:
+                print(f"      {candidate}: refused -> {exc}")
+                continue
+            played = finished(older)
+            if played:
+                sample_season = candidate
+                dump(f"fixtures_{candidate}", older)
+                print(f"      sampling {candidate} instead ({len(played)} finished)")
+                break
+
+    if not played:
+        sys.exit("No finished fixtures in any fetchable season — cannot test lineups.")
 
     sample = played[0]
     fixture_id = sample["fixture"]["id"]
@@ -186,7 +222,9 @@ def main() -> None:
         print(f"      {team['team']['name']}: {len(players)} listed, {len(appeared)} played")
 
     print("\nDone. Inspect scratch/ for the full payloads.")
-    print(f"Set SEASON={season} for development.")
+    print(f"Set SEASON={season} — the newest season this key can fetch.")
+    if sample_season != season:
+        print(f"The shape checks above ran against {sample_season}; {season} has no played matches yet.")
 
 
 if __name__ == "__main__":

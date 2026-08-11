@@ -39,13 +39,16 @@ deep in the JS/TS ecosystem.
 ## Non-negotiable constraints
 
 1. **The season is configuration, never a literal.** `SEASON` comes from the
-   environment. Development runs against an older season because the
-   API-Football free tier only exposes seasons roughly two years in the past;
-   production will run against the current one on a paid tier. A hardcoded year
-   anywhere turns that switch into a refactor.
+   environment. It ran against an older season while API-Football's free tier
+   exposed only seasons roughly two years past; on the paid tier it runs against
+   the live one. That switch cost one variable and no code, which is the whole
+   point — a hardcoded year anywhere would have made it a refactor. The next
+   season rolls over the same way, and so does a second league.
 2. **Never call API-Football on page load.** A scheduled sync job writes into our
-   own Postgres; the app only ever reads our own tables. This is what keeps us
-   inside the free tier's request budget and keeps pages fast.
+   own Postgres; the app only ever reads our own tables. The request budget this
+   once protected is no longer scarce, but the rule is not really about quota: a
+   page that reaches a third party waits on it, fails with it, and is rate-limited
+   by its own traffic.
 3. **One translation boundary.** The sync job is the only code that sees
    API-Football's JSON shape. It maps their payloads onto our schema. Everything
    else reads our schema, so a provider change touches one place.
@@ -53,10 +56,10 @@ deep in the JS/TS ecosystem.
    reports refusals inside HTTP 200 bodies, so status-code-only error handling
    silently turns a refusal into "no results".
 
-Verified facts about the data source, including the free tier's real season
-entitlement and the per-endpoint request costs, are in
-[`docs/api-football-findings.md`](docs/api-football-findings.md). Development
-runs on `SEASON=2024`.
+Verified facts about the data source, including the real season entitlement, the
+rate-limit headers and the per-endpoint request costs, are in
+[`docs/api-football-findings.md`](docs/api-football-findings.md). The app runs on
+the **Pro** tier and `SEASON=2026`.
 
 **Start here:** [`docs/roadmap.md`](docs/roadmap.md) records what is built, what
 is next, and which decisions are still open. Read it before proposing work, and

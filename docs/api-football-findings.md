@@ -1,6 +1,6 @@
 # API-Football: what we verified before building
 
-**Date:** 2026-08-01 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
+**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
 
 Madooo cannot exist without knowing which matches happened and who played in
 them. That makes API-Football a single point of failure, so we probed it before
@@ -15,66 +15,87 @@ Re-run with `python3 scripts/verify_api.py`. It costs about 5 requests.
 
 | | |
 |---|---|
-| Plan | Free |
-| Quota | 100 requests/day, **and roughly 10 per minute** |
-| Subscription ends | 2027-08-01 |
+| Plan | **Pro** (was Free until 2026-08-11) |
+| Quota | 7,500 requests/day **and 300 per minute** |
+| Subscription ends | 2026-09-11 — **monthly**, unlike the free tier's year |
 | Base URL | `https://v3.football.api-sports.io` |
 | Auth header | `x-apisports-key` |
 
-There is no near-term expiry pressure. The constraints are the two request
-counts, not the calendar.
+Bought direct from `dashboard.api-football.com`, which keeps the existing key.
+**Not through RapidAPI**, which resells the same data behind a different host and
+a different auth header and would make the client's two constants wrong.
 
-**The per-minute limit is invisible until it fires.** Nothing in `/status` or in
-the response headers mentions it — `x-ratelimit-requests-remaining` tracks the
-daily quota only. It announces itself as an **HTTP 429** with
-`{"errors": {"rateLimit": "..."}}`, discovered when the first full-round sync
-died after two fixtures. The sync client therefore paces itself at one request
-every 6.5 seconds; a ten-fixture round takes about two minutes to pull.
+**There are two limits, and both are in the response headers**, which is what
+the client paces itself against:
 
-The daily counter is also **not monotonic across consecutive calls** — observed
-going 77, 75, 78, 76 during a single run. Treat it as approximate, and do not
-build anything that assumes it only ever decreases.
+| Header | Means |
+|---|---|
+| `x-ratelimit-limit` | requests allowed per **minute** (300 on Pro) |
+| `x-ratelimit-remaining` | left in this minute |
+| `x-ratelimit-requests-limit` | requests allowed per **day** (7,500 on Pro) |
+| `x-ratelimit-requests-remaining` | left today |
+
+The per-minute pair was recorded here as absent, on the evidence of the free
+tier, where the limit announced itself only as an **HTTP 429** with
+`{"errors": {"rateLimit": "..."}}` — discovered when the first full-round sync
+died after two fixtures. On Pro both headers are present and populated. Whether
+the free tier omits them or they were simply not looked for cannot now be
+established, and does not matter: **the client reads the per-minute header and
+derives its pacing from it**, falling back to the free tier's safe 6.5s when it
+is missing. So the interval is no longer a fact about the plan written into the
+code, and changing plan again needs no code change.
+
+The daily counter is **not monotonic across consecutive calls** — observed going
+77, 75, 78, 76 during a single run. Treat it as approximate, and do not build
+anything that assumes it only ever decreases.
 
 ## The main trap: coverage flags are not entitlements
 
 `GET /leagues?id=39` returns a `seasons` array with per-season `coverage` flags.
 For the Premier League it advertises **2010 through 2025 all with
-`coverage.fixtures.lineups = true`**. (2026 is flagged false, correctly — that
-season had not kicked off as of this writing.)
+`coverage.fixtures.lineups = true`**, and 2026 flagged false.
 
-Those flags are **not** a statement about what our key may fetch. Requesting
-fixtures for 2025 returns HTTP 200 with an error in the body:
+**Coverage describes what data exists. Entitlement — what this key may ask for —
+is a separate thing, only discoverable by asking.** The two come apart in both
+directions, and each direction has cost us something:
+
+**Coverage true, entitlement false.** On the free tier, requesting fixtures for
+2025 returned HTTP 200 with an error in the body:
 
 ```json
 {"errors": {"plan": "Free plans do not have access to this season, try from 2022 to 2024."}}
 ```
 
-**Coverage describes what data exists. Entitlement is a separate thing, only
-discoverable by asking.** Anyone reading `/leagues` alone would reasonably
-conclude 2025 was available and build against it.
+Anyone reading `/leagues` alone would reasonably conclude 2025 was available and
+build against it. Hence: **probe seasons downwards** until one succeeds, never
+trust the flags. And hence the sharper rule — **API-Football reports errors
+inside HTTP 200 responses**, so a client that only checks status codes reads a
+refusal as "no fixtures this season". Every call must check `errors`. This is
+constraint #4 in `AGENTS.md`, and it applies to the sync job, not just the probe.
 
-Two consequences, both already reflected in the script:
-
-1. Entitlement is found by **probing seasons downwards** until one succeeds,
-   never by trusting the flags.
-2. **API-Football reports errors inside HTTP 200 responses.** A client that only
-   checks status codes will treat a refusal as success and parse an empty
-   `response` array as "no fixtures this season." Every call must check the
-   `errors` field. This applies to the real sync job too, not just this script.
+**Coverage false, entitlement true.** The inverse, found on 2026-08-11. A season
+that has not kicked off has no lineups, so its coverage flags are all false —
+but its fixture list is published months ahead and fetches perfectly. **That is
+the season the app most wants**, and `verify_api.py` could not see it, because it
+probed only the seasons coverage had flagged. It now probes every listed season
+and falls back to an older one when the newest has no played match to check the
+payload shape against. Filtering on coverage would have hidden the live season
+every summer.
 
 ### Seasons actually fetchable
 
-**2022, 2023 and 2024.** Development uses **`SEASON=2024`** — the 2024-25 season,
-the newest the free plan allows.
+**2010 through 2026** — everything `/leagues` lists. Pro removes the free tier's
+2022–2024 window entirely.
 
-Production needs the current season and therefore a paid plan. This is the
-switch that constraint #1 in `AGENTS.md` exists to protect: the season must
-never appear as a literal anywhere in the codebase.
+The app runs on **`SEASON=2026`**, the 2026-27 season, which kicks off
+**2026-08-21**. This is the switch constraint #1 in `AGENTS.md` exists to
+protect, and it cost exactly one variable in two places.
 
-> **Tentative observation:** the refused 2025 request did not appear to
-> decrement `x-ratelimit-requests-remaining`, which would make probing
-> effectively free. This rests on a single data point and should not be relied
-> on when sizing a backfill.
+> **Tentative observation:** on the free tier, a refused request did not appear
+> to decrement `x-ratelimit-requests-remaining`, which would have made probing
+> effectively free. It rested on a single data point. It is no longer
+> load-bearing — probing a handful of seasons against 7,500 a day needs no
+> justification.
 
 ---
 
@@ -90,6 +111,13 @@ Returns **all 380 fixtures in a single response** (633 KB). Not paginated.
 - All 380 have `status.short = "FT"` — the season is closed, so this data is
   immutable. Re-syncing yields byte-identical results, which is exactly what we
   want from a development fixture set.
+
+**A live season is the same call and the opposite condition.** `season=2026`,
+fetched ten days before kickoff, returns the same 380 fixtures in the same shape
+with **every one of them `status.short = "NS"`** and every score null. The
+calendar is complete long before any of it is played, which is what makes a
+match with no squad a permanent state rather than a transitional one. The
+payload shape was re-confirmed unchanged against 2025 and 2026 on 2026-08-11.
 
 Each entry:
 
@@ -215,18 +243,22 @@ alongside our own primary keys, confined to the sync boundary.
 | Lineups | 1 per fixture |
 | Player match stats | 1 per fixture |
 
-**Full-season backfill:** 761 requests — 8 days at the free limit. This is the
-only place the free tier genuinely pinches. Pacing makes each day's 100 requests
-take about 11 minutes of wall clock, which is not the binding cost.
+**Full-season backfill:** 761 requests — one round costs 21, being one for the
+fixture list plus two per fixture. On the free tier's 100/day that was eight
+days, and it was the only place the tier genuinely pinched: development synced a
+few gameweeks rather than a season. On Pro it is **a tenth of one day's quota**,
+and pacing puts it at around three minutes of wall clock. The constraint that
+shaped the CLI's round-at-a-time discipline is gone.
 
-**Development therefore syncs a few gameweeks, not a season.** Each round costs
-21 requests — one for the fixture list plus two per fixture — so a day's quota
-buys about four. Five rounds are hydrated, which is ample to build against.
+**Steady state** is negligible either way: ~10 fixtures per gameweek, one daily
+fixture poll for reschedules and results. Adding the other top leagues multiplies
+the backfill, not the weekly load — and at 7,500/day there is room for several.
 
-**Steady state in production** is negligible: ~10 fixtures per gameweek, one
-daily fixture poll for reschedules and results. Well inside 100/day even before
-a paid plan raises the ceiling. Adding the other top leagues multiplies the
-backfill, not the weekly load.
+What still costs something is **wall clock, not quota.** At 300/minute the pacing
+is a quarter-second per request, so a ten-fixture round takes about five seconds
+and a full backfill about three minutes. That is well inside a serverless
+function's timeout, which eases but does not settle the scheduling problem —
+see the architecture note on it.
 
 The reason this stays cheap is constraint #2 — sync into our own Postgres, never
 call the API on page load. Querying live would put a hard user-traffic ceiling
@@ -237,6 +269,14 @@ played, which is fixed and small.
 
 ## Still open
 
-- Timing of the paid-tier purchase. Buy one to two weeks before launch, not on
-  launch day — response shapes and rate-limit headers may differ, and that is
-  better discovered while nothing depends on it.
+- **The Pro subscription is monthly and ends 2026-09-11**, three weeks after the
+  season starts. The free tier ran a year at a time, so this is a new kind of
+  deadline: if it lapses, the app stops being able to reach the live season while
+  the season is underway. Confirm whether it renews automatically.
+
+The paid-tier purchase itself was the other item here and is done. It was
+written as "buy one to two weeks before launch, not on launch day — response
+shapes and rate-limit headers may differ, and that is better discovered while
+nothing depends on it." That paid off exactly as intended: the shapes turned out
+identical, but the rate-limit headers did differ, and the probe script could not
+see the live season at all.

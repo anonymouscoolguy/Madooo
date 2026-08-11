@@ -70,10 +70,15 @@ const IDENTITIES: Record<number, Identity> = {
   65: { name: 'Nottingham Forest', code: 'NFO', colour: '#dd0000' },
   66: { name: 'Aston Villa', code: 'AVL', colour: '#670e36' },
 
-  // Promoted since 2024/25, so absent from this season's database.
+  // Promoted after 2024/25. The table spans every season the database has held
+  // rather than one season's twenty, because it is keyed by the provider's team
+  // id and only ever updates rows that already exist — a club that is not in
+  // the database costs nothing but a line here.
   44: { name: 'Burnley', code: 'BUR', colour: '#6c1d45' },
   63: { name: 'Leeds', code: 'LEE', colour: '#1d428a' },
+  64: { name: 'Hull City', code: 'HUL', colour: '#f18a00' },
   746: { name: 'Sunderland', code: 'SUN', colour: '#eb172b' },
+  1346: { name: 'Coventry', code: 'COV', colour: '#78d0f3' },
 }
 
 async function main() {
