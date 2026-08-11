@@ -63,7 +63,7 @@ const ROWS: Row[] = [
   },
   {
     shirtNumber: 11,
-    name: 'Gabriel Martinelli',
+    name: 'Robert Peyras',
     position: 'FWD',
     note: 'Dispossessed multiple times, could have done more.',
     badge: { ...VERDICT_BADGE.FLOP, label: 'FLOP', filled: true },
