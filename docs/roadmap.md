@@ -56,7 +56,9 @@ It is only ever seen signed out: a visitor who already has a session is
 redirected to `/fixtures`, because the sign-in buttons it offers are inert once
 there is one. What it claims is now true — the repository carries an MIT licence
 and a README, in place of the `create-next-app` boilerplate that had survived
-since step 1.
+since step 1. The tab carries the app's own mark too: a white M on a black
+rounded square, as `favicon.ico` at 16/32/48, `icon.png` and `apple-icon.png`,
+which retires the last of that scaffolding.
 
 **The app writes.** Every player on a match page carries three chips — standout,
 flop, MVP — and tapping one records a private judgement against that player in
