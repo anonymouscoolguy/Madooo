@@ -86,27 +86,28 @@ const IDENTITIES: Record<number, Identity> = {
   // a Portuguese reader the way MUN and AVL do to an English one, where the
   // first three letters of "Sporting CP" and "Santa Clara" would not.
   //
-  // The colours are the weakest data in this file. The big six are safe; the
-  // smaller clubs are a best reading of commonly published primaries and are
-  // meant to be corrected on sight, exactly as the note above says.
+  // Every colour below was checked by the author against the clubs themselves,
+  // so Guimaraes and Casa Pia are flat black by confirmation rather than by
+  // guess. That makes this block better sourced than the Premier League one
+  // above it, which is still on commonly published primaries.
   211: { name: 'Benfica', code: 'SLB', colour: '#e30613' },
   212: { name: 'FC Porto', code: 'FCP', colour: '#00428c' },
   214: { name: 'Maritimo', code: 'MAR', colour: '#00913f' },
   215: { name: 'Moreirense', code: 'MOR', colour: '#007a3d' },
   217: { name: 'SC Braga', code: 'SCB', colour: '#c8102e' },
   224: { name: 'Guimaraes', code: 'VSC', colour: '#000000' },
-  225: { name: 'Nacional', code: 'NAC', colour: '#000000' },
+  225: { name: 'Nacional', code: 'NAC', colour: '#ebcc1e' },
   226: { name: 'Rio Ave', code: 'RAV', colour: '#00843d' },
   227: { name: 'Santa Clara', code: 'SCL', colour: '#d2232a' },
   228: { name: 'Sporting CP', code: 'SCP', colour: '#008057' },
-  230: { name: 'Estoril', code: 'EST', colour: '#ffd200' },
+  230: { name: 'Estoril', code: 'EST', colour: '#fef000' },
   238: { name: 'Academico Viseu', code: 'ACV', colour: '#c8102e' },
-  240: { name: 'Arouca', code: 'ARO', colour: '#ffd200' },
+  240: { name: 'Arouca', code: 'ARO', colour: '#fef405' },
   242: { name: 'Famalicao', code: 'FAM', colour: '#164194' },
   762: { name: 'GIL Vicente', code: 'GIL', colour: '#d5222a' },
   4716: { name: 'Casa Pia', code: 'CPA', colour: '#000000' },
   4724: { name: 'Alverca', code: 'ALV', colour: '#c8102e' },
-  15130: { name: 'Estrela', code: 'ESA', colour: '#008057' },
+  15130: { name: 'Estrela', code: 'ESA', colour: '#0d9040' },
 }
 
 async function main() {
