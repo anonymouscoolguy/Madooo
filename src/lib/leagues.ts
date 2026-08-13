@@ -1,6 +1,7 @@
 /**
- * The league in the URL — `/fixtures?league=primeira-liga` — and the only place
- * that vocabulary is written down.
+ * A league's identity outside the database: the slug that names it in the URL —
+ * `/fixtures?league=primeira-liga` — and the flag that marks it on screen. The
+ * only place either vocabulary is written down.
  *
  * Pure, like [`diary-filters.ts`](./diary-filters.ts) and
  * [`verdicts.ts`](./verdicts.ts), and for the same reason: `parseLeagueScope`
@@ -64,4 +65,57 @@ export function parseLeagueScope(
   if (leagues.length === 0) return null
   const slug = Array.isArray(value) ? value[0] : value
   return leagues.find((league) => leagueSlug(league.name) === slug) ?? leagues[0]
+}
+
+/* ------------------------------------------------------------------ flags -- */
+
+/**
+ * What a flag needs of a league, which is its country and nothing else.
+ *
+ * An interface rather than a bare `country: string` parameter, because a
+ * league's two strings are interchangeable to the compiler: `flagClass(
+ * league.name)` would type-check and then return null forever. Structural
+ * typing means a `League` row, or a `LeagueTab`, satisfies this without saying
+ * so.
+ */
+export interface LeagueIdentity {
+  /** `League.country`, as API-Football spells it: "England", "Portugal", "Spain". */
+  country: string
+}
+
+/**
+ * The class in `globals.css` that paints a country's flag.
+ *
+ * Keyed on `searchKey` for `leagueSlug`'s reason — one rule for flattening a
+ * name rather than two that can drift — which also means a provider recasing
+ * "England" costs nothing.
+ *
+ * **A `Map`, not a `Record`.** `noUncheckedIndexedAccess` is off, so indexing a
+ * `Record<string, string>` types as `string` and the `?? null` below would read
+ * as dead code to the compiler while being very much alive at runtime. `.get`
+ * is honest for free, and cannot answer a country called "toString" with a
+ * function.
+ */
+const FLAGS = new Map([
+  ['england', 'flag-gb-eng'],
+  ['portugal', 'flag-pt'],
+  ['spain', 'flag-es'],
+])
+
+/**
+ * The flag class for a league, or `null` where we have vendored no file.
+ *
+ * **`null` is the whole reason this is legal against `AGENTS.md`'s first
+ * constraint.** The map above names no league, no id and no season — it is
+ * indexed by a value that came out of the `League` table, so it cannot be
+ * consulted without a row. A fourth league needs no edit here to work: it draws
+ * the pill exactly as one is drawn today. The moment the fallback became an
+ * invented flag or a reserved gap, the map would be part of the price of a
+ * league and the constraint would be broken.
+ *
+ * The unmapped case is not hypothetical. API-Football's country for the
+ * Champions League is "World".
+ */
+export function flagClass(league: LeagueIdentity): string | null {
+  return FLAGS.get(searchKey(league.country)) ?? null
 }

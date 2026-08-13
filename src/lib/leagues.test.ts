@@ -10,16 +10,16 @@
  * Primera División, so writing down either from memory is a coin toss.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { leagueSlug, parseLeagueScope } from './leagues'
+import { flagClass, leagueSlug, parseLeagueScope } from './leagues'
 import type { ApiFootballEnvelope, RawFixture } from './api-football/types'
 
-/** The league named by a captured season, as the provider spells it. */
-function leagueName(file: string): string {
+/** The league a captured season is played in, as the provider describes it. */
+function rawLeague(file: string): RawFixture['league'] {
   const path = join(process.cwd(), 'scratch', file)
   let payload: ApiFootballEnvelope<RawFixture>
   try {
@@ -30,7 +30,11 @@ function leagueName(file: string): string {
         're-create them with `python3 scripts/verify_api.py`.',
     )
   }
-  return payload.response[0].league.name
+  return payload.response[0].league
+}
+
+function leagueName(file: string): string {
+  return rawLeague(file).name
 }
 
 const PREMIER_LEAGUE = leagueName('fixtures_39_2024.json')
@@ -92,5 +96,53 @@ describe('parseLeagueScope', () => {
 
   it('is null only when there are no leagues at all', () => {
     expect(parseLeagueScope('premier-league', [])).toBeNull()
+  })
+})
+
+describe('flagClass', () => {
+  /*
+    The countries out of the captured payloads for the same reason the names
+    are: "England" is a fact about API-Football, not about football. The
+    provider files the Premier League under a country no other data source
+    would call a country at all, and a map written from memory would be a map
+    of what someone assumed it says.
+  */
+  const COUNTRIES = [
+    rawLeague('fixtures_39_2026.json').country,
+    rawLeague('fixtures_94_2026.json').country,
+    rawLeague('fixtures_140_2026.json').country,
+  ]
+
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8')
+
+  /*
+    The check that earns this suite its place. A country and its class name live
+    in two files with nothing binding them, so `flagClass` returning `flag-pt`
+    while globals.css says `.flag-prt` draws an empty 16x12 box: no console
+    error, no failing build, nothing but a gap in a pill. It is precisely how a
+    misspelled Material Symbols name fails, which architecture.md already
+    records — this is that failure closed rather than documented.
+  */
+  it.each(COUNTRIES)('has a rule and a file for %s', (country) => {
+    const flag = flagClass({ country })
+    expect(flag, country).not.toBeNull()
+    expect(css).toContain(`.${flag} {`)
+    expect(existsSync(join(process.cwd(), 'public/flags', `${flag?.replace('flag-', '')}.svg`))).toBe(
+      true,
+    )
+  })
+
+  it('tells the three leagues apart', () => {
+    expect(new Set(COUNTRIES.map((country) => flagClass({ country }))).size).toBe(COUNTRIES.length)
+  })
+
+  it('draws nothing for a country we have no file for', () => {
+    // API-Football's country for the Champions League, so the fourth league is
+    // as likely to hit this as to hit a flag.
+    expect(flagClass({ country: 'World' })).toBeNull()
+  })
+
+  it('survives the provider recasing a country', () => {
+    expect(flagClass({ country: 'ENGLAND' })).toBe(flagClass({ country: 'England' }))
   })
 })

@@ -37,6 +37,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The dialog is the platform's, and so are the fields](#the-dialog-is-the-platforms-and-so-are-the-fields)
   - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
+  - [The three flags are vendored files under `public/`, not a dependency](#the-three-flags-are-vendored-files-under-public-not-a-dependency)
 - [The app shell](#the-app-shell)
 - [Build and deploy](#build-and-deploy)
 
@@ -653,6 +654,11 @@ built on `searchKey`, the app's one name-flattening rule, so a competition with
 diacritics comes out typeable. Its risks — a provider rename, two leagues sharing
 a name — degrade to the default league rather than to an error, exactly as
 `parseFilter` and `backLink` treat unrecognised input.
+
+`src/lib/leagues.ts` owns league identity beyond the URL: `flagClass` sits beside
+the slug there and maps `League.country` onto a flag class, on the same
+`searchKey` and with the same degrade-to-nothing posture. `leaguesWithMatches`
+selects `country` for it, which is the only thing that reads that column.
 
 **A league is a location here and a preference on the two indexes, and that is
 not two answers to one question.** On `/fixtures` a pill decides what the server
@@ -1293,6 +1299,33 @@ been seen to get *smaller* while gaining a glyph.
 - The script sends a browser User-Agent on purpose. Google serves the old static
   `Material Icons` font to clients it does not recognise, and that font silently
   has no FILL axis.
+
+### The three flags are vendored files under `public/`, not a dependency
+
+`flag-icons` is the obvious package and the wrong one here. Its CSS is only
+27 kB, but it names 542 SVGs totalling some 3.8 MiB through `url()`, every one
+of which a bundler resolves and emits into the build — a 4.13 MB dependency to
+draw three of 271 flags. The three files are copied out of it instead, under its
+MIT licence, with the notice in `public/flags/LICENSE`. `es.svg` keeps only the
+two stripe paths: the coat of arms is 81 kB of the file and renders as a smudge
+at 12px, and what is left is the Spanish civil flag rather than an invention.
+
+A `background-image` rather than an inline `<svg>` or an `<img>`. Inline puts the
+path data into the payload of every page that draws a pill; a background keeps
+each flag a separately cached file, fetched only when a rule matches. An `<img>`
+would want alt text a decorative mark must not have, and trips eslint's
+`no-img-element`. Root-relative `url("/flags/pt.svg")` passes through Lightning
+CSS unrewritten and resolves against `public/`, which is the point of writing it
+that way — there is nothing for the toolchain to follow and get wrong.
+
+**The entry that changes how later work goes:** a country and its class name live
+in two files with nothing in the language binding them. `flagClass` returning
+`flag-pt` while `globals.css` says `.flag-prt` draws an empty 16×12 box — no
+console error, no failing build. That is the same silent failure as a misspelled
+Material Symbols name above, and `leagues.test.ts` is where it is caught rather
+than merely described: it asserts every class the map can return has a rule in
+`globals.css` and a file on disk. Adding a flag means a file, a rule, a map entry
+and nothing else; the test tells you which one you forgot.
 
 ---
 

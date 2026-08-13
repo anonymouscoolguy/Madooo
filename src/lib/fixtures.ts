@@ -22,12 +22,14 @@ import { prisma } from './prisma'
  * that keeps the page from drawing a scope it has no matchdays for.
  *
  * Also read by `/teams`, whose select needs the same guarantee against
- * `clubLeagues`.
+ * `clubLeagues`. `country` is the pill's flag and is inert there — an `<option>`
+ * cannot hold markup, so the select draws no mark. Three strings ride into that
+ * page's payload unused, which is cheaper than forking the query.
  */
 export async function leaguesWithMatches(season: number) {
   return prisma.league.findMany({
     where: { matches: { some: { season } } },
-    select: { id: true, name: true },
+    select: { id: true, name: true, country: true },
     orderBy: { name: 'asc' },
   })
 }

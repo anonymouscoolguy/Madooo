@@ -29,7 +29,10 @@ Product rules settled so far:
 - **Logos and player photos are stored but never displayed.** `League.logo`,
   `Team.logo` and `Player.photo` keep API-Football's `media.api-sports.io` URLs
   so the option stays open, but nothing renders them. Storing a URL is inert;
-  rendering club crests is a trademark question we have not cleared.
+  rendering club crests is a trademark question we have not cleared. A
+  competition's **national flag is not its logo** — it is drawn from
+  `League.country` out of files we vendor, carries no trademark question, and is
+  governed by `docs/design/foundations.md`. `League.logo` still renders nowhere.
 
 ## Working with the author
 

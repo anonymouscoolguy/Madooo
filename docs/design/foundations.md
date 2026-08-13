@@ -192,13 +192,14 @@ Content stays fluid up to `--container`.
 | — | 64px | Crest mark, square — a club profile's header, beside the 64px shirt tile |
 | — | 40px | Crest mark, square — the match page's scoreline |
 | — | 20px | Badge, crest chip |
+| — | 16×12px | League flag mark, beside a pill tab's label |
 | — | 16px | Checkbox / radio box |
 | — | 34×18px | Switch track (14px thumb, travels 16px) |
 
 ### Radius — near-square
 | Token | Value | Where |
 | --- | --- | --- |
-| `--radius-sm` | 2px | Checkboxes, badges, crest chips, tooltip |
+| `--radius-sm` | 2px | Checkboxes, badges, crest chips, flag marks, tooltip |
 | `--radius-md` | 4px | **Almost everything**: buttons, fields, cards, tiles, dialogs, toasts |
 | `--radius-lg` | 8px | Rare |
 | `--radius-pill` | 999px | **Only two things**: Tags and pill Tabs (plus radio and switch) |
@@ -306,4 +307,21 @@ Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MV
 The list that binds is `ICON_NAMES` in `src/components/icon-names.ts`, which is both the type `<Icon>` accepts and the subset request the font is fetched with. This paragraph is its prose companion and can fall behind it; the array cannot.
 
 **No emoji, no unicode glyphs as icons, no hand-drawn SVG.** If a glyph does not exist in Material Symbols, use a word.
+
+### A national flag is an identity mark, not an icon
+
+The rule above forbids emoji and hand-drawn SVG because both are attempts to say something the Material Symbols vocabulary should be saying — a glyph competing for a slot in that list. A flag competes for no slot. It says *which* competition, the way a crest chip says which club, and Material Symbols has no flags and could not have them: there is no drawing of "England" a type designer adds to a set of interface glyphs. `trophy` still means competition and is unaffected. The ban on illustration at the top of this page is likewise about drawing, and a vendored flag is not a drawing.
+
+So a flag answers to the club-mark rule rather than to this one, and takes the same kind of bar. A flag may be drawn where all four hold:
+
+1. **It is data, not a decision.** It renders `League.country` as the sync stored it. Nothing at a call site chooses which flag appears.
+2. **It goes through one function** — `flagClass` in [`src/lib/leagues.ts`](../../src/lib/leagues.ts) — so the fallback exists once, the way `crest` holds the club mark's.
+3. **Its fallback is nothing at all.** A country the map does not know draws no mark and no gap, and the row is exactly what it was before flags existed. This is the clause that makes the map legal against `AGENTS.md`'s first non-negotiable: a fourth league still costs one environment variable, and its flag is an afterthought rather than part of the price.
+4. **It sits beside the name it marks, never instead of it**, and is `aria-hidden`. The accessible name is the league's name, which is already there.
+
+The files are three 4:3 SVGs in `public/flags/`, vendored from flag-icons under MIT, drawn as a `background-image` at 16×12 with a 1px inset ring in `--border`. The ring is not decoration: England is a white field, so it has no edge on `--surface`, and none on a selected pill in dark either, which is a white fill.
+
+Emoji flags remain out, and doubly. The first list on this page bans emoji outright, and Windows ships no regional-indicator glyphs, so a large share of readers would get two letters in a box — with England worse still, since it needs a subdivision tag sequence and 🇬🇧 would be wrong.
+
+**Only a competition's country may claim this.** A player's nationality is a new claim about a person rather than about a competition, and would have to be argued on its own rather than inherited from here.
 

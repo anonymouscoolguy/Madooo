@@ -124,6 +124,7 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
           tabs={leagues.map((option) => ({
             href: `/fixtures?league=${leagueSlug(option.name)}`,
             label: option.name,
+            country: option.country,
             current: option.id === current.id,
           }))}
         />

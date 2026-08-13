@@ -514,6 +514,54 @@
     --icon-size: 22px;
   }
 
+  /* National flags, and they are not icons. A flag is an identity mark, the way
+     a crest chip is: it says *which* competition, where an icon says what kind
+     of thing something is. Material Symbols has no flags and could not have any
+     — there is no drawing of "England" a type designer adds to a set of
+     interface glyphs — so Iconography's "if a glyph does not exist, use a word"
+     is not the rule that governs this. `trophy` still means competition.
+
+     Three 4:3 files under public/flags/, vendored from flag-icons rather than
+     depended on: that package's CSS is 27 kB but names 542 SVGs of some 3.8 MiB,
+     every one of which a bundler emits into the build, in order to draw three.
+
+     A background-image rather than an inline <svg> or an <img>. Inline would put
+     the path data into the payload of every page drawing a pill; a background
+     keeps each flag a separately cached file, fetched only when a rule below
+     matches. An <img> would want alt text this must not have, and trips eslint's
+     no-img-element.
+
+     The inset ring is not decoration. England is a white field, so it has no
+     edge of its own on --surface, and none on a *selected* pill in dark either,
+     which is a white fill. An inset shadow draws one without a border changing
+     the box — the trick `focus-field` already uses on a field. --border in both
+     themes covers both cases, and on Spain's and Portugal's own edges it is
+     invisible, so one rule beats three. */
+  .flag {
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    box-shadow: inset 0 0 0 var(--border-w) var(--border);
+  }
+
+  /* One rule per flag, with whole names on both sides. `flagClass` in
+     src/lib/leagues.ts maps a country onto one of these. Assembling
+     `.flag-${code}` in TypeScript would be a class name no grep finds, and a
+     typo in it would draw an empty 16x12 box in silence — exactly how a
+     misspelled icon name fails. `leagues.test.ts` is what catches that: it
+     asserts every class the map can return has a rule here and a file on disk. */
+  .flag-gb-eng {
+    background-image: url("/flags/gb-eng.svg");
+  }
+
+  .flag-pt {
+    background-image: url("/flags/pt.svg");
+  }
+
+  .flag-es {
+    background-image: url("/flags/es.svg");
+  }
+
   /* The entrance of a modal <dialog>, and the whole of what CSS has to say about
      one — everything else about it is Tailwind classes on the element.
 

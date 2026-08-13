@@ -8,9 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-12 (a third league, La Liga, added for the cost the
-non-negotiable promised — one variable and a sync run; the next thing is step 10,
-scheduling the sync)
+**Last updated:** 2026-08-13 (the league pills carry national flags; the next
+thing is still step 10, scheduling the sync)
 
 ---
 
@@ -37,7 +36,10 @@ drawn as the design asks — a card per
 fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. The league row is
 a working control now rather than the drawing of one: each pill scopes the whole
-page to a competition, and the matchday travels beside it in the URL. A fixture with a
+page to a competition, carries the national flag of the country that competition
+is played in, and the matchday travels beside it in the URL. The flags are three
+4:3 SVGs in `public/flags/`, the first thing in the app to use that directory,
+and a league whose country has no file draws the pill exactly as before. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions, each panel headed by
 its club's crest — and one without says so instead. The match opens with a card
@@ -618,6 +620,15 @@ must stay out of the Vercel build, are in
 - Do not test Prisma, Next's rendering, or other third-party code.
 
 ## Open decisions
+
+- **The league flag is on `/fixtures` only, and cannot be on the two indexes as
+  they are built.** The pill row carries a flag; `/players` and `/teams` scope
+  their leagues with a `<select>`, and a native `<option>` holds text and no
+  markup. No styling changes that — it is an HTML limit, not a design one. If
+  those screens want the same distinction the answer is `foundations.md`'s own
+  ("use a word"): `"England · Premier League"` in the option label. Deliberately
+  not done, because it changes what a filter control says, and the two indexes
+  are the screens where a league is a preference rather than a location.
 
 - **The app now has two conventions for screen state, and the older one may be
   the wrong default. High priority — a refactor the author may want.** Every
