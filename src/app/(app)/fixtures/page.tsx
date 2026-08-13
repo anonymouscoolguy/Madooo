@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { requireDbUser } from '@/lib/auth'
 import { season } from '@/lib/env'
 import {
@@ -7,7 +8,7 @@ import {
   listRounds,
   seasonTotals,
 } from '@/lib/fixtures'
-import { leagueSlug, parseLeagueScope } from '@/lib/leagues'
+import { LEAGUE_COOKIE, leagueSlug, parseLeagueScope } from '@/lib/leagues'
 import { roundNumber } from '@/lib/rounds'
 import { FixtureCard } from '@/components/fixture-card'
 import { LeagueTabs } from '@/components/league-tabs'
@@ -32,6 +33,12 @@ export const dynamic = 'force-dynamic'
  * and the league row are `<Link>`s, no JavaScript ships, and a matchday can be
  * linked to, bookmarked and reached with the back button.
  *
+ * What the URL does not say, the cookie does: an address with no `?league=`
+ * opens on the competition last chosen rather than on whichever is first
+ * alphabetically. The proxy writes it, this reads it, and the URL still wins
+ * wherever it speaks — see `LEAGUE_COOKIE` in `leagues.ts` for why a cookie is
+ * the only store that can serve this without a client island.
+ *
  * Two Next specifics. `searchParams` is a **Promise** and has to be awaited:
  * Next 15 made request-time inputs async so rendering can start before the
  * request is fully parsed, and reading it synchronously is deprecated.
@@ -52,7 +59,14 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
   // grouping without one collapses every competition's "Regular Season - 1"
   // into a single matchday. One extra round trip to Neon buys that.
   const leagues = await leaguesWithMatches(currentSeason)
-  const current = parseLeagueScope(league, leagues)
+
+  // The league last opened, which is what a bare `/fixtures` falls back to
+  // before it falls back to the alphabet. `cookies()` is async for
+  // `searchParams`' reason — request-time inputs are awaited so rendering can
+  // start before the request is fully parsed — and it costs this page no
+  // dynamism it did not already have.
+  const remembered = (await cookies()).get(LEAGUE_COOKIE)?.value ?? null
+  const current = parseLeagueScope(league, leagues, remembered)
 
   const [rounds, totals] = await Promise.all([
     // `current` is null only when no league has a match this season, which the

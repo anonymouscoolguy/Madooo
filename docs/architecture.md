@@ -505,6 +505,15 @@ would make `/` dynamic, and it is [the one route that
 prerenders](#build-and-deploy). It is also an exact path test rather than a
 matcher entry, since it must not reach anything below `/`.
 
+Its third job is to write the `madooo-league` cookie when a request names a
+league on `/fixtures`, which is the [only kind of state the proxy
+holds](#a-location-goes-in-the-url-a-preference-goes-in-localstorage). It runs
+after both redirects, so a request about to be bounced never leaves a cookie
+behind, and it returns `undefined` for everything else — the cookie is only ever
+added to a navigation that was happening anyway. Soft navigations are covered
+without special handling: a `<Link>` click fetches the RSC payload over the same
+request path, through the same proxy.
+
 Both redirects are optimistic checks. The check that guards data is
 `requireDbUser()` itself, because Next's own guidance is that a proxy may run
 separately from the render, and because a check placed in a layout would not
@@ -604,6 +613,24 @@ between visits and clutters a link that was never about it. Each index keeps its
 three in `localStorage` and its search box in React state, since a search term is
 neither: it is worth nothing on the next visit.
 
+**A third store, and the narrow rule that admits it: a preference the server must
+know *before* it renders lives in a cookie.** `/fixtures` has exactly one —
+`madooo-league`, holding the slug of the competition last opened, which is what a
+bare `/fixtures` falls back to. It cannot be a `localStorage` preference, because
+what it defaults is a *location*: the league decides what the server queried, so
+a client-side answer would arrive after the query it was meant to scope, painting
+the wrong competition first and then replacing it. A cookie travels on the
+request, so the first paint is already right and the page ships no JavaScript.
+The write is [`src/proxy.ts`](../src/proxy.ts)'s, and it has to be — a league pill
+is a plain `<Link>`, so there is no click handler, and a Server Component cannot
+set a cookie at all. Next allows that only in a Server Action or a Route Handler.
+The cost is the mirror of `localStorage`'s: a cookie is per browser, so a phone
+and a laptop remember separately.
+
+Reach for it only under that rule. A cookie rides on every matched request
+whether or not anything reads it, which is a cost the two indexes' preferences
+would pay for nothing — the server has no use for a sort order.
+
 **Each screen owns its own keys** — `madooo-players-*` and `madooo-teams-*` —
 rather than sharing one trio. The two lists are narrowed and sorted
 independently: "Most flops" over twenty clubs is a different question from the
@@ -665,10 +692,24 @@ not two answers to one question.** On `/fixtures` a pill decides what the server
 queried; on `/players` a select narrows rows already shipped. `foundations.md`
 draws that line and its test is what the control changes, not what it names.
 
-[`back.ts`](../src/lib/back.ts) validates the slug's **shape** only — it is pure
-and must stay so — and existence is decided on arrival, where
-`parseLeagueScope` falls back. It rebuilds the query rather than echoing it,
-which is what keeps the open-redirect guarantee intact.
+**`parseLeagueScope` has three answers in order: the slug the URL named, the slug
+in the `madooo-league` cookie, then the first league the database returned.** The
+URL wins wherever it speaks, so a link or a bookmark still means what it says;
+the cookie only fills the silence. Neither input is trusted further than the
+other — a cookie outlives deploys and can name a competition that has stopped
+playing, so both are matched against the leagues actually found and both fall
+through when they miss. Before this, the silence fell to the alphabet, which is
+how everyone came to open on La Liga.
+
+Validation of a slug splits in two: **shape without the database, existence with
+it.** `isLeagueSlug` in [`leagues.ts`](../src/lib/leagues.ts) is the first half,
+and it is there rather than in either caller because both need it —
+[`back.ts`](../src/lib/back.ts) to rebuild a "Back to fixtures" href without
+echoing its input, and the proxy to refuse copying an arbitrary query parameter
+into a cookie. The second half is `parseLeagueScope` falling back on arrival.
+`back.ts` rebuilds the query rather than echoing it, which is what keeps the
+open-redirect guarantee intact; both files are pure, and the proxy's import is a
+third reason `leagues.ts` must stay so.
 
 **A league pill carries no matchday.** Round 6 is a different weekend in each
 competition and the two do not have the same number of rounds, so carrying the

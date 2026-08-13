@@ -18,10 +18,12 @@
  *
  * Pure, so `back.test.ts` can assert that. `diary-filters.ts` and
  * `player-views.ts` import Prisma's *types* only and `import type` is erased at
- * compile time, so nothing here pulls the client into a test.
+ * compile time, so nothing here pulls the client into a test; `leagues.ts` is
+ * pure for its own reasons.
  */
 
 import { DIARY_FILTERS } from './diary-filters'
+import { isLeagueSlug } from './leagues'
 import { PLAYER_VIEWS } from './player-views'
 
 export interface BackLink {
@@ -47,20 +49,6 @@ const TEAM = /^\/teams\/(\d+)$/
 
 /** `\d` is ASCII-only in JavaScript, so this cannot be fed Eastern Arabic digits. */
 const MATCHDAY = /^\d+$/
-
-/**
- * A league slug's *shape*, which is all this file can check.
- *
- * It cannot ask whether the league exists — that needs the database, and this
- * module is pure so its tests can run without one. So validation splits in two:
- * shape here, existence on arrival, where `parseLeagueScope` falls back to the
- * default league for a slug it does not recognise. The same two-stage split
- * `parseLeague` describes for a stored preference.
- *
- * Bounded rather than open-ended, and rebuilt rather than echoed, which is what
- * keeps the open-redirect guarantee below intact.
- */
-const LEAGUE = /^[a-z0-9-]{1,64}$/
 
 /**
  * Where the reader came from, or `fallback` if we cannot tell.
@@ -124,8 +112,12 @@ export function backLink(from: unknown, fallback: BackLink = PLAYERS): BackLink 
     const matchday = params.get('matchday')
     const league = params.get('league')
 
+    // `isLeagueSlug` checks the slug's shape and nothing more — this module is
+    // pure and cannot ask whether the league exists, which is decided on arrival
+    // by `parseLeagueScope`. Bounded rather than open-ended, and rebuilt rather
+    // than echoed, which is what keeps the open-redirect guarantee above intact.
     const parts: string[] = []
-    if (league !== null && LEAGUE.test(league)) parts.push(`league=${league}`)
+    if (league !== null && isLeagueSlug(league)) parts.push(`league=${league}`)
     if (matchday !== null && MATCHDAY.test(matchday)) parts.push(`matchday=${matchday}`)
 
     return {

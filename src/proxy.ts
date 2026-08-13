@@ -1,14 +1,16 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import { isLeagueSlug, LEAGUE_COOKIE } from '@/lib/leagues'
 
 /**
  * Runs before every matched request, in Next 16's `proxy.ts` — the file that
  * used to be called `middleware.ts`. Nearly all published Clerk guidance still
  * says `middleware.ts`; that convention is deprecated here.
  *
- * Two jobs: `clerkMiddleware()` reads the session cookie so that `auth()` works
- * during rendering, and the callback keeps each visitor on the side of the login
- * they belong on — signed-out visitors off the app, signed-in ones off `/`.
+ * Three jobs: `clerkMiddleware()` reads the session cookie so that `auth()`
+ * works during rendering, the callback keeps each visitor on the side of the
+ * login they belong on — signed-out visitors off the app, signed-in ones off
+ * `/` — and it remembers which league was last opened on `/fixtures`.
  *
  * The signed-out redirect goes to `/` rather than to a sign-in page, because
  * there is no sign-in page — the form is a modal on the landing page. Clerk's
@@ -45,6 +47,49 @@ const isProtectedRoute = createRouteMatcher([
   '/diary(.*)',
 ])
 
+/** A year. The choice being remembered is a habit, not a session. */
+const A_YEAR = 60 * 60 * 24 * 365
+
+/**
+ * Remember the league this request names, so a later bare `/fixtures` can open
+ * on it.
+ *
+ * **The write has to happen here, and nowhere else was available.** A league
+ * pill is a plain `<Link>`, which is what keeps the fixtures page free of
+ * JavaScript, so there is no click handler to write from; and a Server
+ * Component cannot set a cookie at all — Next allows that only in a Server
+ * Action or a Route Handler. The proxy is the one place that sees the
+ * navigation and can answer it with a header. It sees the soft ones too: a
+ * `<Link>` click fetches the RSC payload over the same request path.
+ *
+ * `undefined` for anything else, which leaves the response exactly as it was.
+ * The cookie is only ever *added* to a navigation that was happening anyway.
+ *
+ * `isLeagueSlug` is a shape check, not an existence check — the proxy has no
+ * database. It is here so an arbitrary query parameter cannot be copied into a
+ * header we send back on every request; a slug naming no real league is
+ * harmless, because `parseLeagueScope` compares it against the leagues it found
+ * and falls back.
+ */
+function rememberLeague(req: NextRequest): NextResponse | undefined {
+  if (req.nextUrl.pathname !== '/fixtures') return
+  const league = req.nextUrl.searchParams.get('league')
+  if (league === null || !isLeagueSlug(league)) return
+
+  const response = NextResponse.next()
+  response.cookies.set(LEAGUE_COOKIE, league, {
+    path: '/',
+    // Nothing in the browser reads it: the fixtures page reads it on the
+    // server, which is the whole reason it is a cookie rather than
+    // `localStorage`.
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: A_YEAR,
+  })
+  return response
+}
+
 export default clerkMiddleware(async (auth, req) => {
   /**
    * An exact match rather than a `createRouteMatcher` entry: there is no pattern
@@ -59,6 +104,10 @@ export default clerkMiddleware(async (auth, req) => {
     return userId ? NextResponse.redirect(new URL('/fixtures', req.url)) : undefined
   }
   if (!userId) return NextResponse.redirect(new URL('/', req.url))
+
+  // Last, so it can never write a cookie for a request that was about to be
+  // bounced to the landing page.
+  return rememberLeague(req)
 })
 
 export const config = {

@@ -15,7 +15,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { flagClass, leagueSlug, parseLeagueScope } from './leagues'
+import { flagClass, isLeagueSlug, leagueSlug, parseLeagueScope } from './leagues'
 import type { ApiFootballEnvelope, RawFixture } from './api-football/types'
 
 /** The league a captured season is played in, as the provider describes it. */
@@ -96,6 +96,49 @@ describe('parseLeagueScope', () => {
 
   it('is null only when there are no leagues at all', () => {
     expect(parseLeagueScope('premier-league', [])).toBeNull()
+  })
+
+  it('opens on the remembered league when the URL says nothing', () => {
+    const slug = leagueSlug(PRIMEIRA_LIGA)
+    expect(parseLeagueScope(undefined, LEAGUES, slug)?.name).toBe(PRIMEIRA_LIGA)
+  })
+
+  it('lets the URL beat the cookie', () => {
+    // A link someone was sent, or a bookmark, against a habit. The address bar
+    // is the one that says what this page is.
+    expect(parseLeagueScope(leagueSlug(LA_LIGA), LEAGUES, leagueSlug(PRIMEIRA_LIGA))?.name).toBe(
+      LA_LIGA,
+    )
+  })
+
+  it('distrusts a stored slug exactly as far as a typed one', () => {
+    // A cookie outlives deploys, so it can name a league that has stopped
+    // playing. It gets no more credit than the address bar does.
+    expect(parseLeagueScope(undefined, LEAGUES, 'serie-a')?.name).toBe(PREMIER_LEAGUE)
+  })
+
+  it('falls back past an unrecognised URL to the remembered league', () => {
+    expect(parseLeagueScope('serie-a', LEAGUES, leagueSlug(PRIMEIRA_LIGA))?.name).toBe(
+      PRIMEIRA_LIGA,
+    )
+  })
+})
+
+describe('isLeagueSlug', () => {
+  it('accepts every slug the app can produce', () => {
+    for (const name of ALL) {
+      expect(isLeagueSlug(leagueSlug(name)), name).toBe(true)
+    }
+  })
+
+  it.each([
+    ['', 'nothing at all'],
+    ['Premier League', 'a name rather than a slug'],
+    ['../../etc/passwd', 'a path'],
+    ['premier league', 'a space'],
+    ['x'.repeat(65), 'more than any competition is called'],
+  ])('refuses %j — %s', (value) => {
+    expect(isLeagueSlug(value)).toBe(false)
   })
 })
 

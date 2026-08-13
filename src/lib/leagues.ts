@@ -1,12 +1,15 @@
 /**
  * A league's identity outside the database: the slug that names it in the URL —
- * `/fixtures?league=primeira-liga` — and the flag that marks it on screen. The
- * only place either vocabulary is written down.
+ * `/fixtures?league=primeira-liga` — the cookie that remembers which one was
+ * last chosen, and the flag that marks it on screen. The only place any of those
+ * vocabularies is written down.
  *
  * Pure, like [`diary-filters.ts`](./diary-filters.ts) and
  * [`verdicts.ts`](./verdicts.ts), and for the same reason: `parseLeagueScope`
  * reads an untrusted URL parameter, which is exactly the sort of decision worth
  * a test, and a test must be able to import this without Prisma in the loop.
+ * Purity is load-bearing a second way now — [`proxy.ts`](../proxy.ts) imports
+ * from here, and the proxy runs before any rendering does.
  *
  * **Why a slug rather than an id.** Three candidates, and the existing
  * conventions rule out two of them:
@@ -46,25 +49,74 @@ export function leagueSlug(name: string): string {
 }
 
 /**
- * Which league the URL asked for, defaulting to the first offered.
+ * A slug's *shape*, which is all anything can check without the database.
  *
- * `unknown` rather than `string`, because this is handed the raw value out of
- * `searchParams` — which is `string | string[] | undefined`, an array whenever
- * the parameter is repeated.
+ * Validation of a league splits in two, and this is the half that is pure:
+ * shape here, existence on arrival, where `parseLeagueScope` falls back to a
+ * real league for a slug it does not recognise. `back.ts` needs the first half
+ * to rebuild a "Back to fixtures" href without echoing its input, and `proxy.ts`
+ * needs it to refuse writing an arbitrary query parameter into a cookie. It
+ * lives here rather than in either of them because this file owns league
+ * identity, and because a third copy of one regexp is exactly the drift a shared
+ * vocabulary exists to prevent.
  *
- * **Validated against the leagues the database actually returned**, not merely
- * parsed, for `parseLeague`'s reason: a slug naming a league with no matches
- * this season must fall back to a real one rather than scoping the page to
- * nothing. `null` only when there are no leagues at all, which is the caller's
- * empty state rather than this function's problem.
+ * Bounded as well as charset-checked: `leagueSlug` can only ever produce this
+ * alphabet, and 64 characters is far beyond any competition's name.
+ */
+const SLUG = /^[a-z0-9-]{1,64}$/
+
+export function isLeagueSlug(value: string): boolean {
+  return SLUG.test(value)
+}
+
+/**
+ * The cookie holding the league last chosen on `/fixtures`.
+ *
+ * **The app's third store, and the rule that admits it: a preference the server
+ * must know *before* it renders lives in a cookie.** A league is a location on
+ * this screen — it decides what the server queried — so its *default* cannot be
+ * a `localStorage` preference like the two indexes' sorts: the page would have
+ * to become a client island and would paint the wrong competition first. A
+ * cookie travels on the request, so the first paint is already right and the
+ * page stays a server component with no JavaScript at all.
+ *
+ * It holds the **slug**, not an id, so there is one league vocabulary rather
+ * than two — which is also what lets `parseLeagueScope` read it with no second
+ * parser. Named for the `madooo-players-*` convention the `localStorage` keys
+ * already follow.
+ *
+ * Per browser rather than per account, which is the stated cost: a phone and a
+ * laptop remember separately, exactly as the sort and layout preferences do.
+ */
+export const LEAGUE_COOKIE = 'madooo-league'
+
+/**
+ * Which league to draw: the one the URL asked for, else the one last chosen,
+ * else the first offered.
+ *
+ * `unknown` rather than `string` for `value`, because this is handed the raw
+ * value out of `searchParams` — which is `string | string[] | undefined`, an
+ * array whenever the parameter is repeated. `remembered` is a plain string
+ * because a cookie has exactly one value.
+ *
+ * **Both are validated against the leagues the database actually returned**,
+ * not merely parsed, for `parseLeague`'s reason: a slug naming a league with no
+ * matches this season must fall back to a real one rather than scoping the page
+ * to nothing. A stored value is as untrusted as a URL parameter and outlives
+ * deploys, so the cookie gets no more credit than the address bar does — it is
+ * simply consulted second. `null` only when there are no leagues at all, which
+ * is the caller's empty state rather than this function's problem.
  */
 export function parseLeagueScope(
   value: unknown,
   leagues: readonly LeagueOption[],
+  remembered: string | null = null,
 ): LeagueOption | null {
   if (leagues.length === 0) return null
   const slug = Array.isArray(value) ? value[0] : value
-  return leagues.find((league) => leagueSlug(league.name) === slug) ?? leagues[0]
+  const named = (wanted: unknown) =>
+    leagues.find((league) => leagueSlug(league.name) === wanted)
+  return named(slug) ?? named(remembered) ?? leagues[0]
 }
 
 /* ------------------------------------------------------------------ flags -- */

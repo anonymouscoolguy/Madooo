@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-13 (the league pills carry national flags; the next
-thing is still step 10, scheduling the sync)
+**Last updated:** 2026-08-13 (`/fixtures` opens on the league you last picked;
+the next thing is still step 10, scheduling the sync)
 
 ---
 
@@ -39,7 +39,12 @@ a working control now rather than the drawing of one: each pill scopes the whole
 page to a competition, carries the national flag of the country that competition
 is played in, and the matchday travels beside it in the URL. The flags are three
 4:3 SVGs in `public/flags/`, the first thing in the app to use that directory,
-and a league whose country has no file draws the pill exactly as before. A fixture with a
+and a league whose country has no file draws the pill exactly as before. **The
+page also remembers which pill was last pressed**: an address with no `?league=`
+opens on that competition rather than on whichever is first alphabetically, which
+had made La Liga everyone's landing page. It is the app's first cookie and its
+third store, written by the proxy and read by the page — the URL still wins
+wherever it speaks. A fixture with a
 squad opens onto both matchday squads — each club's starting eleven above its
 bench, goalkeeper first, with shirt numbers and positions, each panel headed by
 its club's crest — and one without says so instead. The match opens with a card
@@ -654,6 +659,15 @@ must stay out of the Vercel build, are in
   practice rather than its exception. Whoever settles it should decide for the
   diary's filter and the profile's view tab together, since they are the same
   question twice.
+
+  **The `madooo-league` cookie is a third option neither of the two offers, and
+  it may be the answer for all of them.** `/fixtures` keeps the league in the URL
+  *and* remembers the last one chosen, so the address bar still says what the
+  page is while a bare visit lands where the reader left off — the URL's cost
+  removed without giving up its advantage or the server render. The diary's
+  filter is the same shape of problem and could take the same shape of answer.
+  What it does not settle is which store the *state* lives in, only what happens
+  when the URL is silent.
 
 - **Search is in the browser's memory, and that stops being right somewhere past
   five leagues.** `/players` ships the season's whole roster — ~15 kB compressed
