@@ -1,6 +1,6 @@
 # API-Football: what we verified before building
 
-**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro, league 94 added 2026-08-12 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
+**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro, leagues 94 and 140 added 2026-08-12 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
 
 Madooo cannot exist without knowing which matches happened and who played in
 them. That makes API-Football a single point of failure, so we probed it before
@@ -105,17 +105,23 @@ protect, and it cost exactly one variable in two places.
 |---|---|---|---|---|---|
 | 39 | Premier League | 20 | 38 | 380 | `Regular Season - N` |
 | 94 | **Primeira Liga** | 18 | 34 | 306 | `Regular Season - N` |
+| 140 | **La Liga** | 20 | 38 | 380 | `Regular Season - N` |
 
-Both are entitled on Pro for every season 2010–2026, coverage flagged true
-throughout.
+All three are entitled on Pro for every season 2010–2026. Coverage is flagged
+true throughout for 39 and 94; league 140 has every flag **false for 2026** and
+true for 2010–2025, and fetches 2026 perfectly anyway — the clearest single
+instance of the coverage-is-not-entitlement rule in this document.
 
-Two things worth having written down. **The provider calls league 94 "Primeira
-Liga"**, not Liga Portugal, which is how the competition is usually named — and
-since `League.name` is stored from the payload, that is the string every label
-and the URL slug are built from. And **its round labels are the Premier League's
-exactly**, which is what lets [`rounds.ts`](../src/lib/rounds.ts) parse both with
-no change; a cup competition would not be, and is the thing to re-check before
-adding one.
+**The provider's name for a competition is not the one a person would say, in
+either direction.** League 94 is "Primeira Liga", not Liga Portugal, which is how
+it is usually named; league 140 is "La Liga", not Primera División, which is its
+own formal name. Since `League.name` is stored from the payload, that string is
+what every label and the URL slug are built from — so neither can be written down
+from memory, and both were read out of the dumps.
+
+**All three label rounds identically**, which is what lets
+[`rounds.ts`](../src/lib/rounds.ts) parse them with no change; a cup competition
+would not, and is the thing to re-check before adding one.
 
 > **Tentative observation:** on the free tier, a refused request did not appear
 > to decrement `x-ratelimit-requests-remaining`, which would have made probing

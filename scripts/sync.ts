@@ -112,7 +112,7 @@ async function main() {
   // `--round N` means matchday N of every league in scope. The same number is a
   // different weekend in each, which is fine — they are separate selections
   // concatenated in league order, and each fixture carries its league for the
-  // log so two competitions never blur together on screen.
+  // log so the competitions never blur together on screen.
   const round = roundLabel(options.round)
   const skipped: string[] = []
   let selected = results.flatMap((result) => {

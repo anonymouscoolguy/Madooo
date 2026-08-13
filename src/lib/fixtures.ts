@@ -46,9 +46,9 @@ export interface Round {
  * date range, and there are 380 matches to derive 38 of them from. Postgres is
  * better placed to do that than we are.
  *
- * **`leagueId` is not optional, and the grouping is why.** Two leagues both
- * label a round "Regular Season - 1", so grouping across them would collapse
- * two matchdays into one row whose date range spanned both competitions — the
+ * **`leagueId` is not optional, and the grouping is why.** Every league labels a
+ * round "Regular Season - 1", so grouping across them would collapse a matchday
+ * per competition into one row whose date range spanned all of them — the
  * Premier League's opening weekend and the Primeira Liga's, three weeks apart,
  * reported as a single matchday. The same reasoning binds the two functions
  * below.
@@ -87,11 +87,11 @@ export async function listRounds(season: number, leagueId: number): Promise<Roun
  * The fallback matters for a season with nothing hydrated at all, where landing
  * on round 1 in August would be right and in May would not.
  *
- * **Both branches are live at once now, one per league.** In August the
- * Primeira Liga is hydrated and takes the first; the Premier League has not
- * kicked off and takes the second. Asked without a league, the hydrated one
- * would answer for both, and the Premier League pill would open on a Portuguese
- * matchday.
+ * **Both branches are live at once now, and which one a league takes is a fact
+ * about that league.** In August the Primeira Liga is hydrated and takes the
+ * first; the Premier League and La Liga have not kicked off and take the second.
+ * Asked without a league, the hydrated one would answer for all of them, and
+ * every other pill would open on a Portuguese matchday.
  */
 export async function defaultRound(
   season: number,

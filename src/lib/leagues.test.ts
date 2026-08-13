@@ -5,7 +5,9 @@
  * payloads at runtime rather than transcribed. "Primeira Liga" is a fact about
  * API-Football — the competition is commonly called Liga Portugal, and a test
  * asserting against the name a person would say would prove only that the slug
- * matches the same memory that wrote it.
+ * matches the same memory that wrote it. League 140 is the same trap facing the
+ * other way: the provider says "La Liga" where the competition's own name is
+ * Primera División, so writing down either from memory is a coin toss.
  */
 
 import { readFileSync } from 'node:fs'
@@ -33,26 +35,32 @@ function leagueName(file: string): string {
 
 const PREMIER_LEAGUE = leagueName('fixtures_39_2024.json')
 const PRIMEIRA_LIGA = leagueName('fixtures_94_2026.json')
+const LA_LIGA = leagueName('fixtures_140_2026.json')
+
+const ALL = [PREMIER_LEAGUE, PRIMEIRA_LIGA, LA_LIGA]
 
 /** What the database hands the parser: our own ids, the provider's names. */
 const LEAGUES = [
   { id: 1, name: PREMIER_LEAGUE },
   { id: 2, name: PRIMEIRA_LIGA },
+  { id: 3, name: LA_LIGA },
 ]
 
 describe('leagueSlug', () => {
   it('is typeable, for every league the app actually holds', () => {
-    for (const name of [PREMIER_LEAGUE, PRIMEIRA_LIGA]) {
+    for (const name of ALL) {
       expect(leagueSlug(name), name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
     }
   })
 
-  it('tells the two leagues apart', () => {
-    expect(leagueSlug(PREMIER_LEAGUE)).not.toBe(leagueSlug(PRIMEIRA_LIGA))
+  it('tells every league apart', () => {
+    expect(new Set(ALL.map(leagueSlug)).size).toBe(ALL.length)
   })
 
   it('strips the diacritics a UK keyboard cannot produce', () => {
-    // La Liga's own name, which the app will meet the day a third league lands.
+    // Not any league the app holds: the provider calls 140 "La Liga", so this
+    // is the normaliser tested on a synthetic input. It is kept because the
+    // accent is the interesting case and no synced league currently has one.
     expect(leagueSlug('Primera División')).toBe('primera-division')
   })
 

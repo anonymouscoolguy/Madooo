@@ -35,19 +35,23 @@ interface Identity {
  * rather than painting some other club in the wrong colours. Nothing here
  * overwrites `Team.name`.
  *
- * The ids for the 2024/25 clubs were read out of `scratch/fixtures_39_2024.json`
- * and the Primeira Liga's out of `scratch/fixtures_94_2026.json` — read, never
- * transcribed, which is what makes the guard below meaningful. The promoted
- * clubs are included so that changing `SEASON` does not silently blank a chip;
- * if an id is wrong the guard will say so.
+ * The ids for the 2024/25 clubs were read out of `scratch/fixtures_39_2024.json`,
+ * the Primeira Liga's out of `scratch/fixtures_94_2026.json` and La Liga's out of
+ * `scratch/fixtures_140_2026.json` — read, never transcribed, which is what makes
+ * the guard below meaningful. The promoted clubs are included so that changing
+ * `SEASON` does not silently blank a chip; if an id is wrong the guard will say
+ * so.
  *
  * Codes are the league's own abbreviations rather than the first three letters
  * of the name. That is a deliberate departure from the reference screenshots,
  * which draw `MAN` on both Manchester clubs and `AST` on Aston Villa: a badge
  * whose whole job is to identify a club has to be able to.
  *
- * Colours are each club's commonly published primary. They are the one thing
- * here with no authority behind it, and are meant to be edited on sight.
+ * Colours are not uniformly sourced, and each block says which it is. The
+ * Primeira Liga's and La Liga's were checked by the author against the clubs
+ * themselves; the Premier League's are commonly published primaries, which
+ * leaves that block the one with no authority behind it and the one meant to be
+ * edited on sight.
  */
 const IDENTITIES: Record<number, Identity> = {
   33: { name: 'Manchester United', code: 'MUN', colour: '#da291c' },
@@ -108,6 +112,38 @@ const IDENTITIES: Record<number, Identity> = {
   4716: { name: 'Casa Pia', code: 'CPA', colour: '#000000' },
   4724: { name: 'Alverca', code: 'ALV', colour: '#c8102e' },
   15130: { name: 'Estrela', code: 'ESA', colour: '#0d9040' },
+
+  // La Liga, 2026/27. Codes are the competition's broadcast abbreviations, the
+  // same rule the two blocks above follow — RMA and ATM identify a club where
+  // the first three letters of "Real Madrid" and "Real Sociedad" would collide,
+  // and both Real Betis and Racing Santander would lose to them again.
+  //
+  // Every colour below was checked by the author against the clubs themselves,
+  // so this block is sourced like the Primeira Liga's above rather than like the
+  // Premier League's. Two of them are the reason the check mattered: Real Madrid
+  // and Valencia both play in white, which no crest chip can draw, so each holds
+  // the colour the club is identified by off the shirt — Madrid's crest blue and
+  // Valencia's black — rather than a badge accent picked to look distinct.
+  529: { name: 'Barcelona', code: 'BAR', colour: '#a50044' },
+  530: { name: 'Atletico Madrid', code: 'ATM', colour: '#cb3524' },
+  531: { name: 'Athletic Club', code: 'ATH', colour: '#ee2523' },
+  532: { name: 'Valencia', code: 'VAL', colour: '#000000' },
+  533: { name: 'Villarreal', code: 'VIL', colour: '#ffe667' },
+  535: { name: 'Malaga', code: 'MAL', colour: '#0080c8' },
+  536: { name: 'Sevilla', code: 'SEV', colour: '#d40026' },
+  538: { name: 'Celta Vigo', code: 'CEL', colour: '#8ac3ee' },
+  539: { name: 'Levante', code: 'LEV', colour: '#b4053f' },
+  540: { name: 'Espanyol', code: 'ESP', colour: '#007fc8' },
+  541: { name: 'Real Madrid', code: 'RMA', colour: '#00529f' },
+  542: { name: 'Alaves', code: 'ALA', colour: '#0761af' },
+  543: { name: 'Real Betis', code: 'BET', colour: '#00954c' },
+  544: { name: 'Deportivo La Coruna', code: 'DEP', colour: '#57175e' },
+  546: { name: 'Getafe', code: 'GET', colour: '#003da5' },
+  548: { name: 'Real Sociedad', code: 'RSO', colour: '#004f9f' },
+  727: { name: 'Osasuna', code: 'OSA', colour: '#d91a21' },
+  728: { name: 'Rayo Vallecano', code: 'RAY', colour: '#e53027' },
+  797: { name: 'Elche', code: 'ELC', colour: '#00913f' },
+  4665: { name: 'Racing Santander', code: 'RAC', colour: '#009b48' },
 }
 
 async function main() {

@@ -8,7 +8,8 @@ club's, or as a diary of the season in the order you wrote it.
 Diaries are **private**. Single user, no sharing, no public profiles. The app is
 free to use and the code is here to read, fork or self-host.
 
-Live at [madooo.app](https://madooo.app). Premier League and Primeira Liga.
+Live at [madooo.app](https://madooo.app). Premier League, Primeira Liga and La
+Liga.
 
 ## Stack
 

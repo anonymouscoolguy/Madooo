@@ -49,8 +49,8 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
 
   // Sequential rather than folded into the `Promise.all` below, and it has to
   // stay that way: `listRounds` needs the league before it can group, and
-  // grouping without one collapses two competitions' "Regular Season - 1" into
-  // a single matchday. One extra round trip to Neon buys that.
+  // grouping without one collapses every competition's "Regular Season - 1"
+  // into a single matchday. One extra round trip to Neon buys that.
   const leagues = await leaguesWithMatches(currentSeason)
   const current = parseLeagueScope(league, leagues)
 
@@ -85,7 +85,7 @@ export default async function Fixtures({ searchParams }: PageProps<'/fixtures'>)
 
   if (index === -1) {
     // Only asked when the URL says nothing usable, so paging through the season
-    // does not pay for it on every click. Asked per league: the two competitions
+    // does not pay for it on every click. Asked per league: the competitions
     // are at different points of their seasons, so they take different branches
     // of it.
     const fallback = await defaultRound(currentSeason, current.id)

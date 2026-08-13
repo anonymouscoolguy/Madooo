@@ -314,7 +314,7 @@ raw types, a thin client, and a pure mapper. [`src/lib/sync.ts`](../src/lib/sync
 turns mapped objects into rows, and [`scripts/sync.ts`](../scripts/sync.ts) is
 the CLI. Nothing under `src/app/` imports any of it.
 
-**Which leagues to sync is configuration, `LEAGUES=39,94`, and only the sync
+**Which leagues to sync is configuration, `LEAGUES=39,94,140`, and only the sync
 reads it.** The asymmetry is the point: the sync *writes* `League` rows, while
 every read side *discovers* leagues from Postgres — `leaguesWithMatches`,
 `leaguesInSeason`, `parseLeague`. A page reading the variable would have two

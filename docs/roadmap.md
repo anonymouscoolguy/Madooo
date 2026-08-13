@@ -8,22 +8,22 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-12 (a second league — the Primeira Liga, whose season
-is already under way — so there is played football on the screens for the first
-time; the next thing is step 10, scheduling the sync)
+**Last updated:** 2026-08-12 (a third league, La Liga, added for the cost the
+non-negotiable promised — one variable and a sync run; the next thing is step 10,
+scheduling the sync)
 
 ---
 
 ## Current state
 
-**There are two leagues, and one of them is being played.** The app runs on
-API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94`: the 2026-27
-Premier League, which kicks off on 21 August, and the Primeira Liga, which
-started in August and whose first matchday is hydrated. Both calendars are in the
-database — 380 matches and 306 — and the Primeira Liga's opening nine are
-clickable, with lineups, squads and player statistics. The Premier League's are
-not, and will not be until the opening weekend: 6.2 decided a card with no squad
-does not navigate.
+**There are three leagues, and one of them is being played.** The app runs on
+API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94,140`: the
+2026-27 Premier League, which kicks off on 21 August, the Primeira Liga, which
+started in August and whose first matchday is hydrated, and La Liga, which has
+not kicked off either. All three calendars are in the database — 380 matches, 306
+and 380 — and the Primeira Liga's opening nine are clickable, with lineups,
+squads and player statistics. The other two are not, and will not be until their
+own opening weekends: 6.2 decided a card with no squad does not navigate.
 
 That asymmetry is the reason the second league was added before the sync was
 scheduled. Until it landed nothing on any screen had been played, so nothing past
@@ -171,7 +171,7 @@ on Vercel's preview environment. What remains of the launch checklist is the
   [`src/app/globals.css`](../src/app/globals.css)
 - Archivo and JetBrains Mono come from `next/font/google`; the Material Symbols
   subset is committed and refreshed by `npm run icons`
-- `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `DATABASE_URL`,
+- `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `LEAGUES`, `DATABASE_URL`,
   `DATABASE_URL_DEV` and four Clerk variables — the development instance's test
   keys, which are what a laptop must use; `.env.example` documents the full set
 
@@ -184,11 +184,10 @@ designs are what cut them: the sidebar asked for four destinations where the
 roadmap had three. **Every slice owns its own empty state** — what its screen
 says when it has nothing to show is part of the slice, not a later pass.
 
-Steps 9 to 12 are not screens. They are what stands between a working app and a
+Steps 9 to 13 are not screens. They are what stands between a working app and a
 launched one: real current data, a sync that runs without a laptop, and the last
-of the accounts to buy. Two of the three are done — what is left is the sync, and
-the season starting on 21 August is what gives it a deadline rather than an
-ordering.
+of the accounts to buy. What is left is the sync, and the season starting on
+21 August is what gives it a deadline rather than an ordering.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -491,10 +490,11 @@ ordering.
       timeout, so resumability is no longer a precondition; see
       [`architecture.md`](architecture.md#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone).
       What is unsettled is which matches a run should hydrate. Do the design
-      before the plumbing — and design it against two calendars, not one. Step 11
-      made "the current round" ambiguous: the two leagues play different
-      weekends, have different numbers of rounds, and are at different points of
-      their seasons, so a run has to decide per league rather than once.
+      before the plumbing — and design it against three calendars, not one. Step
+      11 made "the current round" ambiguous and step 13 added a third answer to
+      it: the leagues play different weekends, have different numbers of rounds,
+      and are at different points of their seasons, so a run has to decide per
+      league rather than once.
 - [x] **11 — A second league.** Done, and deliberately **before** step 10 rather
       than after it. The Primeira Liga's season was already under way while the
       Premier League's had not started, so it was the only way to put played
@@ -539,6 +539,31 @@ ordering.
         season. The free tier ran a year at a time, so nothing in the project has
         ever had to think about this. A lapse stops the app reaching the live
         season while the season is being played.
+- [x] **13 — A third league, La Liga.** Done, and it cost **one environment
+      variable and a sync run** — no parameter this time, because step 11 had
+      already built `--league` on both the sync and the probe. That is the third
+      test of the first non-negotiable and the cheapest of them: the second
+      league needed `/fixtures` rewritten, and this one needed no product code at
+      all. Every file it touched outside the seed table and one test was a
+      sentence that said "two leagues" and now says three.
+
+      **Nothing is hydrated**, because La Liga's 2026-27 season has not kicked
+      off. 380 fixtures and 20 clubs are in the database and every card reads
+      "No squad yet". Which matches a run should hydrate is still step 10's, and
+      that step now has three calendars to decide between rather than two.
+
+      What the probe settled: league 140 is entitled for 2026 despite every
+      coverage flag on that season being **false**, which is the plainest
+      instance of coverage-is-not-entitlement the project has caught; the
+      provider calls it **La Liga**, not Primera División, so the slug is
+      `la-liga`; and its round labels match the other two, which is what let
+      `rounds.ts` parse a third competition unchanged.
+
+      A test that had been waiting for this asserted `leagueSlug('Primera
+      División')`, on the stated expectation that the third league would arrive
+      carrying that name. It did not. The assertion is still worth keeping as a
+      test of the normaliser's diacritic handling, but it now says so rather
+      than claiming to be about La Liga.
 
 ## Long-term remarks
 
@@ -579,8 +604,8 @@ empty list is the expected state.
   season made it permanent: fixtures are published months before team news, so a
   season in progress always contains matches whose squads do not exist yet. It
   was briefly total, with all 380 of 2026-27 bare; the Primeira Liga's first
-  matchday broke that, and the two leagues now sit either side of the line at
-  once. The current hydration state is readable from the database; what this
+  matchday broke that, and the leagues now sit either side of the line at once —
+  two of the three entirely on the empty side. The current hydration state is readable from the database; what this
   entry is for is the reminder that the empty case never stops being real.
 
 ## Testing
@@ -621,21 +646,38 @@ must stay out of the Vercel build, are in
 
 - **Search is in the browser's memory, and that stops being right somewhere past
   five leagues.** `/players` ships the season's whole roster — ~15 kB compressed
-  for one league, and two leagues have not visibly moved that — so a keystroke
-  never waits on the network.
+  for one league — so a keystroke never waits on the network.
   At a few thousand players it is still the better trade; well past that, the box
   should ask Postgres instead. The swap is self-contained: the search field
   changes where it gets its answers and nothing else moves. It costs a route
   handler, debouncing, a loading state and out-of-order response handling, and it
-  makes search visibly laggy, which is why it was not built now. *Revisit when a
-  third league is synced.*
+  makes search visibly laggy, which is why it has not been built.
 
-- **The club colours have no authority behind them.** Settled in 6.2: codes and
-  colours are columns on `Team`, seeded by `npm run db:seed-teams`. The codes are
-  the league's own abbreviations, which is a defensible external standard. The
-  colours are not — each is that club's commonly published primary, entered by
-  hand and never checked against anything. They are the one part of the seed
-  table meant to be edited on sight, and a wrong one is wrong quietly.
+  This entry used to say *"revisit when a third league is synced"*, and step 13
+  synced one. It was looked at and deliberately left alone — and the trigger was
+  the wrong shape, because a league that has not kicked off adds **nothing** to
+  the payload: the list is players with squad rows, so La Liga is not in it at
+  all. A league count was never the thing that moves this number.
+  *Revisit when `/players` ships more than a few thousand players — which is
+  measurable from the page itself rather than from how many leagues are
+  configured.*
+
+- **The club colours are not uniformly sourced, and the Premier League's are the
+  block with no authority behind them.** Settled in 6.2: codes and colours are
+  columns on `Team`, seeded by `npm run db:seed-teams`. The codes are the
+  league's own abbreviations, which is a defensible external standard. The
+  colours are not. The Primeira Liga's and La Liga's were checked by the author
+  against the clubs themselves and are confirmed; the Premier League's are each
+  club's commonly published primary, entered by hand and never checked against
+  anything. That block is what is left of the original problem, it is meant to
+  be edited on sight, and a wrong one is wrong quietly.
+
+  **A club that plays in white is the case the check exists for.** Real Madrid
+  and Valencia have no drawable shirt colour, so each holds what the club is
+  identified by off it — Madrid's crest blue, Valencia's black. Both were wrong
+  on published primaries before the author corrected them, as were Levante,
+  Deportivo and Barcelona, which is five of twenty in a block that looked
+  plausible throughout.
 - **The demoted MVP's chip waits for the round trip.** Each squad row is its own
   client island holding its own optimistic state, so nothing tells one row that
   another has just taken the MVP: the player losing it keeps a filled star until

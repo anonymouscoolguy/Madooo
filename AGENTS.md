@@ -11,7 +11,8 @@ A match-diary app for football fans. After a match, a user tags players as
 can open a player's profile, or their own diary, and read those judgements back
 as dated, diary-like entries.
 
-Scope: the Premier League and the Primeira Liga, other top leagues afterwards.
+Scope: the Premier League, the Primeira Liga and La Liga, other top leagues
+afterwards.
 Diaries are
 **private** — single-user, no sharing, no public profiles, no moderation.
 
@@ -43,9 +44,10 @@ deep in the JS/TS ecosystem.
    and `LEAGUES` come from the environment. The season ran against an older one
    while API-Football's free tier exposed only seasons roughly two years past; on
    the paid tier it runs against the live one, and that switch cost one variable
-   and no code. The second league then cost one variable and one parameter. Both
-   are the whole point — a hardcoded year or league id anywhere would have made
-   either a refactor. The next season and the third league go the same way.
+   and no code. The second league then cost one variable and one parameter, and
+   the third cost the variable alone. All three are the whole point — a
+   hardcoded year or league id anywhere would have made any of them a refactor.
+   The next season and the fourth league go the same way.
 
    **`LEAGUES` is read by the sync alone.** Every page discovers its leagues from
    our own `League` table, so nothing under `src/app/` may read it; a page that
@@ -65,7 +67,7 @@ deep in the JS/TS ecosystem.
 Verified facts about the data source, including the real season entitlement, the
 rate-limit headers and the per-endpoint request costs, are in
 [`docs/api-football-findings.md`](docs/api-football-findings.md). The app runs on
-the **Pro** tier with `SEASON=2026` and `LEAGUES=39,94`. Entitlement is per
+the **Pro** tier with `SEASON=2026` and `LEAGUES=39,94,140`. Entitlement is per
 league as well as per season, so check a new id with
 `python3 scripts/verify_api.py --league <id>` before adding it.
 

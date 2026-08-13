@@ -15,8 +15,8 @@ find out is to ask — which is what the loop over leagues is for.
 
 Raw responses are dumped to scratch/ so we can design the schema against the
 actual payload shape rather than guessing. Every dump is qualified by league,
-because two leagues share a season number and an unqualified name would have one
-silently overwrite the other.
+because leagues share a season number and an unqualified name would have one
+silently overwrite another.
 
 Usage:  python3 scripts/verify_api.py            every league in LEAGUES
         python3 scripts/verify_api.py --league 94   one league, whatever LEAGUES says
@@ -76,7 +76,7 @@ def load_key() -> str:
 
 
 def parse_leagues(raw: str, source: str) -> list[int]:
-    """Parse "39,94" into [39, 94], strictly. Order is preserved and meaningful."""
+    """Parse "39,94,140" into [39, 94, 140]. Order is preserved and meaningful."""
     ids: list[int] = []
     for token in raw.split(","):
         token = token.strip()
