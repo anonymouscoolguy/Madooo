@@ -1812,16 +1812,29 @@ deployment and, worse, prove only that the *build container* could reach Neon.
 `cacheComponents` is off, so the older route-segment config is the mechanism that
 applies; the newer `use cache` model does not.
 
-**The functions run in `lhr1`, and [`vercel.json`](../vercel.json) exists solely
+**The functions run in `fra1`, and [`vercel.json`](../vercel.json) exists solely
 to say so.** Vercel's default is `iad1` — Washington DC — and the deployment sat
 there from step 4 until it was measured, while both Neon branches are in
 `eu-west-2`. `/fixtures` issues about six sequential round trips, each needing the
 previous one's answer, so every page load crossed the Atlantic six times at
 roughly 80ms a crossing; the same trip from a laptop in Europe is 15–17ms, which
 is why production was slower than development and looked like an app problem
-rather than a map problem. `lhr1` is London, the same AWS region as the database.
-**Anything that moves the database has to move this with it**, and the file is
-three lines so that the pairing is visible rather than buried in a dashboard.
+rather than a map problem.
+
+**`fra1` is Frankfurt, which is near the database rather than in it.** London
+(`lhr1`) is `eu-west-2` itself and is the faster choice on paper — roughly 1–3ms
+a round trip against Frankfurt's 10–15ms, which over six sequential trips is
+60–90ms a page. Frankfurt was chosen anyway, and the tradeoff is worth stating
+so nobody "corrects" it by accident: the six trips that get slower are the
+database's, and the one that gets faster is the reader's. Moving to `lhr1` is the
+change to make if page time is ever measured again and this is what is left.
+
+**Whatever region this names, it is chosen against the database's.** Neon sits in
+`eu-west-2`; anything that moves the database has to move this with it, or the
+transatlantic problem returns in a quieter form. The file is three lines so that
+the pairing is visible in the repository rather than buried in a dashboard —
+Vercel's project settings hold a region too, and `vercel.json` overrides it, so
+the dashboard value is dormant and matters only if this key is ever removed.
 
 To reproduce what Vercel does: `rm -rf src/generated && npm run build`. Only that
 proves the build regenerates the client rather than leaning on a stale local copy.

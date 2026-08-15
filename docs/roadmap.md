@@ -211,7 +211,7 @@ by hand, when a preview needs current football.
 **And a click now answers.** Three things were taking a second or two out of
 every navigation, none of them the queries. The functions ran in `iad1` while the
 database sits in `eu-west-2`, so six sequential round trips crossed the Atlantic
-on every page; they run in `lhr1` now. `requireDbUser()` asked Clerk's Backend
+on every page; they run in `fra1` now. `requireDbUser()` asked Clerk's Backend
 API for the signed-in user on every render and wrote the row back — it reads the
 row instead, and only asks Clerk when there is no row to read. And no route had a
 `loading.tsx`, so a click left the previous page on screen until the server
@@ -226,8 +226,8 @@ that Next withholds from dynamic routes without one.
   squash-merged into `main`
 - Deployed on Vercel from `main`, built with `prisma generate && next build`;
   Production reads the production Neon branch, Preview the development one.
-  [`vercel.json`](../vercel.json) pins the functions to `lhr1`, the region both
-  Neon branches are in
+  [`vercel.json`](../vercel.json) pins the functions to `fra1`, a short European
+  hop from the `eu-west-2` both Neon branches are in
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
