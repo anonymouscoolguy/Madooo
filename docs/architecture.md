@@ -19,13 +19,15 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The diary is ordered by when an entry was written](#the-diary-is-ordered-by-when-an-entry-was-written)
   - [The connection strings pin `sslmode=verify-full`](#the-connection-strings-pin-sslmodeverify-full)
 - [Sync and the provider boundary](#sync-and-the-provider-boundary)
+  - [A scheduled run asks our own table, not the provider, what to read](#a-scheduled-run-asks-our-own-table-not-the-provider-what-to-read)
+  - [Nothing in the sync throws its way out of a run](#nothing-in-the-sync-throws-its-way-out-of-a-run)
   - [What the API does that its own docs do not say](#what-the-api-does-that-its-own-docs-do-not-say)
   - [A live season's calendar is provisional, and a closed one's is not](#a-live-seasons-calendar-is-provisional-and-a-closed-ones-is-not)
   - [What is deliberately unmapped](#what-is-deliberately-unmapped)
   - [A position is one of four letters, and the designs ask for more](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more)
   - [Anything a page needs from a round string lives in `src/lib/rounds.ts`](#anything-a-page-needs-from-a-round-string-lives-in-srclibroundsts)
   - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
-  - [Scheduling the sync is unbuilt, and the obstacle it had is gone](#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone)
+  - [The sync knows what to run; nothing runs it yet](#the-sync-knows-what-to-run-nothing-runs-it-yet)
 - [Auth and routing](#auth-and-routing)
   - [The landing page reads nothing, and everything on it is fiction](#the-landing-page-reads-nothing-and-everything-on-it-is-fiction)
   - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
@@ -306,9 +308,15 @@ upgrade cannot quietly downgrade it.
 
 ## Sync and the provider boundary
 
-`npm run sync -- --round 1` costs one request per league for its whole season of
-fixtures, then two per fixture for lineups and player statistics — 21 for a
-Premier League round.
+A sync run costs one request per league for its whole season of fixtures, then
+two per fixture for lineups and player statistics — 21 for a Premier League
+round.
+
+**There are two modes, and the split is which of them names its own work.**
+`--round N` is told a matchday and fetches it; `--due` is told nothing and asks
+our own table which finished matches have not been read yet. `--due` is what a
+scheduler runs, `--round` is what a person runs, and `--round` stays because it
+is the repair tool — it reaches a match the fortnight window below has dropped.
 
 The provider boundary is [`src/lib/api-football/`](../src/lib/api-football/) —
 raw types, a thin client, and a pure mapper. [`src/lib/sync.ts`](../src/lib/sync.ts)
@@ -336,7 +344,86 @@ cannot reach outside the list, so a typo costs an error rather than a request.
 `Judgement` cascades off `MatchSquad`, so rewriting squad rows by deleting them
 would destroy a user's diary on the next sync. Re-running the sync has been
 verified to leave `MatchSquad` ids untouched and a judgement written against one
-intact.
+intact — re-checked when `hydratedAt` arrived, since that column exists to make
+a second reading of the same fixture routine rather than exceptional.
+
+### A scheduled run asks our own table, not the provider, what to read
+
+`--due` never asks which round is current. It asks Postgres which *fixtures* are
+finished and not yet read, which is why three leagues at three different points
+of their seasons — 38 rounds, 34 and 38, played on different weekends — produce
+no branch anywhere. The question is asked per fixture, so the competitions never
+have to be told apart. A round would have needed three answers and a rule for
+combining them.
+
+The policy is [`src/lib/hydration.ts`](../src/lib/hydration.ts), which imports
+nothing, and the whole of it is under Vitest. `Match.hydratedAt` records when
+the detail endpoints were last read, and one predicate decides everything:
+
+```
+hydratedAt IS NULL  OR  hydratedAt < kickoff + 6 hours
+```
+
+Read aloud: *a match is due until it has been read at least six hours after it
+kicked off.* One expression covers "never read", "read too early to be final"
+and "stop, this is finished", and it terminates by construction — no attempt
+counter and no give-up list. The six hours exist because a reading taken minutes
+after full time can catch API-Football mid-write; minutes and ratings settle
+over the following hour, so every match gets one confirming re-read and no more.
+
+Three things that are easy to get wrong here:
+
+- **`hydratedAt` is stamped only when squad rows came back.** Stamping a fixture
+  whose lineup the provider has not published yet retires it from every future
+  run and leaves its card reading "No squad yet" forever. Two wasted requests is
+  the correct price.
+- **`AWD` and `WO` are not finished.** A match awarded 3–0 satisfies every plain
+  reading of "the match is over" and never had a team sheet, so counting it
+  would put a permanently unhydratable row in the queue for a fortnight.
+  `hydration.ts` splits the provider's whole status vocabulary three ways, and
+  `hydration.test.ts` asserts that every status the captured payloads contain is
+  classified — the payloads only ever hold `FT` and `NS`, which is exactly why
+  the rest is documented rather than trusted to memory.
+- **The fourteen-day window is the give-up rule**, not just a bound on the
+  queue. A fixture the provider never publishes a lineup for drops out on its
+  own, so nothing has to decide it is hopeless. Its cost: a match missed because
+  the job was broken for a fortnight is never picked up automatically, and the
+  repair path is `--round N`.
+
+The comparison `hydratedAt < kickoff + 6 hours` is row-to-row and has no Prisma
+`where`, so `dueFixtures` does the coarse filter in Postgres — season, league,
+finished status, inside the window — and folds the rest in Node. That was a
+choice against a third `$queryRaw`, and the window is what makes it safe: the
+candidate set is a few dozen rows, the same bound the diary and `/players`
+already accept.
+
+**The kickoff in that predicate is safe even though a live season's calendar is
+provisional.** Placeholder Saturday-14:00 kickoffs only exist for matches that
+have not been played; by the time a fixture is `FT` its kickoff is the real one.
+
+### Nothing in the sync throws its way out of a run
+
+A CLI a person watches and a job nobody watches want opposite things from a
+failure, and the job's needs won:
+
+- **A failed league or fixture is logged, counted and stepped over**, and the
+  process exits non-zero at the end if anything failed. One league returning no
+  fixtures used to throw before hydration began, which left two healthy
+  competitions unread for a hiccup in a third.
+- **The quota pre-flight clamps rather than refusing.** It used to throw and
+  advise passing `--limit`, which has no reader in CI — and refusing outright
+  hydrates nothing where hydrating some would have been right. A run spends at
+  most half the reported daily remainder, because that counter is documented as
+  non-monotonic and a scheduled job that drained it would starve the rest of the
+  day's runs.
+- **One summary line** ends every run: `calendars 3/3, hydrated 9/9, still due
+  0, failed 0`. `still due` is what separates "nothing to do" from "ran out of
+  room", which a count of zero hydrated would otherwise conflate.
+
+`--due --dry-run` prints the selection and spends nothing. It deliberately skips
+the calendar phase, so it reports against whatever statuses the last real run
+left — which is the point when checking the policy, and a trap if mistaken for a
+preview of the next run.
 
 ### What the API does that its own docs do not say
 
@@ -359,7 +446,8 @@ against 21 requests for a round and 761 for an entire season. What still costs
 something is wall clock, and API-Football's terms warn that sustained
 over-consumption can get the key or the IP firewalled — which is why the pacing
 keeps a margin rather than sitting on the limit.
-`npm run sync -- --round 1 --limit 2` is the cheap way to try a change.
+`npm run sync -- --round 1 --limit 2` is the cheap way to try a change, and
+`--due --dry-run` is the free one.
 
 ### A live season's calendar is provisional, and a closed one's is not
 
@@ -452,17 +540,28 @@ test reaches has to import its neighbours relatively — including
 `../generated/prisma/enums`, which is the one generated module a pure helper has
 reason to touch.
 
-### Scheduling the sync is unbuilt, and the obstacle it had is gone
+### The sync knows what to run; nothing runs it yet
 
-It used to be blocked on arithmetic: the free tier's 6.5s pacing put one round at
-about two minutes, past a serverless function's timeout, so a cron route needed
-chunking or resumability before it could exist at all. Pro's pacing puts a round
-at about five seconds and a whole season at about three minutes, both inside
-Vercel's 300s ceiling. **That objection no longer holds, and a scheduled run no
-longer has to be resumable to be possible.**
+`--due` is the whole of what a scheduled run needs to do, and it is verified by
+hand. What does not exist is the thing that calls it on a timer, so the deployed
+app's data is still only as fresh as the last time a laptop was open.
 
-What is unsettled is which matches a run should hydrate, and the round is a poor
-unit for it — see the provisional-calendar note above. Sync remains a local CLI.
+**The trigger is going to GitHub Actions rather than Vercel Cron**, and the
+reason is the one that shaped `apiFootballKey()` in the first place: the key is
+withheld from the deployed environment, so a page that reached API-Football
+fails loudly at the moment the mistake is made. A cron route under `src/app/`
+would need `API_FOOTBALL_KEY` and `LEAGUES` on Vercel, and the guarantee would
+stop being environmental and become a lint rule somebody has to keep running.
+Running the existing CLI from Actions keeps it structural and adds no runtime
+code. The costs, stated: Actions' cron fires late under load, the production
+connection string gains a second home, and GitHub disables a scheduled workflow
+after 60 days without repository activity.
+
+Anything narrower than a whole-season calendar read is deliberately not built.
+`/fixtures?from=&to=` and `?ids=` are the escape hatches if a run ever needs to
+be cheaper, and the thing that would force it is a cadence below five minutes —
+at which point Neon's compute stops suspending between runs, which is a larger
+cost than the payload.
 
 ---
 

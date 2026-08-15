@@ -291,9 +291,13 @@ other league's.
 
 What still costs something is **wall clock, not quota.** At 300/minute the pacing
 is a quarter-second per request, so a ten-fixture round takes about five seconds
-and a full backfill about three minutes. That is well inside a serverless
-function's timeout, which eases but does not settle the scheduling problem —
-see the architecture note on it.
+and a full backfill about three minutes.
+
+Neither turned out to be what bounds a scheduled run. Quota is not close to
+binding, and wall clock stopped mattering once the trigger went to GitHub
+Actions rather than to a function with a 300s ceiling. **What bounds the cadence
+is Neon**, whose compute suspends after five minutes idle — see the architecture
+note on the sync.
 
 The reason this stays cheap is constraint #2 — sync into our own Postgres, never
 call the API on page load. Querying live would put a hard user-traffic ceiling

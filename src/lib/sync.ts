@@ -24,6 +24,7 @@ import {
   type MappedTeam,
 } from './api-football/map'
 import type { RawFixture, RawLineup, RawPlayerStats } from './api-football/types'
+import { FINISHED_STATUSES, selectDue, windowStart } from './hydration'
 import { prisma } from './prisma'
 
 // Re-exported so `scripts/sync.ts` keeps its single import site. The definition
@@ -285,10 +286,93 @@ export async function syncFixtureDetail(
   const squad = buildSquad(lineups.response, stats.response)
   await inChunks(squad, 10, (entry) => upsertSquadEntry(entry, match.id, teamIds))
 
+  // Stamped only when something came back. A fixture whose lineup the provider
+  // has not published yet must stay in the queue: stamping it here would retire
+  // it from every future run and leave its card reading "No squad yet" forever.
+  // Two wasted requests is the correct price for that.
+  if (squad.length > 0) {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { hydratedAt: new Date() },
+    })
+  }
+
   return {
     fixtureApiFootballId,
     lineups: lineups.response.length,
     squadEntries: squad.length,
     remaining: stats.remaining,
   }
+}
+
+export interface DueFixture {
+  apiFootballId: number
+  kickoff: Date
+  status: string
+  hydratedAt: Date | null
+  /** The competition's name, so a log line names it rather than an id. */
+  league: string
+  label: string
+}
+
+/**
+ * Which fixtures a scheduled run should read detail for.
+ *
+ * The coarse filter is Postgres's and the policy is `hydration.ts`'s. The split
+ * is not tidiness: `hydratedAt < kickoff + 6 hours` is a row-to-row comparison
+ * that Prisma's `where` cannot express, so it is either a third `$queryRaw` —
+ * which `architecture.md` says has to argue for itself — or a fold in Node over
+ * a set the fortnight window already bounds to a few dozen rows. The fold also
+ * puts the whole policy under Vitest, which raw SQL would not be.
+ *
+ * `leagueIds` are **ours**, not the provider's, and are resolved by the caller
+ * from the `League` table rather than taken from the calendar phase's results.
+ * That is deliberate: a league whose calendar request failed this run still has
+ * finished matches from previous runs waiting to be read, and tying the two
+ * together would let one provider hiccup starve a whole competition.
+ */
+export async function dueFixtures(
+  season: number,
+  now: Date,
+  leagueIds: number[],
+): Promise<DueFixture[]> {
+  const rows = await prisma.match.findMany({
+    where: {
+      season,
+      leagueId: { in: leagueIds },
+      status: { in: [...FINISHED_STATUSES] },
+      kickoff: { gte: windowStart(now), lte: now },
+    },
+    select: {
+      apiFootballId: true,
+      kickoff: true,
+      status: true,
+      hydratedAt: true,
+      league: { select: { name: true } },
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  })
+
+  const candidates = rows.map((row) => ({
+    apiFootballId: row.apiFootballId,
+    kickoff: row.kickoff,
+    status: row.status,
+    hydratedAt: row.hydratedAt,
+    league: row.league.name,
+    label: `${row.homeTeam.name} vs ${row.awayTeam.name}`,
+  }))
+
+  return selectDue(candidates, now)
+}
+
+/** Our own league ids for the configured provider ids, with their names. */
+export async function leagueRows(
+  apiFootballIds: number[],
+): Promise<{ id: number; name: string }[]> {
+  return prisma.league.findMany({
+    where: { apiFootballId: { in: apiFootballIds } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  })
 }

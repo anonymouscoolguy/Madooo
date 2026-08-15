@@ -108,7 +108,22 @@ model Match {
   homeHalftimeGoals Int?
   awayHalftimeGoals Int?
 
+  /// Moves on any write to this row, the calendar's included, because it is
+  /// `@updatedAt`. So it answers "is this row stale", never "have we read the
+  /// team sheet" — the calendar re-reads every fixture of the season on every
+  /// scheduled run, which would keep this fresh for a match nobody has hydrated.
   syncedAt DateTime @updatedAt
+
+  /// When the two per-fixture detail endpoints were last read for this match.
+  /// Written by `syncFixtureDetail` alone, and only when squad rows came back:
+  /// stamping a fixture whose lineup the provider has not published yet would
+  /// retire it from the queue and leave the card reading "No squad yet" forever.
+  ///
+  /// A timestamp rather than a boolean because the scheduled run needs to know
+  /// *when*. A reading taken minutes after full time can catch the provider
+  /// mid-write, so `hydration.ts` re-reads a match until it has been read at
+  /// least six hours past kickoff. Null means never read.
+  hydratedAt DateTime?
 
   lineups      MatchLineup[]
   squadEntries MatchSquad[] // ~40 rows, 20 per side

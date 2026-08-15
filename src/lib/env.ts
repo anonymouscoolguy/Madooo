@@ -78,9 +78,10 @@ export function season(): number {
  * `apiFootballKey()` is, which is why it sits beside it and why the function is
  * named `syncLeagues` rather than `leagues`.
  *
- * That asymmetry is also why a Vercel environment still needs only
- * DATABASE_URL_DEV and SEASON, and will need this one only once the sync runs
- * there.
+ * That asymmetry is also why a Vercel environment needs only DATABASE_URL_DEV
+ * and SEASON, and stays that way: the scheduled sync runs from GitHub Actions
+ * rather than from a route handler, so neither this nor `apiFootballKey()` ever
+ * has to exist in the deployed environment.
  *
  * Parsed as strictly as `season()`, for the same reason: a bad value must
  * present as a configuration error rather than as "the API returned nothing".

@@ -37,6 +37,11 @@ npm run dev
 
 `.env.local` is gitignored and is the only place secrets belong.
 
+`npm run sync -- --due` is the other way in: it refreshes every configured
+league's calendar and then reads whatever finished matches it has not read yet,
+so it needs no matchday. Add `--dry-run` to see what it would fetch without
+spending a request.
+
 Other scripts: `npm test` runs Vitest over the sync mapper and the pages' pure
 helpers, `npm run db:check` proves the database layer end to end, `npm run
 icons` refetches the Material Symbols subset from the vocabulary in

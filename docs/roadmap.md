@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-13 (`/fixtures` opens on the league you last picked;
-the next thing is still step 10, scheduling the sync)
+**Last updated:** 2026-08-15 (the sync knows which matches to read; what is
+missing is something to run it on a timer — step 10.2)
 
 ---
 
@@ -148,6 +148,18 @@ theme and now has one, along with the token the design system was missing for it
 landing page had a drawing; two arrived afterwards and 8.4 built it. What remains
 between here and launch is data, scheduling and a checklist.
 
+**And the sync now knows what to read without being told.** `npm run sync --
+--due` refreshes all three calendars and then asks our own table which finished
+matches have not been read yet, which is why the leagues playing different
+weekends and different numbers of rounds costs no code at all — the question is
+asked per fixture, so the competitions never have to be told apart. A new column
+records when a match's detail was last read, and a match stays due until it has
+been read six hours past kickoff, which buys one confirming pass over ratings
+the provider revises after full time. Nothing throws its way out of a run any
+more and every run ends in one summary line, because the thing meant to call
+this has nobody watching it. **That thing does not exist yet**, so the deployed
+app's data is still as fresh as the last time a laptop was open.
+
 Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
 signing in through Madooo's own Google OAuth client and sending mail from
 `notifications@madooo.app`; the development instance survives on the laptop and
@@ -164,9 +176,10 @@ on Vercel's preview environment. What remains of the launch checklist is the
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
-- `npm run sync -- --round 1` fills the database from API-Football;
-  `npm run db:seed-teams` writes the club codes and colours the provider does not
-  publish; `npm test` runs Vitest over the mapper and the pages' pure helpers
+- `npm run sync -- --due` fills the database from API-Football with whatever
+  needs reading, and `-- --round N` with a named matchday; `npm run db:seed-teams`
+  writes the club codes and colours the provider does not publish; `npm test`
+  runs Vitest over the mapper, the selection policy and the pages' pure helpers
 - Visual designs exist in a Claude Design project, handed off into
   [`design/`](design/): [`foundations.md`](design/foundations.md) is the token
   set and the rules around it, with `colour.png` and `type-and-space.png` as its
@@ -193,8 +206,9 @@ says when it has nothing to show is part of the slice, not a later pass.
 
 Steps 9 to 13 are not screens. They are what stands between a working app and a
 launched one: real current data, a sync that runs without a laptop, and the last
-of the accounts to buy. What is left is the sync, and the season starting on
-21 August is what gives it a deadline rather than an ordering.
+of the accounts to buy. What is left is the running of the sync — it now knows
+what to read, and nothing calls it — and the season starting on 21 August is
+what gives that a deadline rather than an ordering.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -488,20 +502,53 @@ of the accounts to buy. What is left is the sync, and the season starting on
       does not exist: `npm run sync` is a CLI the author runs by hand, so the
       deployed app's data is only as fresh as the last time a laptop was open.
       **The season starts on 21 August, which turns this from the largest piece
-      of unbuilt work into the one with a date on it.** Nothing can be judged
-      until a round is hydrated, and nobody's fixture list stays right without a
-      daily re-read of a calendar that is still provisional past round 5.
+      of unbuilt work into the one with a date on it.**
 
-      Step 9 removed the obstacle this step was blocked on — a round is now about
-      five seconds rather than two minutes, comfortably inside a function's
-      timeout, so resumability is no longer a precondition; see
-      [`architecture.md`](architecture.md#scheduling-the-sync-is-unbuilt-and-the-obstacle-it-had-is-gone).
-      What is unsettled is which matches a run should hydrate. Do the design
-      before the plumbing — and design it against three calendars, not one. Step
-      11 made "the current round" ambiguous and step 13 added a third answer to
-      it: the leagues play different weekends, have different numbers of rounds,
-      and are at different points of their seasons, so a run has to decide per
-      league rather than once.
+      Four things were settled in planning, and the first of them settles the
+      question the step was stuck on. **The schedule fetches a lineup when it is
+      announced, not only after full time**, and a round pointer cannot express
+      "kicks off in ninety minutes" — so selection had to become per-fixture,
+      which is what dissolves the per-league problem step 11 opened and step 13
+      made worse. The trigger is **GitHub Actions**, not Vercel Cron, so the API
+      key stays out of the deployed environment. The cadence is **every 15
+      minutes, 09:00–23:45 UTC** — a Neon decision rather than a quota one,
+      since compute suspends after five minutes idle. And **standings are out of
+      scope**, with no season assertion either.
+  - [x] **10.1 — Selection, and a CLI safe to leave alone.** Done, post-match
+        only. `--due` asks our own table which finished matches have not been
+        read yet and needs no answer to "which round is current"; `Match.hydratedAt`
+        records when the detail endpoints were last read, and one predicate —
+        `hydratedAt IS NULL OR hydratedAt < kickoff + 6 hours` — covers "never
+        read", "read too early to be final" and "stop", terminating with no
+        attempt counter. A fourteen-day window is the give-up rule rather than
+        just a bound. The whole policy is
+        [`hydration.ts`](../src/lib/hydration.ts), which imports nothing and is
+        entirely under Vitest.
+
+        The unattended half cost as much as the selection: nothing throws its
+        way out of a run any more, the quota pre-flight clamps where it used to
+        refuse, and one summary line ends every run. `--due --dry-run` reports
+        the selection for nothing. `--round` stays as the repair tool — it
+        reaches a match the window has dropped.
+
+        Two things the payloads could not settle and the documentation had to.
+        The captured fixture lists contain only `FT` and `NS`, so the rest of
+        the status vocabulary is written down rather than observed, and the test
+        asserts only that every status the payloads *do* contain is classified.
+        And `AWD`/`WO` are the trap: a match awarded 3–0 is over and never had a
+        team sheet. Deliberately absent: no workflow, which is 10.2's, and
+        nothing pre-match, which is 10.3's.
+  - [ ] **10.2 — The workflow.** `.github/workflows/sync.yml`, the repository
+        secrets and variables, `workflow_dispatch`, and `concurrency` rather
+        than an advisory lock — a session lock does not survive Neon's pooler.
+        This is the slice that closes the non-negotiable.
+  - [ ] **10.3 — Announced lineups.** A second predicate for fixtures kicking
+        off within ninety minutes with no squad rows, fetching
+        `/fixtures/lineups` alone. It makes a match openable and judgeable
+        before kickoff, which no reference drawing shows, so the "team sheet, no
+        score" states are part of the slice. Probe what both per-fixture
+        endpoints return before kickoff first — this project has been caught
+        twice expecting API-Football to behave.
 - [x] **11 — A second league.** Done, and deliberately **before** step 10 rather
       than after it. The Primeira Liga's season was already under way while the
       Premier League's had not started, so it was the only way to put played
