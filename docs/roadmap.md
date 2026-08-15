@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (step 15 — `madooo.app` reads a production database
-branch of its own, filled from the provider and synced on the schedule)
+**Last updated:** 2026-08-15 (step 16 — the app runs beside its database, reads
+the signed-in user instead of rebuilding it, and answers a click at once)
 
 ---
 
@@ -208,6 +208,16 @@ development branch — which still carries 2024 and the judgements made against 
 — and nothing fills that one on a timer any more; `npm run sync -- --due` does,
 by hand, when a preview needs current football.
 
+**And a click now answers.** Three things were taking a second or two out of
+every navigation, none of them the queries. The functions ran in `iad1` while the
+database sits in `eu-west-2`, so six sequential round trips crossed the Atlantic
+on every page; they run in `lhr1` now. `requireDbUser()` asked Clerk's Backend
+API for the signed-in user on every render and wrote the row back — it reads the
+row instead, and only asks Clerk when there is no row to read. And no route had a
+`loading.tsx`, so a click left the previous page on screen until the server
+finished; every route has one now, which also turned on the `<Link>` prefetching
+that Next withholds from dynamic routes without one.
+
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
 - Clerk 7.x for auth, with Google and email/password enabled, on a production
@@ -215,7 +225,9 @@ by hand, when a preview needs current football.
 - Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
   squash-merged into `main`
 - Deployed on Vercel from `main`, built with `prisma generate && next build`;
-  Production reads the production Neon branch, Preview the development one
+  Production reads the production Neon branch, Preview the development one.
+  [`vercel.json`](../vercel.json) pins the functions to `lhr1`, the region both
+  Neon branches are in
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
@@ -782,6 +794,40 @@ than a build.
       Deliberately not done: the 2024 season stays on development. It is dev data
       on a dev branch, production never sees it, and removing it is not what this
       step was for.
+- [x] **16 — The delay on every click.** Done, in one slice of three parts, and
+      the first thing it settled is that **the queries were never the problem**.
+      They were timed before anything was changed: all five of `/fixtures`' reads
+      come back in 283–351ms from a laptop, and the shapes step 7 argued about —
+      the `groupBy`, the `DISTINCT ON`, the four parallel counts — are doing what
+      they were written to do. Nothing in `src/lib/` was touched.
+
+      What was wrong sat either side of them. **The functions ran in `iad1`**,
+      Vercel's default and never a choice, while both Neon branches are in
+      `eu-west-2`; a page making six sequential round trips paid roughly 80ms of
+      Atlantic for each, against 15–17ms from Europe. That is the whole reason
+      production felt slower than a laptop, which had read as an app problem
+      throughout. `vercel.json` is three lines and fixes it.
+
+      **`requireDbUser()` rebuilt the signed-in user on every render**, through
+      `currentUser()` — a fetch to Clerk's Backend API, 190–230ms, which their own
+      docs advise against — plus a write, to reproduce a row unchanged since
+      signup. `auth()` already carries the Clerk id in the verified cookie, so the
+      common path is now one indexed read and the slow path runs once per user
+      ever.
+
+      **And nothing said a click had registered.** No route had a `loading.tsx`,
+      so the previous page stayed up, untouched, until the server finished. Six
+      fallbacks now cover the group. The second effect was the one worth finding:
+      Next does not prefetch a dynamic route unless a loading file exists, so
+      every `<Link>` in a `force-dynamic` app had been prefetching nothing.
+
+      Two things this needed that were already written down: `foundations.md`
+      forbids the shimmer a skeleton usually carries, and `architecture.md` had
+      flagged the shell's `await` as something to move behind Suspense "if it ever
+      matters" — it was exactly what would have kept the fallback from showing.
+
+      Deliberately not done: `use cache`, and Neon's scale-to-zero. Both are in
+      Open decisions.
 
 ## Long-term remarks
 
@@ -840,6 +886,27 @@ must stay out of the Vercel build, are in
 - Do not test Prisma, Next's rendering, or other third-party code.
 
 ## Open decisions
+
+- **What is left of the delay is the sequential chain, and `use cache` is the
+  answer nobody has taken yet.** `/fixtures` still asks Neon six times in a row
+  because each answer decides the next question, and two of the six —
+  `leaguesWithMatches` and `listRounds` — do not depend on the reader at all and
+  change only when the sync runs. Caching those would collapse most of what
+  remains. The cost is not the caching: it is that `cacheComponents` is a
+  different rendering model, so every page loses `force-dynamic`, every uncached
+  read needs a `<Suspense>` boundary placed by hand, and `unstable_instant`
+  exists to check the placement because getting it wrong silently blocks
+  navigation instead of erroring. That is a step of its own, not a tail on
+  another one. *Resolved by doing it, or by deciding the app is fast enough
+  without it.*
+
+- **Neon's production branch may be scaling to zero, and nobody has looked.** A
+  suspended branch waking cost 544–860ms in step 16's measurements, which would
+  land on the first click after any quiet spell and swamp everything that step
+  fixed. It is a console setting rather than code, and it interacts with the
+  schedule: the sync runs every ten minutes, which may already be keeping the
+  compute awake for most of the day. *Resolved by reading the branch's setting
+  and timing a first click after an hour of silence.*
 
 - **The league flag is on `/fixtures` only, and cannot be on the two indexes as
   they are built.** The pill row carries a flag; `/players` and `/teams` scope

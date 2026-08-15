@@ -42,6 +42,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
   - [The three flags are vendored files under `public/`, not a dependency](#the-three-flags-are-vendored-files-under-public-not-a-dependency)
 - [The app shell](#the-app-shell)
+  - [Every route has a `loading.tsx`, and two separate things depend on it](#every-route-has-a-loadingtsx-and-two-separate-things-depend-on-it)
 - [Build and deploy](#build-and-deploy)
 
 ---
@@ -719,9 +720,28 @@ payload.
 
 Clerk owns identity; the database owns the `User` row. The two meet in exactly
 one place, [`src/lib/auth.ts`](../src/lib/auth.ts), where `requireDbUser()`
-upserts on `clerkId` and returns our own row. Get-or-create on first sight
-rather than a signup webhook, so no public URL is involved and a laptop behaves
-like the deployment.
+resolves the session to our own row. Get-or-create on first sight rather than a
+signup webhook, so no public URL is involved and a laptop behaves like the
+deployment.
+
+**`requireDbUser()` has two paths, and the split is the whole of its cost.** The
+fast one is `auth()` — which reads the cookie `clerkMiddleware` already verified
+and sends no request anywhere — followed by a `findUnique` on the unique
+`clerkId`. That is one indexed read, and it is what every request after a user's
+first ever visit takes. The slow one adds `currentUser()` and the upsert, and
+runs once per user in the app's lifetime.
+
+It used to run the slow path on every render of every page. `currentUser()` is a
+fetch to Clerk's Backend API — their own docs say it counts against the rate
+limit for `GET /v1/users/me` and recommend the client-side `useUser()` instead —
+and it was measured at 190–230ms, followed by a write, to rebuild a row that had
+not changed since signup. `auth().userId` is the same Clerk id `currentUser()`
+returns as `.id`, which is what makes the fast path possible without asking
+Clerk anything.
+
+The upsert survives on the slow path rather than becoming a `create`: two
+requests from one new user can both miss the `findUnique` and race, and a unique
+`clerkId` would make the loser throw.
 
 **Sign-in and sign-up are modals on the landing page, not routes.** There is no
 `/sign-in` page, so both the proxy and `requireDbUser()` send a signed-out
@@ -972,23 +992,27 @@ competition and the two do not have the same number of rounds, so carrying the
 number across is a false equivalence that can also land out of range. Dropping it
 lets `defaultRound` choose for the league just switched to.
 
-`src/app/(app)/layout.tsx` calls `requireDbUser()`, which is what provisions the
-row for everything below it. Nothing there renders anything from the result —
-Clerk supplies the name in the sidebar — so the call is purely the upsert plus
-the redirect. **Every other caller calls it again for itself**, and must: Server
-Actions render no layout at all, and a page that needs our `User.id` rather than
-just the guard has to ask for it. The match page, the fixtures page and both
-actions all do. The upsert is idempotent and memoised per request with React's
-`cache()`, so a second call in one render costs one indexed lookup.
-
-**The shell holds `{children}` behind an `await`.** Fine at this size, but the
-session read is a top-level await in a layout, so it delays the first streamed
-chunk for the whole segment. Next's guide describes pushing that into a nested
-component behind `<Suspense>` if it ever matters.
+**`src/app/(app)/layout.tsx` reads nothing.** It used to call `requireDbUser()`
+to provision the row for everything below it; that call is gone, because a
+layout reading runtime data suppresses `loading.tsx` for its whole segment (see
+[The app shell](#the-app-shell)). Nothing was lost with it: **every page and both
+Server Actions call `requireDbUser()` for themselves**, and must — Server Actions
+render no layout at all, and a page needing our `User.id` rather than just the
+guard has to ask for it. So the row is still provisioned on first sight, by
+whichever reader gets there first, and every reader of user data is still checked
+where it reads. The call is memoised per request with React's `cache()`, so a
+page and an action in one render share a single lookup.
 
 **`User.email` is nullable and the code respects that.** Google always supplies a
 verified address, so in practice it is populated — but the schema permits an
-account without one and nothing coerces it. Nothing currently renders it.
+account without one and nothing coerces it.
+
+**Nothing reads `User.email`, and since the fast path landed nothing refreshes
+it either.** It is written when the row is created and not touched again, so an
+address changed in Clerk leaves ours stale. That is invisible today — identity on
+screen is Clerk's own `<UserButton>`, which reads from Clerk — but anything that
+starts rendering the column needs a webhook or a deliberate re-read, not a return
+to asking Clerk on every render.
 
 **`createRouteMatcher` is deprecated by Clerk**, with "use resource-based auth
 checks instead" as the guidance; the dev server says so on every boot. This app
@@ -1730,6 +1754,42 @@ item.
   would be no URL change to react to. `drawer-context.ts` carries the close
   function down to `NavItem` instead.
 
+### Every route has a `loading.tsx`, and two separate things depend on it
+
+Next nests `loading.tsx` inside its segment's layout and wraps the page — and any
+nested layout — in a `<Suspense>` boundary. `(app)/loading.tsx` is the group's
+fallback and each route's own file overrides it, so a new route is never left
+without one.
+
+- **A layout that reads runtime data gets no fallback at all.** `loading.js`'s
+  reference is explicit: without Cache Components, navigation blocks until the
+  layout has finished rendering. This is why `(app)/layout.tsx` reads nothing —
+  a single `await` there held the skeleton back for every route in the group. Any
+  future session or cookie read in that file returns the app to a dead click, and
+  the fix is a nested `<Suspense>` rather than moving it back.
+- **A dynamic route is not prefetched unless a `loading.tsx` exists.** Next's
+  prefetching guide states it as a table: static routes prefetch whole, dynamic
+  routes prefetch "no, unless `loading.js`". Every route here is
+  `force-dynamic`, so before these files `<Link>` prefetching was off across the
+  entire app. The skeleton is therefore not only what the reader sees; it is the
+  thing that makes the prefetch have something safe to cache.
+- **The fallbacks copy their geometry off the real components** — the tile grid,
+  the fixture card's three bands, the index control row, `--row-h-lg`. The point
+  of a skeleton is that nothing moves when it is replaced, and matching spacing by
+  eye is exactly how that goes wrong. `skeleton.tsx` and `skeleton-index.tsx` hold
+  the shared pieces; the latter exists because `/players` and `/teams` draw one
+  control row and one list between them.
+- **A block's height comes from its type role, not from a number.** The role
+  class is applied to a block containing `&nbsp;`, so it is as tall as the line it
+  replaces and stays right if the scale is retuned. Widths are Tailwind fractions
+  and scale steps. `foundations.md` forbids the animation such a thing usually
+  carries — "no skeleton choreography" — so the blocks are static `--surface-alt`.
+- **Both index fallbacks draw the list layout, never the card grid.** The layout
+  is a `localStorage` preference read through `usePreference`, whose server
+  snapshot is `null`, and `parseLayout(null)` is `'list'`. The list is therefore
+  what the server renders and what the first paint shows however the toggle is
+  actually set.
+
 ---
 
 ## Build and deploy
@@ -1752,13 +1812,25 @@ deployment and, worse, prove only that the *build container* could reach Neon.
 `cacheComponents` is off, so the older route-segment config is the mechanism that
 applies; the newer `use cache` model does not.
 
+**The functions run in `lhr1`, and [`vercel.json`](../vercel.json) exists solely
+to say so.** Vercel's default is `iad1` — Washington DC — and the deployment sat
+there from step 4 until it was measured, while both Neon branches are in
+`eu-west-2`. `/fixtures` issues about six sequential round trips, each needing the
+previous one's answer, so every page load crossed the Atlantic six times at
+roughly 80ms a crossing; the same trip from a laptop in Europe is 15–17ms, which
+is why production was slower than development and looked like an app problem
+rather than a map problem. `lhr1` is London, the same AWS region as the database.
+**Anything that moves the database has to move this with it**, and the file is
+three lines so that the pairing is visible rather than buried in a dashboard.
+
 To reproduce what Vercel does: `rm -rf src/generated && npm run build`. Only that
 proves the build regenerates the client rather than leaning on a stale local copy.
 Every route under `(app)` should appear as `ƒ` (dynamic) in the route summary,
-because the shell layout reads the session. `/` is `○` (static) and should stay
-that way, since the landing page reads no database. That is a live constraint,
-not an observation: it is why the signed-in bounce off `/` sits in the proxy
-rather than in the page, where an `auth()` call would flip it to `ƒ`.
+because each page carries `force-dynamic` — not because of the shell layout,
+which reads nothing since the skeletons landed. `/` is `○` (static) and should
+stay that way, since the landing page reads no database. That is a live
+constraint, not an observation: it is why the signed-in bounce off `/` sits in the
+proxy rather than in the page, where an `auth()` call would flip it to `ƒ`.
 
 `rm -rf .next` after adding, renaming or moving a route. Next writes typed-route
 definitions into `.next/types`, and a stale copy makes `tsc --noEmit` fail — either
