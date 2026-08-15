@@ -48,7 +48,7 @@ export const WINDOW_DAYS = 14
 /**
  * How long after kickoff a reading counts as final.
  *
- * A run fifteen minutes after full time can catch API-Football mid-write —
+ * A run ten minutes after full time can catch API-Football mid-write —
  * minutes and ratings settle over the following hour. So a match stays due
  * until it has been read at least this long after it kicked off, which buys
  * every match exactly one confirming re-read that evening and then never again.

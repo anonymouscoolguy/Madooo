@@ -604,8 +604,8 @@ reason to touch.
 ### The schedule is a GitHub Actions workflow
 
 [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs `npm run sync
--- --due` every 15 minutes from 09:00 to 01:00 UTC — 64 runs a day, the last
-at 00:45. It adds no runtime code: it
+-- --due` every 10 minutes from 09:00 to 01:00 UTC — 96 runs a day, the last
+at 00:57. It adds no runtime code: it
 checks out, installs, generates the Prisma client and runs the existing CLI.
 
 **It is in Actions rather than Vercel Cron** for the reason that shaped
@@ -657,11 +657,23 @@ connection string gains a second home, and **GitHub disables a scheduled
 workflow after 60 days without repository activity** — it emails first, and the
 re-enable is a button.
 
+**Late is the smaller half of that first cost; dropped is the larger.** Measured
+over one afternoon on the original `*/15`, four of ten due slots fired at all,
+and the four that did ran 3 to 13 minutes behind. The 42-minute worst case that
+prompted the move to ten minutes was not one late run — it was two skipped slots
+and a third run three minutes late. GitHub's own documentation says a scheduled
+event may be delayed under load and that *"if the load is sufficiently high
+enough, some queued jobs may be dropped"*, so this is the documented behaviour
+rather than a misconfiguration. Nothing is lost when a slot is dropped: `--due`
+derives its own work from `Match.hydratedAt`, so the next run does whatever the
+skipped one would have. Only freshness suffers, which is why the answer is a
+tighter cadence and offset minutes rather than a retry.
+
 `workflow_dispatch` takes an optional `round`, `league` and `dry_run`, which puts
 the `--round N` repair tool on a button rather than requiring a laptop.
 
 Anything narrower than a whole-season calendar read is deliberately not built.
-Sixty-four runs a day at three calendar requests each is 192 of 7,500, and re-reading
+Ninety-six runs a day at three calendar requests each is 288 of 7,500, and re-reading
 is how a kickoff moved by a broadcaster reaches the app. `/fixtures?from=&to=`
 and `?ids=` are the escape hatches if a run ever needs to be cheaper, and the
 thing that would force it is a cadence below five minutes — at which point

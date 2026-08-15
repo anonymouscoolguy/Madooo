@@ -327,8 +327,8 @@ few gameweeks rather than a season. On Pro it is **a tenth of one day's quota**,
 and pacing puts it at around three minutes of wall clock. The constraint that
 shaped the CLI's round-at-a-time discipline is gone.
 
-**Steady state** is negligible either way. The scheduled run fires 64 times a
-day and re-reads each league's calendar every time, which is 192 requests of
+**Steady state** is negligible either way. The scheduled run fires 96 times a
+day and re-reads each league's calendar every time, which is 288 requests of
 7,500 before a single fixture is hydrated — the price of catching a kickoff a
 broadcaster has moved. Hydration adds two per finished fixture, so a full
 gameweek of three leagues is another 60-odd. Adding a league multiplies the

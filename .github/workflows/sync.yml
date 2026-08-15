@@ -24,13 +24,18 @@ name: sync
 
 on:
   schedule:
-    # Every 15 minutes from 09:00 to 01:00 UTC — the last run is 00:45, and the
-    # gap is 01:00–08:45, when nothing in three European leagues is finishing.
+    # Every 10 minutes from 09:00 to 01:00 UTC — the last run is 00:57 and the
+    # next is 09:07, a gap when nothing in three European leagues is finishing.
     # GitHub's cron is always UTC, and fires late under load — a run is not a
-    # clock. The floor on the cadence is Neon rather than quota: its compute
-    # suspends after five minutes idle, so anything under five minutes would keep
-    # the database awake all day.
-    - cron: '*/15 0,9-23 * * *'
+    # clock. The minutes are an offset list rather than */10 because the top of
+    # the hour is when the most workflows on the platform come due at once, and
+    # GitHub drops queued runs under load; :07 sits in a smaller crowd than :00.
+    # Neon bounds the cadence from both sides. Its compute suspends after five
+    # minutes idle, so anything under five minutes keeps the database awake all
+    # day and exhausts the free allowance — that is the floor. The same suspend
+    # is why ten beats fifteen: each run keeps the compute warm, so a tighter
+    # cadence more often spares a page load the cold start.
+    - cron: '7,17,27,37,47,57 0,9-23 * * *'
   workflow_dispatch:
     inputs:
       round:
