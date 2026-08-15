@@ -89,11 +89,16 @@ export async function listRounds(season: number, leagueId: number): Promise<Roun
  * The fallback matters for a season with nothing hydrated at all, where landing
  * on round 1 in August would be right and in May would not.
  *
- * **Both branches are live at once now, and which one a league takes is a fact
- * about that league.** In August the Primeira Liga is hydrated and takes the
- * first; the Premier League and La Liga have not kicked off and take the second.
- * Asked without a league, the hydrated one would answer for all of them, and
- * every other pill would open on a Portuguese matchday.
+ * **Both branches are live at once, and which one a league takes is a fact about
+ * that league.** One that has played takes the first; one whose season has not
+ * started has nothing hydrated and takes the second. The three do not start
+ * together — there is a fortnight between the earliest and the latest — so in
+ * August some are on each branch, and a league moves from the second to the
+ * first on its own opening weekend without a commit, because the schedule writes
+ * its first squads 45 minutes before its first kickoff.
+ *
+ * Asked without a league, a hydrated one would answer for all of them, and every
+ * other pill would open on that league's matchday.
  */
 export async function defaultRound(
   season: number,

@@ -9,24 +9,32 @@ How the system *works* is not here. That is
 you are about to touch before writing code in it.
 
 **Last updated:** 2026-08-15 (step 14 — the kickoff time reads on the reader's
-own clock)
+own clock; and La Liga's opening weekend, which the schedule reached on its own)
 
 ---
 
 ## Current state
 
-**There are three leagues, and one of them is being played.** The app runs on
+**There are three leagues, and two of them are being played.** The app runs on
 API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94,140`: the
 2026-27 Premier League, which kicks off on 21 August, the Primeira Liga, which
-started in August and whose first matchday is hydrated, and La Liga, which has
-not kicked off either. All three calendars are in the database — 380 matches, 306
-and 380 — and the Primeira Liga's opening nine are clickable, with lineups,
-squads and player statistics. The other two are not, and will not be until their
-own opening weekends: 6.2 decided a card with no squad does not navigate.
+started in August, and La Liga, whose opening weekend is 15 August. All three
+calendars are in the database — 380 matches, 306 and 380 — and the fixtures with
+squads are clickable, with lineups, squads and player statistics. The Premier
+League's are not, and will not be until its own opening weekend: 6.2 decided a
+card with no squad does not navigate.
 
 That asymmetry is the reason the second league was added before the sync was
 scheduled. Until it landed nothing on any screen had been played, so nothing past
 `/fixtures` could be exercised at all.
+
+**Which fixtures have squads is now the schedule's answer rather than a fact to
+record here.** The scheduled run asks for a team sheet from 45 minutes before
+each kickoff, so a league joins the app's populated half on its own opening
+weekend with no commit — La Liga's first squads were written by the 17:55 UTC run
+on 15 August, 45 minutes after the window for Alaves v Getafe opened and on the
+second ask, the first having found the sheet unpublished. Read the current state
+from the database rather than from this paragraph.
 
 The 2024 judgements are still in the database and no longer on any screen, since
 every read filters by season; they were the author's own test data.
@@ -680,10 +688,11 @@ what gives that a deadline rather than an ordering.
       all. Every file it touched outside the seed table and one test was a
       sentence that said "two leagues" and now says three.
 
-      **Nothing is hydrated**, because La Liga's 2026-27 season has not kicked
-      off. 380 fixtures and 20 clubs are in the database and every card reads
-      "No squad yet". Which matches a run should hydrate is still step 10's, and
-      that step now has three calendars to decide between rather than two.
+      **It landed with nothing hydrated**, because La Liga's 2026-27 season had
+      not kicked off: 380 fixtures and 20 clubs in the database and every card
+      reading "No squad yet". That state ended on its own on 15 August, without a
+      commit, which is the point — step 10's schedule reaches a league's opening
+      weekend by itself, and this step never had to say when.
 
       What the probe settled: league 140 is entitled for 2026 despite every
       coverage flag on that season being **false**, which is the plainest
@@ -762,9 +771,13 @@ empty list is the expected state.
   season made it permanent: fixtures are published months before team news, so a
   season in progress always contains matches whose squads do not exist yet. It
   was briefly total, with all 380 of 2026-27 bare; the Primeira Liga's first
-  matchday broke that, and the leagues now sit either side of the line at once —
-  two of the three entirely on the empty side. The current hydration state is readable from the database; what this
-  entry is for is the reminder that the empty case never stops being real.
+  matchday broke that, and the leagues have sat either side of the line ever
+  since — La Liga crossed it on its own opening weekend, the Premier League has
+  yet to. The current hydration state is readable from the database; what this
+  entry is for is the reminder that the empty case never stops being real. A
+  league mid-season is the proof rather than the exception: most of its fixtures
+  are bare at any given moment, because a squad is written 45 minutes before
+  kickoff and not before.
 
 ## Testing
 
@@ -831,9 +844,11 @@ must stay out of the Vercel build, are in
 
   This entry used to say *"revisit when a third league is synced"*, and step 13
   synced one. It was looked at and deliberately left alone — and the trigger was
-  the wrong shape, because a league that has not kicked off adds **nothing** to
-  the payload: the list is players with squad rows, so La Liga is not in it at
-  all. A league count was never the thing that moves this number.
+  the wrong shape, because at the moment a league is configured it adds
+  **nothing** to the payload: the list is players with squad rows, and a league
+  that has not kicked off has none. La Liga demonstrated both halves of that
+  within a week, joining the payload on its opening weekend rather than when it
+  was configured. A league count was never the thing that moves this number.
   *Revisit when `/players` ships more than a few thousand players — which is
   measurable from the page itself rather than from how many leagues are
   configured.*

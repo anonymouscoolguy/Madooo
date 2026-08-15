@@ -275,10 +275,14 @@ export async function playerJudgements(season: number, userId: number) {
  *
  * Only leagues with squad rows, so an option cannot filter the list to nothing.
  * That is a stricter question than `leaguesWithMatches` asks, and deliberately:
- * a league whose season has not kicked off has no players to list, so in August
- * this offers the Primeira Liga alone, and neither the Premier League nor La
- * Liga. It is also why the league row on `/fixtures` cannot be built from this
- * one.
+ * a league whose season has not kicked off has no players to list, so it is
+ * absent here while being present on `/fixtures` — which is why the league row
+ * there cannot be built from this one.
+ *
+ * **A league appears here on its own opening weekend, with no deploy.** The
+ * schedule writes its first team sheets 45 minutes before its first kickoff, and
+ * that is the moment this query starts returning it. So which leagues this
+ * offers is not a fact worth writing down anywhere; in August it changes twice.
  */
 export async function leaguesInSeason(season: number) {
   return prisma.league.findMany({
