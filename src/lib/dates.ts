@@ -12,6 +12,18 @@
  * and, for a late one, two different dates. Europe/London because these are
  * English football fixtures and that is the clock they are played on.
  *
+ * **One exception, and it is deliberately narrow: `kickoffTime` will take a
+ * zone.** A date, a matchday's span and a month heading all answer *where in the
+ * season am I*, which is a question about the competition's calendar and has one
+ * right answer for every reader. What time to sit down is a question about the
+ * reader, so `KickoffTime` hands this the browser's own zone. The default stays
+ * London, so a caller that says nothing gets the fixed zone as before.
+ *
+ * The *locale* is not part of that exception. `en-GB` and `hourCycle: 'h23'`
+ * hold whatever zone is passed: a reader's locale would render `4:00 pm` for an
+ * American, which is a different width in a slot foundations sizes tightly and
+ * not a number you can add up, which is what makes a time monospaced at all.
+ *
  * **Months are cut to three letters, and that is not laziness.** `en-GB` renders
  * September as `Sept` — four characters, where every other month gets three —
  * and the design's date chips are three-letter months throughout. Left alone it
@@ -77,9 +89,48 @@ export function kickoffDate(kickoff: Date): string {
   return `${weekday} ${day} ${month}`
 }
 
-/** `15:00`, shown in place of a score for a match that has not been played. */
-export function kickoffTime(kickoff: Date): string {
-  return timeOnly.format(kickoff)
+/**
+ * The same formatter as `timeOnly`, in some other zone. Cached because the
+ * module docblock's reason applies twice over here: the `Intl` constructor is
+ * the expensive part, and a page of fixtures would ask for the same zone dozens
+ * of times in a row. Every card on a page resolves to one zone, so this holds
+ * one entry.
+ *
+ * `Intl` throws `RangeError` on a zone it does not know, and the zone reaching
+ * this comes from a browser. An exception here would take down a whole page of
+ * fixtures over a time, so an unknown zone falls back to London — the same
+ * reading as `use-preference.ts` catching around `localStorage`.
+ */
+const zoned = new Map<string, Intl.DateTimeFormat>()
+
+function timeIn(zone: string): Intl.DateTimeFormat {
+  const cached = zoned.get(zone)
+  if (cached !== undefined) return cached
+
+  let formatter: Intl.DateTimeFormat
+  try {
+    formatter = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone: zone,
+    })
+  } catch {
+    formatter = timeOnly
+  }
+
+  zoned.set(zone, formatter)
+  return formatter
+}
+
+/**
+ * `15:00`, shown in place of a score for a match that has not been played.
+ *
+ * The only formatter here that takes a zone, and the only one a reader's own
+ * clock has any business answering. Omit it for London; see the docblock above.
+ */
+export function kickoffTime(kickoff: Date, zone?: string): string {
+  return (zone === undefined ? timeOnly : timeIn(zone)).format(kickoff)
 }
 
 /**

@@ -38,6 +38,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [Hovering a filled surface and hovering a tint were resolved differently](#hovering-a-filled-surface-and-hovering-a-tint-were-resolved-differently)
   - [The dialog is the platform's, and so are the fields](#the-dialog-is-the-platforms-and-so-are-the-fields)
   - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
+  - [The season's calendar is pinned to London; a kickoff time is the reader's](#the-seasons-calendar-is-pinned-to-london-a-kickoff-time-is-the-readers)
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
   - [The three flags are vendored files under `public/`, not a dependency](#the-three-flags-are-vendored-files-under-public-not-a-dependency)
 - [The app shell](#the-app-shell)
@@ -299,7 +300,9 @@ Cutting the sorted run into months is `groupByMonth` in
 That is what keeps the `ORDER BY` the single opinion about order. It lives in
 `dates.ts` rather than beside the screen because "which calendar month is this
 in" is answered by the fixed `Europe/London` zone that file owns, and a second
-file holding an opinion about the zone is one too many.
+file *formatting* against a zone of its own is one too many. `KickoffTime` is not
+that second file: it reports the browser's zone and hands it back to `dates.ts`,
+which still does every piece of formatting in the app.
 
 ### The connection strings pin `sslmode=verify-full`
 
@@ -873,6 +876,13 @@ requires: `getSnapshot` must return a **primitive**, since React compares it wit
 `Object.is` and a fresh object each call loops forever; and the `storage` event
 fires only in *other* documents, so a writer has to notify its own listeners.
 Both are in [`use-preference.ts`](../src/components/use-preference.ts).
+
+The hook has a second user that is not a preference at all —
+[`KickoffTime`](../src/components/kickoff-time.tsx), reading the browser's
+timezone, where the value cannot change while the page is open and `subscribe`
+is therefore a noop. The primitive rule still binds; nothing else in this section
+does. See [the dates
+entry](#the-seasons-calendar-is-pinned-to-london-a-kickoff-time-is-the-readers).
 
 A stored value is **exactly as untrusted as a URL parameter** — it outlives
 deploys, it is editable in devtools, and it can name a league that no longer has
@@ -1512,12 +1522,54 @@ The players index added the other two — a text input and a `<select>`, in
   `Team.colour` as an inline style on the crest chip; the chip's ink is picked by
   WCAG luminance and is `--gray-0` or `--gray-9` — base tokens, because the chip
   sits on a fixed colour and its ink must not flip with the theme.
-- **Every date the app renders goes through
-  [`src/lib/dates.ts`](../src/lib/dates.ts)**, pinned to `Europe/London`. Vercel
-  runs in UTC and a laptop does not, so an unpinned formatter renders one kickoff
-  as two different times and, late enough, two different dates. It builds its
-  output from `formatToParts` rather than `format` so the month can be cut to
-  three letters — see the `Sept` finding above.
+### The season's calendar is pinned to London; a kickoff time is the reader's
+
+**Every date the app renders goes through
+[`src/lib/dates.ts`](../src/lib/dates.ts)**, and its three formatters are pinned
+to `Europe/London`. Vercel runs in UTC and a laptop does not, so an unpinned
+formatter renders one kickoff as two different times and, late enough, two
+different dates. It builds its output from `formatToParts` rather than `format`
+so the month can be cut to three letters — see the `Sept` finding above.
+
+**One date escapes the pin, and the line that admits it is the thing to apply to
+anything later.** A fixture's date, a matchday's span and a diary's month heading
+answer *where in the season am I* — a question about the competition's calendar,
+with one right answer for every reader, and moving them would put a fixture on
+the wrong matchday for somebody. A kickoff **time** answers *when do I sit down*,
+which is a question about the reader. So `kickoffTime` takes an optional zone and
+nothing else does, and [`KickoffTime`](../src/components/kickoff-time.tsx) is the
+client island that hands it `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+
+The *locale* does not follow the zone. `en-GB` and `hourCycle: 'h23'` hold
+whatever zone is passed, because a reader's locale gives `4:00 pm` — a different
+width in a slot foundations sizes tightly, and not a number you can add up, which
+is what makes a time monospaced at all.
+
+Three things about the mechanism:
+
+- **The hook is `useSyncExternalStore`, for the reason the two indexes use it**
+  — the server cannot see a browser value, so it needs a separate server
+  snapshot. Here that snapshot is `undefined`, which is what `kickoffTime` reads
+  as "London", so the server render and the first client render agree by
+  construction.
+- **`suppressHydrationWarning` is not the answer and would look like one.** It
+  tells React to keep the DOM's text, and the DOM's text is what the *server*
+  sent — so it would suppress the warning and the localisation with it.
+- **A timezone cookie set by a script in the head was the alternative** and was
+  not taken: it is still wrong on a first visit, and it puts a cookie on every
+  request to save one frame.
+
+**The cost is the same one `localStorage` pays and is stated for the same
+reason: the first paint is London.** A reader in Tokyo sees the English time for
+one frame after a cold load. A reader in the UK, or in Lisbon, sees nothing move
+— which is also why this cannot be checked by eye on a machine set to either.
+
+Two things that are less obvious than they look. `Intl` throws `RangeError` on a
+zone it cannot resolve and the zone comes from a browser, so an unknown one falls
+back to London rather than taking a page of fixtures down over a time. And the
+match page's `sr-only` `<h1>` had to become a node rather than a string: it
+announces the kickoff, so left server-formatted it would read the London time
+into a screen reader while the scoreline beside it drew the local one.
 
 ### The icon font is a subset, fetched by script
 

@@ -87,6 +87,63 @@ describe('kickoffTime', () => {
     }).format(summer.kickoff)
     expect(kickoffTime(summer.kickoff)).not.toBe(utc)
   })
+
+  /*
+    The zone argument. `KickoffTime` is what passes one, and it can only pass the
+    browser's — which is this machine's, and this machine is on London's offset.
+    So the arithmetic is proved here, where a zone can be named, or it is not
+    proved anywhere.
+
+    Constructed timestamps rather than payload ones for the boundary cases, for
+    the same reason `monthLabel` gives below: the claim under test is about the
+    formatter, not about the provider's shape.
+  */
+  it('reads a zone it is handed, not London', () => {
+    // 2025-08-16, 15:00 London — a Saturday three o'clock, which is the most
+    // ordinary kickoff there is.
+    const threeOClock = new Date('2025-08-16T14:00:00Z')
+    expect(kickoffTime(threeOClock)).toBe('15:00')
+    expect(kickoffTime(threeOClock, 'Europe/London')).toBe('15:00')
+    expect(kickoffTime(threeOClock, 'America/New_York')).toBe('10:00')
+    expect(kickoffTime(threeOClock, 'Asia/Tokyo')).toBe('23:00')
+  })
+
+  it('stays 24-hour in a zone whose locale is not', () => {
+    // The locale is deliberately not part of what a zone changes: `en-GB` and
+    // `h23` hold, so a reader in New York gets 20:00 rather than 8:00 pm — four
+    // characters, in a slot sized for four characters.
+    const evening = new Date('2025-08-17T23:00:00Z')
+    expect(kickoffTime(evening, 'America/New_York')).toMatch(/^\d{2}:\d{2}$/)
+    expect(kickoffTime(evening, 'America/New_York')).toBe('19:00')
+  })
+
+  it('crosses midnight into the next day where the zone does', () => {
+    // 20:00 London on a Sunday is 04:00 Monday in Tokyo. The time is all this
+    // renders, so the day is the caller's problem — asserting it here records
+    // that the two can disagree, which is why the date chip stays on London.
+    const lateSunday = new Date('2025-08-17T19:00:00Z')
+    expect(kickoffTime(lateSunday)).toBe('20:00')
+    expect(kickoffTime(lateSunday, 'Asia/Tokyo')).toBe('04:00')
+  })
+
+  it('falls back to London on a zone Intl does not know', () => {
+    // The zone comes from a browser, and `Intl` throws `RangeError` on one it
+    // cannot resolve. A page of fixtures must not go down over a time.
+    const threeOClock = new Date('2025-08-16T14:00:00Z')
+    expect(kickoffTime(threeOClock, 'Mars/Olympus_Mons')).toBe('15:00')
+    expect(kickoffTime(threeOClock, '')).toBe('15:00')
+  })
+
+  it('formats every fixture in the season in a far-off zone', () => {
+    // The whole payload through the zoned path, not just the constructed cases:
+    // the cache is keyed by zone and hands the same formatter back every time,
+    // so this is also what would catch it returning a stale one.
+    for (const { kickoff } of played) {
+      expect(kickoffTime(kickoff, 'Pacific/Auckland'), kickoff.toISOString()).toMatch(
+        /^\d{2}:\d{2}$/,
+      )
+    }
+  })
 })
 
 describe('dateRange', () => {

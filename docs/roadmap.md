@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (step 10.3 — a match is openable before it kicks
-off, which finishes step 10)
+**Last updated:** 2026-08-15 (step 14 — the kickoff time reads on the reader's
+own clock)
 
 ---
 
@@ -178,6 +178,14 @@ scoreline drawn at kick-off plus ten would sit there going stale; the score
 arrives when the match is over and the number stops moving. Those three states —
 unplayed, in play, finished — are now distinguishable at a glance on the
 fixtures page, which they were not.
+
+**And a kickoff time now says when *you* sit down.** The time a fixture card
+draws in place of a score, and the one the match page draws under the same
+condition, are formatted in the reader's own timezone rather than in English
+football's. Nothing else moved: the date on the card, the matchday's span and the
+diary's month headings are all still the competition's calendar, which has one
+right answer for everybody. No zone label beside the number and no setting to
+turn it off — it is simply the reader's clock.
 
 Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
 signing in through Madooo's own Google OAuth client and sending mail from
@@ -689,6 +697,31 @@ what gives that a deadline rather than an ordering.
       carrying that name. It did not. The assertion is still worth keeping as a
       test of the normaliser's diacritic handling, but it now says so rather
       than claiming to be about La Liga.
+- [x] **14 — The kickoff time on the reader's clock.** Done, and scoped
+      deliberately narrow. Every date in the app was formatted in a fixed
+      `Europe/London`, which is right for a matchday and wrong for the one date
+      that is about the reader rather than the season. `kickoffTime` now takes a
+      zone; the other four formatters do not, and the line between them is in
+      [`architecture.md`](architecture.md#the-seasons-calendar-is-pinned-to-london-a-kickoff-time-is-the-readers).
+
+      **The server cannot know a reader's zone, so this is the app's first client
+      island that is not about screen state.** `KickoffTime` reads the browser's
+      through `useSyncExternalStore`, which is the two indexes' hook used for a
+      value that is not a preference — the server snapshot is "London", so the
+      two renders agree and the first paint is the English time before it swaps.
+      That cost was accepted rather than paid down: the alternative is a timezone
+      cookie set in the head, still wrong on a first visit and charged to every
+      request.
+
+      What the browser check caught that a test could not: the visible time and
+      the match page's `sr-only` heading are two renderings of the same kickoff,
+      and localising only the first would have read 20:30 into a screen reader
+      beside a 21:30 on screen. Also settled in planning: **no zone label** — the
+      score slot is four characters wide — and **no setting**, since a reader who
+      wants English kickoff times is not a reader this app has.
+
+      Deliberately absent: the locale does not follow the zone, so a reader in
+      New York gets `20:00` and not `8:00 pm`; and nothing else localises.
 
 ## Long-term remarks
 

@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { Badge, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
-import { kickoffDate, kickoffTime } from '@/lib/dates'
+import { KickoffTime } from './kickoff-time'
+import { kickoffDate } from '@/lib/dates'
 import { isInProgress } from '@/lib/match-status'
 import { plural } from '@/lib/text'
 import { countNotes, countVerdicts } from '@/lib/verdicts'
@@ -31,8 +32,11 @@ function Score({ match }: { match: Fixture }) {
 
   // Null goals means no result recorded, not a goalless draw — so the kickoff
   // time stands in, which is the thing a reader of an unplayed fixture wants.
+  // On the reader's own clock, and the only date on this card that is: the
+  // header's is the matchday, which is the competition's calendar rather than
+  // theirs. `KickoffTime` is the whole element, so there is no span around it.
   if (match.homeGoals === null || match.awayGoals === null) {
-    return <span className="text-data text-muted">{kickoffTime(match.kickoff)}</span>
+    return <KickoffTime kickoff={match.kickoff} className="text-data text-muted" />
   }
   return (
     // Monospaced and large: a score is the most counted number on the page.

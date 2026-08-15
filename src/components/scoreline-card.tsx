@@ -3,8 +3,9 @@ import { BackLink } from './back-link'
 import { Badge, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
+import { KickoffTime } from './kickoff-time'
 import { teamHref } from '@/lib/back'
-import { kickoffDate, kickoffTime } from '@/lib/dates'
+import { kickoffDate } from '@/lib/dates'
 import { isInProgress } from '@/lib/match-status'
 import { fixtureName, scoreline } from '@/lib/text'
 import type { IconName } from './icon-names'
@@ -66,9 +67,10 @@ function Score({ match }: { match: MatchWithSquads }) {
 
   // Null goals means no result recorded, not a goalless draw — so the kickoff
   // time stands in, which is `FixtureCard`'s reading and the thing a reader of
-  // an unplayed fixture wants.
+  // an unplayed fixture wants. On the reader's own clock, as that card's is; the
+  // strip's date above stays on the competition's.
   if (match.homeGoals === null || match.awayGoals === null) {
-    return <span className="text-data text-muted">{kickoffTime(match.kickoff)}</span>
+    return <KickoffTime kickoff={match.kickoff} className="text-data text-muted" />
   }
 
   // An en dash, not a hyphen — it is a span between two numbers.
@@ -132,11 +134,21 @@ export function ScorelineCard({
   // takes the clubs without a score, because the heading is the only place the
   // score is announced and stating one the page has chosen not to draw would
   // put a number in the accessibility tree that is nowhere on the screen.
-  const name = live
+  //
+  // The unplayed case is a node rather than a string, and that is the whole
+  // reason: it announces the kickoff time, and the time on screen is the
+  // reader's. Left as a server-formatted string it would say 15:00 into a screen
+  // reader while the scoreline beside it drew 23:00 — a contradiction that lands
+  // hardest on someone using magnification and a screen reader together.
+  const name: React.ReactNode = live
     ? `${fixtureName(match)}, live`
     : played
       ? scoreline(match)
-      : `${scoreline(match)}, kick-off ${kickoffTime(match.kickoff)}`
+      : (
+          <>
+            {scoreline(match)}, kick-off <KickoffTime kickoff={match.kickoff} />
+          </>
+        )
 
   return (
     <header className="mb-8">
