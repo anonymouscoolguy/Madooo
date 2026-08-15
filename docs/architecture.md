@@ -27,7 +27,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [A position is one of four letters, and the designs ask for more](#a-position-is-one-of-four-letters-and-the-designs-ask-for-more)
   - [Anything a page needs from a round string lives in `src/lib/rounds.ts`](#anything-a-page-needs-from-a-round-string-lives-in-srclibroundsts)
   - [The tests read `scratch/`, which is gitignored](#the-tests-read-scratch-which-is-gitignored)
-  - [The sync knows what to run; nothing runs it yet](#the-sync-knows-what-to-run-nothing-runs-it-yet)
+  - [The schedule is a GitHub Actions workflow](#the-schedule-is-a-github-actions-workflow)
 - [Auth and routing](#auth-and-routing)
   - [The landing page reads nothing, and everything on it is fiction](#the-landing-page-reads-nothing-and-everything-on-it-is-fiction)
   - [A location goes in the URL; a preference goes in `localStorage`](#a-location-goes-in-the-url-a-preference-goes-in-localstorage)
@@ -73,15 +73,20 @@ between the Production and Preview environments — see
 at the dev branch by putting the dev connection string in `DATABASE_URL` would
 work equally well and label it a lie; this way the variable names stay true.
 
-Switching to production later means creating the Neon branch, running
-`prisma migrate deploy` against its direct endpoint, syncing it, then setting
-`DATABASE_TARGET=production` and `DATABASE_URL` on Vercel's production
-environment and removing `DATABASE_URL_DEV` there. Preview deployments should
-keep pointing at development.
+**The scheduled sync follows the deployment onto that branch**, so the
+development connection string has a second home: a `DATABASE_URL_DEV` secret in
+GitHub Actions — see [The schedule is a GitHub Actions
+workflow](#the-schedule-is-a-github-actions-workflow). Switching to production
+later means creating the Neon branch, running `prisma migrate deploy` against its
+direct endpoint, syncing it, then setting `DATABASE_TARGET=production` and
+`DATABASE_URL` on Vercel's production environment and removing `DATABASE_URL_DEV`
+there — **and doing the same to the Actions secrets in the same sitting**, or the
+deployment will read a branch nothing is syncing. Preview deployments should keep
+pointing at development.
 
-`API_FOOTBALL_KEY` is deliberately absent from Vercel. Nothing may call
-API-Football during a page render, and withholding the key makes any code that
-tries fail loudly rather than quietly spend the day's quota.
+`API_FOOTBALL_KEY` is deliberately absent from Vercel, and present in Actions.
+Nothing may call API-Football during a page render, and withholding the key makes
+any code that tries fail loudly rather than quietly spend the day's quota.
 
 ### Prisma 7 differs from most writing about it
 
@@ -540,28 +545,71 @@ test reaches has to import its neighbours relatively — including
 `../generated/prisma/enums`, which is the one generated module a pure helper has
 reason to touch.
 
-### The sync knows what to run; nothing runs it yet
+### The schedule is a GitHub Actions workflow
 
-`--due` is the whole of what a scheduled run needs to do, and it is verified by
-hand. What does not exist is the thing that calls it on a timer, so the deployed
-app's data is still only as fresh as the last time a laptop was open.
+[`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs `npm run sync
+-- --due` every 15 minutes from 09:00 to 23:45 UTC. It adds no runtime code: it
+checks out, installs, generates the Prisma client and runs the existing CLI.
 
-**The trigger is going to GitHub Actions rather than Vercel Cron**, and the
-reason is the one that shaped `apiFootballKey()` in the first place: the key is
-withheld from the deployed environment, so a page that reached API-Football
-fails loudly at the moment the mistake is made. A cron route under `src/app/`
-would need `API_FOOTBALL_KEY` and `LEAGUES` on Vercel, and the guarantee would
-stop being environmental and become a lint rule somebody has to keep running.
-Running the existing CLI from Actions keeps it structural and adds no runtime
-code. The costs, stated: Actions' cron fires late under load, the production
-connection string gains a second home, and GitHub disables a scheduled workflow
-after 60 days without repository activity.
+**It is in Actions rather than Vercel Cron** for the reason that shaped
+`apiFootballKey()` in the first place: the key is withheld from the deployed
+environment, so a page that reached API-Football fails loudly at the moment the
+mistake is made. A cron route under `src/app/` would need `API_FOOTBALL_KEY` and
+`LEAGUES` on Vercel, and the guarantee would stop being environmental and become
+a lint rule somebody has to keep running.
+
+**It writes the development branch** — `DATABASE_URL_DEV`, and `DATABASE_TARGET`
+deliberately unset — because that is the branch the deployment reads. The two
+follow each other: syncing production while Vercel reads development would leave
+the app exactly as stale as no schedule at all.
+
+Four repository settings under `Settings → Secrets and variables → Actions`
+carry the configuration. `DATABASE_URL_DEV` and `API_FOOTBALL_KEY` are secrets;
+`SEASON` and `LEAGUES` are **variables**, because they are configuration and
+nothing about them is sensitive. That is what makes the fourth league a field in
+a web form rather than a commit. The consequence: **`LEAGUES` and `SEASON` have
+two homes**, `.env.local` and the repository variables, and they can disagree —
+the laptop's copy governs a hand-run sync, the variables govern every scheduled
+one.
+
+Four things in that file are load-bearing rather than taste:
+
+- **`concurrency` is the lock, and Postgres cannot be.** A Postgres advisory
+  lock is scoped to a session, and Neon's pooler hands sessions out per
+  transaction, so ours would be released underneath us. The thing being guarded
+  is two *runs*, which is something GitHub can see and the database cannot.
+  `cancel-in-progress: false` lets a slow run finish; GitHub keeps at most one
+  run pending behind it and cancels older pending ones, so overruns cannot build
+  a backlog.
+- **`npm run db:generate` is a required step.** The Prisma client is gitignored
+  build output and there is no `postinstall` hook. It is also why the env sits at
+  job level rather than on the sync step: `prisma generate` needs a database URL
+  of its own, for the reason under [Build and
+  deploy](#build-and-deploy).
+- **Workflow inputs reach the shell through `env:`**, never interpolated into
+  the `run:` body — that is how an input becomes arbitrary shell. The argument
+  builder uses full `if` blocks rather than `[ … ] && args+=(…)`, because a
+  `run:` block executes under `bash -e` and a trailing `&&` chain whose test is
+  false returns 1.
+- **`npm test` and `prisma migrate deploy` are deliberately absent.** The suite
+  reads captured payloads from `scratch/`, which a fresh clone does not have;
+  migrations stay a deliberate act from a laptop.
+
+The costs, stated: Actions' cron fires late under load, the development
+connection string gains a second home, and **GitHub disables a scheduled
+workflow after 60 days without repository activity** — it emails first, and the
+re-enable is a button.
+
+`workflow_dispatch` takes an optional `round`, `league` and `dry_run`, which puts
+the `--round N` repair tool on a button rather than requiring a laptop.
 
 Anything narrower than a whole-season calendar read is deliberately not built.
-`/fixtures?from=&to=` and `?ids=` are the escape hatches if a run ever needs to
-be cheaper, and the thing that would force it is a cadence below five minutes —
-at which point Neon's compute stops suspending between runs, which is a larger
-cost than the payload.
+Sixty runs a day at three calendar requests each is 180 of 7,500, and re-reading
+is how a kickoff moved by a broadcaster reaches the app. `/fixtures?from=&to=`
+and `?ids=` are the escape hatches if a run ever needs to be cheaper, and the
+thing that would force it is a cadence below five minutes — at which point
+Neon's compute stops suspending between runs, which is a larger cost than the
+payload.
 
 ---
 

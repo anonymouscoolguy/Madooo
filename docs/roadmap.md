@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (the sync knows which matches to read; what is
-missing is something to run it on a timer — step 10.2)
+**Last updated:** 2026-08-15 (the sync runs on a timer in GitHub Actions —
+step 10.2, which closes the second non-negotiable)
 
 ---
 
@@ -157,8 +157,16 @@ records when a match's detail was last read, and a match stays due until it has
 been read six hours past kickoff, which buys one confirming pass over ratings
 the provider revises after full time. Nothing throws its way out of a run any
 more and every run ends in one summary line, because the thing meant to call
-this has nobody watching it. **That thing does not exist yet**, so the deployed
-app's data is still as fresh as the last time a laptop was open.
+this has nobody watching it.
+
+**And that thing now exists.** A GitHub Actions workflow runs `--due` every
+fifteen minutes from 09:00 to 23:45 UTC, so the deployed app's data no longer
+depends on a laptop being open — which is the app's second non-negotiable
+finally being true rather than assumed. It writes the development branch,
+because that is the one Vercel reads. The season and the leagues are repository
+*variables* there rather than secrets, so a fourth league is still a field in a
+form and no commit; the price is that both now have two homes, `.env.local` and
+GitHub, which can disagree.
 
 Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
 signing in through Madooo's own Google OAuth client and sending mail from
@@ -194,6 +202,9 @@ on Vercel's preview environment. What remains of the launch checklist is the
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `LEAGUES`, `DATABASE_URL`,
   `DATABASE_URL_DEV` and four Clerk variables — the development instance's test
   keys, which are what a laptop must use; `.env.example` documents the full set
+- [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs the sync on
+  a timer, out of two repository secrets (`DATABASE_URL_DEV`,
+  `API_FOOTBALL_KEY`) and two repository variables (`SEASON`, `LEAGUES`)
 
 ## Build order
 
@@ -220,7 +231,7 @@ what gives that a deadline rather than an ordering.
       `npm test` and by reading the rows.
 - [x] **4 — Deploy to Vercel.** Live, with `/` reading fixtures from Neon at
       request time so the deployment proves the database path and not just the
-      hosting. Sync is still a local CLI; scheduling it is step 10.
+      hosting.
 - [x] **5 — Auth.** Clerk wired up, with Google and email/password, signed in
       through a modal on the landing page. `/` is public and the fixture list
       moved to `/dashboard`, which shows the signed-in user's email. The `User`
@@ -497,12 +508,13 @@ what gives that a deadline rather than an ordering.
       real kickoff times, the rest sitting at a placeholder Saturday 14:00 until
       broadcast selections move them. See
       [`architecture.md`](architecture.md#a-live-seasons-calendar-is-provisional-and-a-closed-ones-is-not).
-- [ ] **10 — Schedule the sync. The next thing, and now urgent.** The app's
-      second non-negotiable assumes a scheduled job writes into Postgres, and it
-      does not exist: `npm run sync` is a CLI the author runs by hand, so the
-      deployed app's data is only as fresh as the last time a laptop was open.
-      **The season starts on 21 August, which turns this from the largest piece
-      of unbuilt work into the one with a date on it.**
+- [ ] **10 — Schedule the sync.** The app's second non-negotiable assumes a
+      scheduled job writes into Postgres. It did not exist — `npm run sync` was a
+      CLI the author ran by hand, so the deployed app's data was only ever as
+      fresh as the last time a laptop was open — and **the season starting on 21
+      August turned it from the largest piece of unbuilt work into the one with a
+      date on it.** 10.1 and 10.2 have since closed it for played matches; what
+      is left is 10.3, which is about matches that have not kicked off.
 
       Four things were settled in planning, and the first of them settles the
       question the step was stuck on. **The schedule fetches a lineup when it is
@@ -538,10 +550,31 @@ what gives that a deadline rather than an ordering.
         And `AWD`/`WO` are the trap: a match awarded 3–0 is over and never had a
         team sheet. Deliberately absent: no workflow, which is 10.2's, and
         nothing pre-match, which is 10.3's.
-  - [ ] **10.2 — The workflow.** `.github/workflows/sync.yml`, the repository
-        secrets and variables, `workflow_dispatch`, and `concurrency` rather
-        than an advisory lock — a session lock does not survive Neon's pooler.
-        This is the slice that closes the non-negotiable.
+  - [x] **10.2 — The workflow.** Done, and it closes the non-negotiable: the
+        deployed app's data no longer depends on a laptop.
+        [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs `--due`
+        every fifteen minutes, 09:00–23:45 UTC, on two secrets and two
+        *variables* — `SEASON` and `LEAGUES` are configuration and nothing about
+        them is sensitive, so the fourth league stays a field in a form. It
+        writes the **development** branch, following the deployment onto it;
+        syncing production while Vercel reads development would have left the app
+        exactly as stale as no schedule at all. `concurrency` is the lock, since
+        a Postgres advisory lock is scoped to a session and Neon's pooler hands
+        sessions out per transaction.
+
+        No runtime code: it checks out, `npm ci`, `db:generate`, and runs the CLI
+        10.1 had already made safe to leave alone. The generate step is not
+        optional — the Prisma client is gitignored build output and there is no
+        `postinstall`. `npm test` is deliberately absent, since the suite reads
+        payloads from a gitignored `scratch/`, and so is `prisma migrate deploy`.
+
+        Verified before merging by cloning the branch to a fresh directory and
+        running the job's three commands with only its four variables in the
+        environment and no `.env.local` — which is the part that could not be
+        proved any other way, since a workflow only runs from the default branch.
+        `workflow_dispatch` takes `round`, `league` and `dry_run`, putting the
+        `--round N` repair tool on a button. Deliberately absent: any narrower
+        fixtures fetch, and any keepalive for the 60-day inactivity disable.
   - [ ] **10.3 — Announced lineups.** A second predicate for fixtures kicking
         off within ninety minutes with no squad rows, fetching
         `/fixtures/lineups` alone. It makes a match openable and judgeable
@@ -783,6 +816,18 @@ must stay out of the Vercel build, are in
   Its greys and shadows are therefore still Clerk's own in both themes. Whether
   that is visible enough to be worth solving is a thing to look at with the user
   menu open in dark.
+
+- **Nothing keeps the scheduled sync alive through a quiet 60 days.** GitHub
+  disables a scheduled workflow after 60 days without repository activity. It
+  emails first and the re-enable is a button, so this is not a silent failure —
+  but it is a failure whose trigger is the author *not* working, which is exactly
+  when nobody is looking at the repository. During the build it cannot happen;
+  after launch, a season runs from August to May and a two-month gap in commits
+  is ordinary. The options are to accept it and answer the email, or to give the
+  workflow something that counts as activity. Deliberately not built in 10.2,
+  because a job whose purpose is to keep another job running is worth choosing on
+  purpose rather than adding by reflex. *Resolved by deciding either way once the
+  first quiet month has actually happened.*
 
 The paid API tier and the Clerk production instance used to sit here. Neither was
 a decision — nothing about them was unsettled but the date — so both moved into

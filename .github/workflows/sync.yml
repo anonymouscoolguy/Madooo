@@ -1,0 +1,118 @@
+# Pull football into the database on a timer.
+#
+# This is the job the app's second non-negotiable assumes exists: nothing under
+# src/app/ ever calls API-Football, because this writes into our own Postgres and
+# every page reads only that. It runs the CLI the author already runs by hand —
+# `npm run sync -- --due` — and adds no runtime code to the app.
+#
+# It lives here rather than in Vercel Cron so that API_FOOTBALL_KEY stays out of
+# the deployed environment. A cron route under src/app/ would need the key there,
+# and the guarantee that a page cannot reach the provider would stop being
+# environmental and become a rule somebody has to keep enforcing.
+#
+# Needs four repository settings, under Settings → Secrets and variables →
+# Actions. SEASON and LEAGUES are variables rather than secrets because they are
+# configuration and nothing about them is sensitive — which also means a fourth
+# league costs a field in a web form and no commit.
+#
+#   secret    DATABASE_URL_DEV    pooled Neon connection string, development branch
+#   secret    API_FOOTBALL_KEY    the Pro key
+#   variable  SEASON              2026
+#   variable  LEAGUES             39,94,140
+
+name: sync
+
+on:
+  schedule:
+    # Every 15 minutes from 09:00 to 23:45 UTC. GitHub's cron is always UTC, and
+    # fires late under load — a run is not a clock. The floor on the cadence is
+    # Neon rather than quota: its compute suspends after five minutes idle, so
+    # anything under five minutes would keep the database awake all day.
+    - cron: '*/15 9-23 * * *'
+  workflow_dispatch:
+    inputs:
+      round:
+        description: 'Matchday to repair, e.g. 7. Empty runs --due.'
+        type: string
+      league:
+        description: 'One configured league id, e.g. 94. Empty runs every configured league.'
+        type: string
+      dry_run:
+        description: 'Report the selection and spend nothing. Ignored when a round is given.'
+        type: boolean
+        default: false
+
+# Two runs at once would both read the same due fixtures and both write them.
+# This is a lock GitHub can hold and Postgres cannot: an advisory lock is scoped
+# to a session, and Neon's pooler hands sessions out per transaction, so ours
+# would be released underneath us. cancel-in-progress: false lets a slow run
+# finish — GitHub keeps at most one run pending behind it and cancels older
+# pending ones, so an afternoon of overruns cannot build a backlog.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Generous on purpose: a heavy day is around 60 requests paced at 250ms, so
+    # this bounds a hung request rather than the volume.
+    timeout-minutes: 20
+    # At job level rather than on the sync step, because `prisma generate` reads
+    # the connection string too — prisma.config.ts resolves it as it loads.
+    env:
+      DATABASE_URL_DEV: ${{ secrets.DATABASE_URL_DEV }}
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      SEASON: ${{ vars.SEASON }}
+      LEAGUES: ${{ vars.LEAGUES }}
+      # DATABASE_TARGET is deliberately unset. The default is the development
+      # branch, which is the one the Vercel deployment reads, so it is the branch
+      # that has to be fresh for a played match to appear on screen.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Reads engines.node, so the Node version is not written down twice.
+          node-version-file: package.json
+          cache: npm
+
+      - run: npm ci
+
+      # Required, not tidiness: the Prisma client is generated into
+      # src/generated/, which is gitignored build output, and there is no
+      # postinstall hook to recreate it.
+      - run: npm run db:generate
+
+      # npm test is deliberately absent — the suite reads captured payloads from
+      # scratch/, which is gitignored, so a fresh clone cannot run it. So is
+      # `prisma migrate deploy`: migrations stay a deliberate act from a laptop.
+      - name: Sync
+        # Inputs reach the shell as environment variables and are never
+        # interpolated into the script body, which is how a workflow input turns
+        # into arbitrary shell. On a schedule trigger they are all empty, so the
+        # cron path falls through to a plain --due.
+        env:
+          ROUND: ${{ inputs.round }}
+          LEAGUE: ${{ inputs.league }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        # Full `if` blocks rather than `[ … ] && args+=(…)`: GitHub runs this
+        # under `bash -e`, where a trailing && chain whose test is false returns
+        # 1 and would fail the step on every ordinary run.
+        run: |
+          args=()
+          if [ -n "$ROUND" ]; then
+            args+=(--round "$ROUND")
+          else
+            args+=(--due)
+            if [ "$DRY_RUN" = "true" ]; then
+              args+=(--dry-run)
+            fi
+          fi
+          if [ -n "$LEAGUE" ]; then
+            args+=(--league "$LEAGUE")
+          fi
+          npm run sync -- "${args[@]}"

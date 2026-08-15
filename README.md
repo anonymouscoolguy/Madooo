@@ -42,6 +42,13 @@ league's calendar and then reads whatever finished matches it has not read yet,
 so it needs no matchday. Add `--dry-run` to see what it would fetch without
 spending a request.
 
+That is the command Madooo runs on a schedule, from
+[`.github/workflows/sync.yml`](.github/workflows/sync.yml) — a fork wanting the
+same needs two repository secrets (`DATABASE_URL_DEV`, `API_FOOTBALL_KEY`) and
+two repository variables (`SEASON`, `LEAGUES`). It is in GitHub Actions rather
+than on the host so that the API key never has to exist in the deployed
+environment.
+
 Other scripts: `npm test` runs Vitest over the sync mapper and the pages' pure
 helpers, `npm run db:check` proves the database layer end to end, `npm run
 icons` refetches the Material Symbols subset from the vocabulary in

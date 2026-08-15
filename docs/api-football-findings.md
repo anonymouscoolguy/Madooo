@@ -282,9 +282,13 @@ few gameweeks rather than a season. On Pro it is **a tenth of one day's quota**,
 and pacing puts it at around three minutes of wall clock. The constraint that
 shaped the CLI's round-at-a-time discipline is gone.
 
-**Steady state** is negligible either way: ~10 fixtures per gameweek, one daily
-fixture poll for reschedules and results. Adding a league multiplies the
-backfill, not the weekly load — and at 7,500/day there is room for several. The
+**Steady state** is negligible either way. The scheduled run fires 60 times a
+day and re-reads each league's calendar every time, which is 180 requests of
+7,500 before a single fixture is hydrated — the price of catching a kickoff a
+broadcaster has moved. Hydration adds two per finished fixture, so a full
+gameweek of three leagues is another 60-odd. Adding a league multiplies the
+backfill and the calendar floor, not the weekly load, and at 7,500/day there is
+room for several. The
 Primeira Liga measured it rather than predicted it: **613 requests** for its full
 306-fixture season, 8% of a day, and its calendar alone is one request like any
 other league's.
