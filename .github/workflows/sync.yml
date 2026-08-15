@@ -24,11 +24,13 @@ name: sync
 
 on:
   schedule:
-    # Every 15 minutes from 09:00 to 23:45 UTC. GitHub's cron is always UTC, and
-    # fires late under load — a run is not a clock. The floor on the cadence is
-    # Neon rather than quota: its compute suspends after five minutes idle, so
-    # anything under five minutes would keep the database awake all day.
-    - cron: '*/15 9-23 * * *'
+    # Every 15 minutes from 09:00 to 01:00 UTC — the last run is 00:45, and the
+    # gap is 01:00–08:45, when nothing in three European leagues is finishing.
+    # GitHub's cron is always UTC, and fires late under load — a run is not a
+    # clock. The floor on the cadence is Neon rather than quota: its compute
+    # suspends after five minutes idle, so anything under five minutes would keep
+    # the database awake all day.
+    - cron: '*/15 0,9-23 * * *'
   workflow_dispatch:
     inputs:
       round:

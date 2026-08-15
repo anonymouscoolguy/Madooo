@@ -548,7 +548,8 @@ reason to touch.
 ### The schedule is a GitHub Actions workflow
 
 [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs `npm run sync
--- --due` every 15 minutes from 09:00 to 23:45 UTC. It adds no runtime code: it
+-- --due` every 15 minutes from 09:00 to 01:00 UTC — 64 runs a day, the last
+at 00:45. It adds no runtime code: it
 checks out, installs, generates the Prisma client and runs the existing CLI.
 
 **It is in Actions rather than Vercel Cron** for the reason that shaped
@@ -604,7 +605,7 @@ re-enable is a button.
 the `--round N` repair tool on a button rather than requiring a laptop.
 
 Anything narrower than a whole-season calendar read is deliberately not built.
-Sixty runs a day at three calendar requests each is 180 of 7,500, and re-reading
+Sixty-four runs a day at three calendar requests each is 192 of 7,500, and re-reading
 is how a kickoff moved by a broadcaster reaches the app. `/fixtures?from=&to=`
 and `?ids=` are the escape hatches if a run ever needs to be cheaper, and the
 thing that would force it is a cadence below five minutes — at which point

@@ -160,7 +160,7 @@ more and every run ends in one summary line, because the thing meant to call
 this has nobody watching it.
 
 **And that thing now exists.** A GitHub Actions workflow runs `--due` every
-fifteen minutes from 09:00 to 23:45 UTC, so the deployed app's data no longer
+fifteen minutes from 09:00 to 01:00 UTC, so the deployed app's data no longer
 depends on a laptop being open — which is the app's second non-negotiable
 finally being true rather than assumed. It writes the development branch,
 because that is the one Vercel reads. The season and the leagues are repository
@@ -523,7 +523,7 @@ what gives that a deadline rather than an ordering.
       which is what dissolves the per-league problem step 11 opened and step 13
       made worse. The trigger is **GitHub Actions**, not Vercel Cron, so the API
       key stays out of the deployed environment. The cadence is **every 15
-      minutes, 09:00–23:45 UTC** — a Neon decision rather than a quota one,
+      minutes, 09:00–01:00 UTC** — a Neon decision rather than a quota one,
       since compute suspends after five minutes idle. And **standings are out of
       scope**, with no season assertion either.
   - [x] **10.1 — Selection, and a CLI safe to leave alone.** Done, post-match
@@ -553,7 +553,7 @@ what gives that a deadline rather than an ordering.
   - [x] **10.2 — The workflow.** Done, and it closes the non-negotiable: the
         deployed app's data no longer depends on a laptop.
         [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs `--due`
-        every fifteen minutes, 09:00–23:45 UTC, on two secrets and two
+        every fifteen minutes, 09:00–01:00 UTC, on two secrets and two
         *variables* — `SEASON` and `LEAGUES` are configuration and nothing about
         them is sensitive, so the fourth league stays a field in a form. It
         writes the **development** branch, following the deployment onto it;
