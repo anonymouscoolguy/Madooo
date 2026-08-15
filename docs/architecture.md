@@ -64,26 +64,45 @@ takes an advisory lock that pgbouncer in transaction mode does not support.
 
 All of this lives in [`src/lib/env.ts`](../src/lib/env.ts).
 
-**The Vercel deployment reads the development branch**, by decision, until a
-production branch is worth filling. So of the database variables it sets
-`DATABASE_URL_DEV` and nothing else — no `DATABASE_TARGET`, no `DATABASE_URL` —
-and the default above carries it to the right place with no code involved.
-(It also carries `SEASON` and the four Clerk variables, the last of which differ
-between the Production and Preview environments — see
-[Auth and routing](#auth-and-routing).) Pointing a deployment
-at the dev branch by putting the dev connection string in `DATABASE_URL` would
-work equally well and label it a lie; this way the variable names stay true.
+**Vercel's two environments read different branches, and that is the whole of
+the difference between them.** Production sets `DATABASE_TARGET=production` and
+`DATABASE_URL`; Preview sets `DATABASE_URL_DEV` and no `DATABASE_TARGET`, so the
+default above carries it to development with no code involved. Both carry
+`SEASON` and the four Clerk variables, the last of which differ between the two —
+see [Auth and routing](#auth-and-routing). Pointing Preview at the dev branch by
+putting the dev connection string in `DATABASE_URL` would work equally well and
+label it a lie; this way the variable names stay true.
 
-**The scheduled sync follows the deployment onto that branch**, so the
-development connection string has a second home: a `DATABASE_URL_DEV` secret in
-GitHub Actions — see [The schedule is a GitHub Actions
-workflow](#the-schedule-is-a-github-actions-workflow). Switching to production
-later means creating the Neon branch, running `prisma migrate deploy` against its
-direct endpoint, syncing it, then setting `DATABASE_TARGET=production` and
-`DATABASE_URL` on Vercel's production environment and removing `DATABASE_URL_DEV`
-there — **and doing the same to the Actions secrets in the same sitting**, or the
-deployment will read a branch nothing is syncing. Preview deployments should keep
-pointing at development.
+`DATABASE_TARGET` exists in exactly two places — Vercel's Production environment
+and the sync workflow — and **they have to agree.** Moving one without the other
+leaves the deployment reading a branch nothing syncs, which presents as a season
+that quietly stopped rather than as an error.
+
+**The scheduled sync fills production and nothing else.** So the production
+connection string has a second home: a `DATABASE_URL` secret in GitHub Actions —
+see [The schedule is a GitHub Actions
+workflow](#the-schedule-is-a-github-actions-workflow).
+
+**Nothing fills the development branch on a timer.** It is filled by hand, with
+`npm run sync -- --due` from a laptop, which is what already happens while
+working on the sync. The cost is real and accepted: a preview deployment shows
+whatever development last saw, which can be weeks old. The alternative was a
+second scheduled leg, and Neon's compute — not API-Football's quota — is what
+made it not worth it; the workflow's own cadence comment explains why keeping a
+branch awake is the expensive part.
+
+**The two branches are not two copies of one thing.** Production was filled from
+the provider rather than copied, so it holds only the configured season.
+Development still carries 380 Premier League matches from 2024 and the judgements
+made against them during the free-tier era. Development is therefore the branch
+where a season filter can be wrong without anyone noticing, and production is the
+one that would notice.
+
+Migrating production is a deliberate act from a laptop:
+`DATABASE_TARGET=production npx prisma migrate deploy`, with the variable in
+front of that one command and never in `.env.local`. `prisma.config.ts` prints
+the branch it is about to touch on every Prisma command, which is the line to
+read before letting it proceed.
 
 `API_FOOTBALL_KEY` is deliberately absent from Vercel, and present in Actions.
 Nothing may call API-Football during a page render, and withholding the key makes
@@ -118,6 +137,14 @@ after any sync that introduces a club.
 - **The provider's spelling of the name is a guard, not a value.** The script
   refuses to write to a row whose stored name does not match its table, so an id
   typed wrong paints nothing rather than painting some other club.
+- **The guard goes stale when the provider renames a club, and an already-seeded
+  database hides it.** API-Football renamed team 224 from `Guimaraes` to
+  `Vitória SC`. Development never noticed: the columns had been written while the
+  old name still matched, and the sync does not touch them. Filling production
+  surfaced it immediately, as one skipped club and one colourless chip. So a
+  `skip` line in the seed's output is worth reading even when the club plainly
+  exists — it means the table's name and the provider's have diverged, and the
+  fix is to update the table, never to drop the guard.
 - **The sync cannot undo it**, because `upsertTeams` lists its update columns one
   by one rather than spreading an object. That narrow list is now load-bearing:
   widening it to a spread would blank both columns on the next sync.
@@ -618,13 +645,16 @@ mistake is made. A cron route under `src/app/` would need `API_FOOTBALL_KEY` and
 `LEAGUES` on Vercel, and the guarantee would stop being environmental and become
 a lint rule somebody has to keep running.
 
-**It writes the development branch** — `DATABASE_URL_DEV`, and `DATABASE_TARGET`
-deliberately unset — because that is the branch the deployment reads. The two
-follow each other: syncing production while Vercel reads development would leave
-the app exactly as stale as no schedule at all.
+**It writes the production branch** — `DATABASE_URL`, with
+`DATABASE_TARGET: production` set at job level rather than on the sync step,
+because `prisma generate` resolves the connection string too. This is the only
+file in the project that sets `DATABASE_TARGET`, and it is set here because this
+is the branch the deployment reads. The two follow each other: syncing one branch
+while Vercel reads the other leaves the app exactly as stale as no schedule at
+all.
 
 Four repository settings under `Settings → Secrets and variables → Actions`
-carry the configuration. `DATABASE_URL_DEV` and `API_FOOTBALL_KEY` are secrets;
+carry the configuration. `DATABASE_URL` and `API_FOOTBALL_KEY` are secrets;
 `SEASON` and `LEAGUES` are **variables**, because they are configuration and
 nothing about them is sensitive. That is what makes the fourth league a field in
 a web form rather than a commit. The consequence: **`LEAGUES` and `SEASON` have
@@ -978,11 +1008,12 @@ Development environment at all; nothing reads that environment, since local runs
 take `.env.local` and `vercel dev` is not used.
 
 **The production instance mints its own `clerkId`s, so signing in on
-`madooo.app` creates a second `User` row.** Judgements recorded through the
-development instance belong to the old id and are invisible to the live site,
-though both rows sit in the same Neon development branch. Nothing is lost and
-nothing needs migrating — an empty live diary is the expected reading, not a
-bug.
+`madooo.app` creates a `User` row that has nothing to do with the development
+one.** The two are now separated twice over — different Clerk instances issuing
+different ids, and different Neon branches holding the rows. Judgements recorded
+against the development instance stay on the development branch and are invisible
+to the live site. Nothing is lost and nothing needs migrating; an empty live
+diary is the expected reading, not a bug.
 
 **`x-clerk-auth-reason` and `x-clerk-auth-status` on any response are the first
 thing to read when auth misbehaves.** `curl -sSI` against a protected route
@@ -1708,8 +1739,12 @@ item.
 `next build` type-checks `src/lib/prisma.ts` straight into a missing module. The
 consequence worth knowing: **`prisma generate` needs a database URL in the
 environment**, because [`prisma.config.ts`](../prisma.config.ts) calls
-`migrationDatabaseUrl()` at module load. A build with no `DATABASE_URL_DEV` fails
-before Next starts.
+`migrationDatabaseUrl()` at module load. A build that cannot resolve a connection
+string fails before Next starts — which means whichever of `DATABASE_URL` or
+`DATABASE_URL_DEV` matches that environment's `DATABASE_TARGET` has to be present
+at *build* time, not merely at runtime. It is also why the two Vercel variables
+were added before the old one was removed: a build in the gap would have had
+neither.
 
 **Pages that read the database need `export const dynamic = 'force-dynamic'`.**
 Next prerenders at build time by default, which would freeze the data into the

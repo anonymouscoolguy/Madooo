@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (step 14 — the kickoff time reads on the reader's
-own clock; and La Liga's opening weekend, which the schedule reached on its own)
+**Last updated:** 2026-08-15 (step 15 — `madooo.app` reads a production database
+branch of its own, filled from the provider and synced on the schedule)
 
 ---
 
@@ -201,13 +201,21 @@ signing in through Madooo's own Google OAuth client and sending mail from
 on Vercel's preview environment. What remains of the launch checklist is the
 `npm audit` judgement.
 
+**Nor is the database.** `madooo.app` reads a production Neon branch holding
+only season 2026, filled from API-Football rather than copied from development,
+and the scheduled sync writes to it. Preview deployments and the laptop keep the
+development branch — which still carries 2024 and the judgements made against it
+— and nothing fills that one on a timer any more; `npm run sync -- --due` does,
+by hand, when a preview needs current football.
+
 - Next 16.2.12 (App Router, Turbopack), React 19.2.4, Tailwind 4, TypeScript
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
 - Clerk 7.x for auth, with Google and email/password enabled, on a production
   instance bound to `madooo.app`
 - Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
   squash-merged into `main`
-- Deployed on Vercel from `main`, built with `prisma generate && next build`
+- Deployed on Vercel from `main`, built with `prisma generate && next build`;
+  Production reads the production Neon branch, Preview the development one
 - `scripts/verify_api.py` proves the API works; raw payloads sit in `scratch/`
   (gitignored) and are what the schema was designed against
 - `npm run db:check` proves the database layer works end to end
@@ -228,10 +236,13 @@ on Vercel's preview environment. What remains of the launch checklist is the
   subset is committed and refreshed by `npm run icons`
 - `.env.local` holds `API_FOOTBALL_KEY`, `SEASON`, `LEAGUES`, `DATABASE_URL`,
   `DATABASE_URL_DEV` and four Clerk variables — the development instance's test
-  keys, which are what a laptop must use; `.env.example` documents the full set
+  keys, which are what a laptop must use; it carries no `DATABASE_TARGET`, so
+  everything run there hits development unless the variable is put in front of
+  one command. `.env.example` documents the full set and where each copy lives
 - [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) runs the sync on
-  a timer, out of two repository secrets (`DATABASE_URL_DEV`,
-  `API_FOOTBALL_KEY`) and two repository variables (`SEASON`, `LEAGUES`)
+  a timer against the production branch, out of two repository secrets
+  (`DATABASE_URL`, `API_FOOTBALL_KEY`) and two repository variables (`SEASON`,
+  `LEAGUES`)
 
 ## Build order
 
@@ -242,11 +253,11 @@ designs are what cut them: the sidebar asked for four destinations where the
 roadmap had three. **Every slice owns its own empty state** — what its screen
 says when it has nothing to show is part of the slice, not a later pass.
 
-Steps 9 to 13 are not screens. They are what stands between a working app and a
-launched one: real current data, a sync that runs without a laptop, and the last
-of the accounts to buy. What is left is the running of the sync — it now knows
-what to read, and nothing calls it — and the season starting on 21 August is
-what gives that a deadline rather than an ordering.
+Steps 9 to 13 and 15 are not screens. They are what stands between a working app
+and a launched one: real current data, a sync that runs without a laptop, a
+database of its own to run into, and the last of the accounts to buy. All of them
+have landed. What is left of launching is step 12, which is a checklist rather
+than a build.
 
 - [x] **0 — Verify the data source.** Done; see
       [`api-football-findings.md`](api-football-findings.md).
@@ -731,6 +742,46 @@ what gives that a deadline rather than an ordering.
 
       Deliberately absent: the locale does not follow the zone, so a reader in
       New York gets `20:00` and not `8:00 pm`; and nothing else localises.
+- [x] **15 — The production database.** Done, and it cost **three environment
+      variables, a migrate and a sync** — no product code at all.
+      [`src/lib/env.ts`](../src/lib/env.ts) had been built for this since step 2,
+      so the whole cutover was configuration, which is the fourth demonstration
+      of the first non-negotiable and the cheapest since the third league.
+
+      **Production was filled from API-Football, not copied from development**,
+      and that turned out to be the decision the step was really about. The
+      development branch still carries 380 Premier League matches from **2024**,
+      left from the free-tier era, and 222 of its 224 judgements hang off them.
+      A copy would have moved all of it onto the live site. A fresh sync cost 28
+      requests — three calendars and the thirteen matches season 2026 had
+      actually played — because the Premier League had not kicked off yet. The
+      result is a branch holding season 2026 and nothing else.
+
+      **The sync moved with it, in the same sitting**, which is the failure the
+      architecture file had been warning about since step 4: a deployment
+      reading a branch nothing syncs looks like a season that stopped rather
+      than like an error. Vercel's Production environment and
+      [`sync.yml`](../.github/workflows/sync.yml) are now the only two places
+      `DATABASE_TARGET` exists, and they have to agree.
+
+      **Nothing fills the development branch on a timer any more.** Agreed
+      deliberately: a second scheduled leg would have kept two Neon computes
+      awake all day, and Neon — not API-Football's quota — is what bounds the
+      schedule. So a preview deployment shows whatever development last saw, and
+      `npm run sync -- --due` from a laptop is what refreshes it.
+
+      **What filling an empty database caught that a full one had hidden:**
+      API-Football renamed team 224 from `Guimaraes` to `Vitória SC` at some
+      point after the seed table was written. Development never noticed, because
+      its `code` and `colour` had been written while the old name still matched
+      and the sync does not touch those columns. Production skipped the club and
+      drew a colourless chip. The name guard did exactly its job — it painted
+      nothing rather than painting the wrong club — and the fix was the table,
+      not the guard.
+
+      Deliberately not done: the 2024 season stays on development. It is dev data
+      on a dev branch, production never sees it, and removing it is not what this
+      step was for.
 
 ## Long-term remarks
 

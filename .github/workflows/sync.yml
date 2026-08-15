@@ -15,7 +15,7 @@
 # configuration and nothing about them is sensitive — which also means a fourth
 # league costs a field in a web form and no commit.
 #
-#   secret    DATABASE_URL_DEV    pooled Neon connection string, development branch
+#   secret    DATABASE_URL        pooled Neon connection string, production branch
 #   secret    API_FOOTBALL_KEY    the Pro key
 #   variable  SEASON              2026
 #   variable  LEAGUES             39,94,140
@@ -71,13 +71,19 @@ jobs:
     # At job level rather than on the sync step, because `prisma generate` reads
     # the connection string too — prisma.config.ts resolves it as it loads.
     env:
-      DATABASE_URL_DEV: ${{ secrets.DATABASE_URL_DEV }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
       SEASON: ${{ vars.SEASON }}
       LEAGUES: ${{ vars.LEAGUES }}
-      # DATABASE_TARGET is deliberately unset. The default is the development
-      # branch, which is the one the Vercel deployment reads, so it is the branch
-      # that has to be fresh for a played match to appear on screen.
+      # Set, and this is the only place in the project that sets it. The default
+      # everywhere else is the development branch; this job is the exception
+      # because it fills the branch the Vercel deployment reads, so it is the
+      # branch that has to be fresh for a played match to appear on screen.
+      #
+      # This and Vercel's production environment have to agree. If one of them
+      # is ever moved, the other moves in the same sitting — a deployment
+      # reading a branch nothing syncs looks like a season that stopped.
+      DATABASE_TARGET: production
     steps:
       - uses: actions/checkout@v7
 

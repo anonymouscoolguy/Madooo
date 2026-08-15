@@ -91,15 +91,21 @@ const IDENTITIES: Record<number, Identity> = {
   // first three letters of "Sporting CP" and "Santa Clara" would not.
   //
   // Every colour below was checked by the author against the clubs themselves,
-  // so Guimaraes and Casa Pia are flat black by confirmation rather than by
+  // so Vitória SC and Casa Pia are flat black by confirmation rather than by
   // guess. That makes this block better sourced than the Premier League one
   // above it, which is still on commonly published primaries.
+  //
+  // 224 is why the name beside each id is a guard. The provider renamed it from
+  // "Guimaraes" to "Vitória SC" at some point after this table was written, and
+  // the development branch never noticed: it had already been seeded, and the
+  // sync does not touch these two columns. Only filling an empty database
+  // surfaced it, as a club the seed skipped and a chip with no colour.
   211: { name: 'Benfica', code: 'SLB', colour: '#e30613' },
   212: { name: 'FC Porto', code: 'FCP', colour: '#00428c' },
   214: { name: 'Maritimo', code: 'MAR', colour: '#00913f' },
   215: { name: 'Moreirense', code: 'MOR', colour: '#007a3d' },
   217: { name: 'SC Braga', code: 'SCB', colour: '#c8102e' },
-  224: { name: 'Guimaraes', code: 'VSC', colour: '#000000' },
+  224: { name: 'Vitória SC', code: 'VSC', colour: '#000000' },
   225: { name: 'Nacional', code: 'NAC', colour: '#ebcc1e' },
   226: { name: 'Rio Ave', code: 'RAV', colour: '#00843d' },
   227: { name: 'Santa Clara', code: 'SCL', colour: '#d2232a' },

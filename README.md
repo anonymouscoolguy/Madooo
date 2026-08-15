@@ -44,7 +44,7 @@ spending a request.
 
 That is the command Madooo runs on a schedule, from
 [`.github/workflows/sync.yml`](.github/workflows/sync.yml) — a fork wanting the
-same needs two repository secrets (`DATABASE_URL_DEV`, `API_FOOTBALL_KEY`) and
+same needs two repository secrets (`DATABASE_URL`, `API_FOOTBALL_KEY`) and
 two repository variables (`SEASON`, `LEAGUES`). It is in GitHub Actions rather
 than on the host so that the API key never has to exist in the deployed
 environment.
