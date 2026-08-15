@@ -126,6 +126,12 @@
   --mvp-bg: light-dark(var(--yellow-bg), var(--yellow-dark-bg));
   --info: light-dark(var(--link-blue), var(--blue-dark));
   --info-bg: light-dark(var(--blue-bg), var(--blue-dark-bg));
+  /* The same red as --flop, and deliberately not --flop. A match in play is not
+     a verdict, and a token named for one would lie about why the colour is
+     there — see foundations.md, which states this as a rule rather than as a
+     coincidence to be tidied away later. */
+  --live: light-dark(var(--red-ink), var(--red-dark));
+  --live-bg: light-dark(var(--red-bg), var(--red-dark-bg));
 
   --standout-mark: var(--accent-green);
   --flop-mark: var(--accent-red);
@@ -224,6 +230,8 @@
   --color-mvp-bg: var(--mvp-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
+  --color-live: var(--live);
+  --color-live-bg: var(--live-bg);
 
   --color-standout-mark: var(--standout-mark);
   --color-flop-mark: var(--flop-mark);

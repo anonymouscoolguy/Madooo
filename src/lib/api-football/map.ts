@@ -212,6 +212,19 @@ export function buildSquad(
       ...lineup.substitutes.map((slot) => ({ slot, isStarter: false })),
     ]
     for (const { slot, isStarter } of slots) {
+      // A team sheet can name a player the provider has no record for, and it
+      // arrives as a null id — seen on a real bench, `{"id": null, "name":
+      // "Afonso Duarte"}`. There is nothing to store: `Player.apiFootballId` is
+      // the natural key every upsert in the sync hangs off, and inventing one
+      // would collide with whatever id the provider assigns him later.
+      //
+      // So he is dropped, and the cost is stated rather than hidden: that
+      // player cannot be judged until the provider gives him an id, at which
+      // point an ordinary re-read picks him up like anyone else. Dropping one
+      // bench place is much better than failing the whole fixture, which is
+      // what happened before this guard existed.
+      if (slot.player.id === null) continue
+
       entries.set(slot.player.id, {
         teamApiFootballId: lineup.team.id,
         player: {

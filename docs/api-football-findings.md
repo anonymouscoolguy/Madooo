@@ -203,6 +203,51 @@ Useful details:
   design effort.
 - **Coach identity** comes free with the lineup, should we ever want it.
 
+#### When a team sheet actually appears — measured, 2026-08-15
+
+API-Football's documentation says lineups are available **20 to 40 minutes**
+before kickoff. That is roughly right, at the *late* edge, and the number matters
+because the scheduled sync opens a polling window on it.
+
+Probed with `python3 scripts/verify_api.py --fixture <id>`, which stamps every
+dump with the minutes to kickoff:
+
+| fixture | T−118 | T−89 | T−59 | T−54 | T−29 | T−18 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Academico Viseu v Santa Clara (94) | — | — | — | | — | **2 teams** |
+| Alaves v Getafe (140) | | | | — | | |
+
+So the sheet landed somewhere in the eleven minutes between T−29 and T−18. Four
+things that follow, all of which the sync depends on:
+
+- **It arrives complete.** 11 starters *and* the full bench, with a formation,
+  for **both clubs at once** — Academico Viseu 11+12, Santa Clara 11+10. A bench
+  does not trail in behind the eleven, and the two clubs did not appear
+  separately, which is what makes counting `MatchLineup` rows a sufficient test
+  for "this fixture is done".
+- **`/fixtures/players` is still empty at T−18** while the lineups are full. That
+  is why the pre-match read fetches lineups *alone*: asking for statistics before
+  kickoff is a guaranteed wasted request, every time, for every fixture.
+- **Nothing in the fixture payload signals that a sheet exists.** `status.short`
+  is still `NS` at T−18, with `elapsed: null`. There is no cheaper trigger than
+  a time window, which is why one is used.
+- **An absent lineup is an empty `response`, not an error.** Checked at T−118,
+  T−89, T−59, T−54 and T−29. So asking too early is wasted rather than dangerous,
+  and `errors` stays empty throughout.
+- **A team sheet can name a player with no id.** Santa Clara's bench carried
+  `{"id": null, "name": "Afonso Duarte", "number": 18, "pos": "F"}`. Every
+  post-match capture had an id on every player, so `RawLineupSlot.player.id` was
+  typed `number` until this appeared, and the first real pre-match sheet failed
+  the whole fixture on `Argument 'apiFootballId' must not be null`. It is now
+  `number | null`, and `buildSquad` drops the slot: `Player.apiFootballId` is the
+  natural key every upsert hangs off, and an invented id would collide with
+  whatever the provider assigns him later. He becomes judgeable on an ordinary
+  re-read once he has one. Expect this on young or late-registered players.
+
+`LINEUP_LEAD_MINUTES = 45` comes from this: it covers the documented earliest
+with a small margin. It was 90 before these probes, which spent five requests per
+fixture on a response that could not yet exist.
+
 ### `GET /fixtures/players?fixture={id}` — identity and participation
 
 69 KB per fixture, two entries (one per team), 20 players each — the matchday

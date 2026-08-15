@@ -362,8 +362,25 @@ have to be told apart. A round would have needed three answers and a rule for
 combining them.
 
 The policy is [`src/lib/hydration.ts`](../src/lib/hydration.ts), which imports
-nothing, and the whole of it is under Vitest. `Match.hydratedAt` records when
-the detail endpoints were last read, and one predicate decides everything:
+nothing, and the whole of it is under Vitest. There are **two predicates**, and
+the split is what the run is allowed to ask for:
+
+| | `isDue` | `isLineupDue` |
+| --- | --- | --- |
+| wants | both detail endpoints | `/fixtures/lineups` alone |
+| costs | 2 requests | 1 |
+| status | `FT`/`AET`/`PEN` | anything pending, `NS` through `2H` |
+| window | 14 days back | kickoff − 90 min to full time |
+| stops when | read 6 h past kickoff | both clubs' team sheets are in |
+
+They are deliberately not one predicate with a flag. `isDue` insists on a
+finished match *precisely* so a run never writes partial minutes and missing
+ratings; `isLineupDue` runs when there are no statistics at all and is safe only
+because its caller never asks for them. Folding them together would put that
+guarantee in a conditional instead of in two functions with different names.
+
+`Match.hydratedAt` records when the detail endpoints were last read, and the
+post-match predicate is:
 
 ```
 hydratedAt IS NULL  OR  hydratedAt < kickoff + 6 hours
@@ -395,12 +412,41 @@ Three things that are easy to get wrong here:
   the job was broken for a fortnight is never picked up automatically, and the
   repair path is `--round N`.
 
-The comparison `hydratedAt < kickoff + 6 hours` is row-to-row and has no Prisma
-`where`, so `dueFixtures` does the coarse filter in Postgres — season, league,
-finished status, inside the window — and folds the rest in Node. That was a
-choice against a third `$queryRaw`, and the window is what makes it safe: the
-candidate set is a few dozen rows, the same bound the diary and `/players`
-already accept.
+**The pre-match predicate counts team sheets rather than squad rows**, and that
+is the part most easily got wrong. The two clubs announce minutes apart, so "has
+any squad row" would retire the fixture on the first one to arrive and leave the
+other half of the match page blank until full time. `MatchLineup` holds one row
+per club, so `lineupCount < 2` keeps asking until both are in — at most six
+attempts, since the window is ninety minutes wide at a quarter-hour cadence.
+
+Two more things about that window:
+
+- **It closes at full time, not at kickoff**, which is what covers a team sheet
+  published late. That is why the status test is *not finished* rather than *not
+  started*. A lineup is complete and final once a match is under way; it is only
+  the statistics that are provisional, and those are never read here.
+- **It has a far end at all** — kickoff + `SETTLE_HOURS` — because `NS` is a
+  pending status, so a fixture the provider forgets to move off it would
+  otherwise be asked for on every run forever. The same job the fortnight does
+  for the other queue.
+
+`syncFixtureLineups` deliberately **does not stamp `hydratedAt`**: only one of
+the two endpoints was read, which is what that column records, and leaving it
+null is also what keeps the fixture queued for the full read after full time.
+
+**The two `MatchLineup` rows are written last, after the squad**, and that
+ordering is load-bearing rather than incidental. They are what the predicate
+reads as "this fixture is done", so writing them first lets a run that dies part
+way through mark a fixture complete with no players in it — and nothing ever
+looks at it again. That is not hypothetical: it is what the first real pre-match
+team sheet did, and the repair was `--round`. The marker goes last so it means
+what its reader thinks it means, the same shape as `hydratedAt`.
+
+Neither comparison has a Prisma `where` — `hydratedAt < kickoff + 6 hours` is
+row-to-row, and Prisma can ask whether a relation has *no* rows but not whether
+it has *fewer than two*. So both selectors do the coarse filter in Postgres and
+fold the rest in Node. That was a choice against more `$queryRaw`, and the
+windows are what make it safe: a few dozen rows for one, a handful for the other.
 
 **The kickoff in that predicate is safe even though a live season's calendar is
 provisional.** Placeholder Saturday-14:00 kickoffs only exist for matches that
@@ -420,10 +466,20 @@ failure, and the job's needs won:
   hydrates nothing where hydrating some would have been right. A run spends at
   most half the reported daily remainder, because that counter is documented as
   non-monotonic and a scheduled job that drained it would starve the rest of the
-  day's runs.
-- **One summary line** ends every run: `calendars 3/3, hydrated 9/9, still due
-  0, failed 0`. `still due` is what separates "nothing to do" from "ran out of
-  room", which a count of zero hydrated would otherwise conflate.
+  day's runs. `planRun` spends that one budget across both queues and **pays for
+  team sheets first**, because their window closes at full time where a fixture
+  waiting to be hydrated has a fortnight. Team sheets are fetched first for the
+  same reason: a run that dies part way through should die having done the work
+  that could not have waited.
+- **One summary line** ends every run: `calendars 3/3, lineups 2/2, hydrated
+  9/9, still due 0, failed 0`. `still due` is what separates "nothing to do" from
+  "ran out of room", which a count of zero would otherwise conflate. The lineup
+  queue is named in the *heading* only when it has something in it — on most runs
+  of the day it is empty, and a standing "0 lineups" is noise in a log whose job
+  is to be skimmed.
+- **`--limit` caps the hydration queue alone.** It is the tool for a person
+  running `--round` over a whole matchday; the lineup queue is bounded by what
+  kicks off in the next ninety minutes and has never needed capping.
 
 `--due --dry-run` prints the selection and spends nothing. It deliberately skips
 the calendar phase, so it reports against whatever statuses the last real run

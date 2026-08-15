@@ -18,12 +18,18 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ABANDONED_STATUSES,
-  clampToQuota,
+  affordableRequests,
   FINISHED_STATUSES,
   isDue,
   isKnownStatus,
+  isLineupDue,
+  LINEUP_LEAD_MINUTES,
+  lineupWindowCloses,
+  lineupWindowOpens,
   PENDING_STATUSES,
+  planRun,
   selectDue,
+  selectLineupDue,
   SETTLE_HOURS,
   WINDOW_DAYS,
   windowStart,
@@ -62,7 +68,8 @@ const capturedStatuses = [
   ),
 ]
 
-const HOUR_MS = 60 * 60 * 1000
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
 const NOW = new Date('2026-08-15T18:00:00Z')
 
 /** A finished fixture that kicked off `hoursAgo` before NOW. */
@@ -71,6 +78,18 @@ function played(hoursAgo: number, hydratedAt: Date | null = null) {
     kickoff: new Date(NOW.getTime() - hoursAgo * HOUR_MS),
     status: 'FT',
     hydratedAt,
+  }
+}
+
+/**
+ * An unplayed fixture kicking off `minutesAway` after NOW, with no team sheet.
+ * A negative `minutesAway` is a match already under way.
+ */
+function upcoming(minutesAway: number, lineupCount = 0, status = 'NS') {
+  return {
+    kickoff: new Date(NOW.getTime() + minutesAway * MINUTE_MS),
+    status,
+    lineupCount,
   }
 }
 
@@ -168,23 +187,112 @@ describe('selectDue', () => {
   })
 })
 
-describe('clampToQuota', () => {
+describe('isLineupDue', () => {
+  it('wants a team sheet once the window has opened', () => {
+    expect(isLineupDue(upcoming(LINEUP_LEAD_MINUTES - 1), NOW)).toBe(true)
+  })
+
+  it('leaves a fixture alone until then', () => {
+    // The whole season is NS at any moment, so without this every calendar the
+    // sync holds would be a request. The boundary is asserted both ways.
+    expect(isLineupDue(upcoming(LINEUP_LEAD_MINUTES + 1), NOW)).toBe(false)
+    expect(isLineupDue(upcoming(LINEUP_LEAD_MINUTES), NOW)).toBe(true)
+  })
+
+  it('keeps asking while the match is being played', () => {
+    // The case the author raised: a team sheet published after kickoff. The
+    // window closing at full time rather than at kickoff is what covers it, and
+    // it is safe because the caller never reads the statistics endpoint.
+    for (const status of ['1H', 'HT', '2H', 'ET', 'LIVE']) {
+      expect(isLineupDue({ ...upcoming(-30), status }, NOW), status).toBe(true)
+    }
+  })
+
+  it('stops once both clubs have announced', () => {
+    expect(isLineupDue(upcoming(-30, 2), NOW)).toBe(false)
+    // One is not enough: the two clubs publish minutes apart, and stopping here
+    // would leave the other side of the match page blank until full time.
+    expect(isLineupDue(upcoming(-30, 1), NOW)).toBe(true)
+  })
+
+  it('hands a finished match to the other predicate', () => {
+    // Not this queue's job even with no lineups: after full time the fixture
+    // wants both endpoints, which is what `isDue` selects for.
+    for (const status of FINISHED_STATUSES) {
+      expect(isLineupDue({ ...upcoming(-120), status }, NOW), status).toBe(false)
+    }
+  })
+
+  it('never asks about a match that will not be played', () => {
+    for (const status of ABANDONED_STATUSES) {
+      expect(isLineupDue({ ...upcoming(-30), status }, NOW), status).toBe(false)
+    }
+  })
+
+  it('gives up on a fixture the provider has left behind', () => {
+    // Stuck at NS hours past its kickoff. Without a closing bound this would be
+    // asked for on every run forever, since NS is a pending status.
+    const stuck = { ...upcoming(0), status: 'NS' }
+    const past = new Date(NOW.getTime() + SETTLE_HOURS * HOUR_MS + 1)
+    expect(isLineupDue(stuck, past)).toBe(false)
+
+    expect(lineupWindowOpens(NOW).getTime()).toBe(
+      NOW.getTime() - LINEUP_LEAD_MINUTES * MINUTE_MS,
+    )
+    expect(lineupWindowCloses(NOW).getTime()).toBe(NOW.getTime() + SETTLE_HOURS * HOUR_MS)
+  })
+})
+
+describe('selectLineupDue', () => {
+  it('takes the soonest kickoff first', () => {
+    // The opposite order to selectDue, and deliberately: this queue closes at
+    // full time, so the match kicking off next is the one a delay costs.
+    //
+    // Both are placed relative to the lead rather than at fixed minutes, so this
+    // keeps testing the ordering when the measured lead changes. It once used a
+    // literal 80, which silently became a test of the window instead the day the
+    // constant dropped from 90 to 45.
+    const soon = upcoming(5)
+    const later = upcoming(LINEUP_LEAD_MINUTES - 5)
+    expect(selectLineupDue([later, soon], NOW)).toEqual([soon, later])
+  })
+
+  it('leaves out everything that is not due', () => {
+    expect(selectLineupDue([upcoming(LINEUP_LEAD_MINUTES + 30)], NOW)).toEqual([])
+  })
+
+  it('carries whatever else the caller attached to the row', () => {
+    const row = { ...upcoming(10), label: 'Alaves vs Getafe' }
+    expect(selectLineupDue([row], NOW)[0].label).toBe('Alaves vs Getafe')
+  })
+})
+
+describe('planRun', () => {
   it('leaves a comfortable run alone', () => {
-    expect(clampToQuota(10, 7500)).toBe(10)
+    expect(planRun(2, 10, 7500)).toEqual({ lineups: 2, fixtures: 10 })
   })
 
   it('spends at most half of what is left', () => {
-    // 40 remaining, two requests each, half the remainder — ten fixtures.
-    expect(clampToQuota(30, 40)).toBe(10)
+    // 40 remaining, half of it is 20 requests: two lineups at one each, then
+    // nine fixtures at two each.
+    expect(planRun(2, 30, 40)).toEqual({ lineups: 2, fixtures: 9 })
+  })
+
+  it('pays for the lineups first', () => {
+    // 6 remaining, so 3 requests. The lineups take all three and the fixtures
+    // get nothing — the queue with a ninety-minute window beats the one with a
+    // fortnight.
+    expect(planRun(5, 10, 6)).toEqual({ lineups: 3, fixtures: 0 })
   })
 
   it('returns nothing rather than a negative count', () => {
-    expect(clampToQuota(10, 0)).toBe(0)
+    expect(planRun(2, 10, 0)).toEqual({ lineups: 0, fixtures: 0 })
   })
 
   it('does not clamp when the header was unreadable', () => {
     // A missing header is not evidence of a tight plan. The client already
     // paces itself slowly in that case, which is where the caution belongs.
-    expect(clampToQuota(10, null)).toBe(10)
+    expect(planRun(2, 10, null)).toEqual({ lineups: 2, fixtures: 10 })
+    expect(affordableRequests(null)).toBe(null)
   })
 })

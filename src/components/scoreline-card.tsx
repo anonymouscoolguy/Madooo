@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { BackLink } from './back-link'
+import { Badge, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
 import { teamHref } from '@/lib/back'
 import { kickoffDate, kickoffTime } from '@/lib/dates'
-import { scoreline } from '@/lib/text'
+import { isInProgress } from '@/lib/match-status'
+import { fixtureName, scoreline } from '@/lib/text'
 import type { IconName } from './icon-names'
 import type { MatchWithSquads } from '@/lib/matches'
 
@@ -52,8 +54,16 @@ function Fact({
   )
 }
 
-/** The result, or the kickoff time when there is not one yet. */
+/** The result, a live badge, or the kickoff time — in that order of precedence. */
 function Score({ match }: { match: MatchWithSquads }) {
+  // First, and `FixtureCard`'s reading: a match kicks off with a 0–0 recorded
+  // against it, so asking about goals first draws a live match as a finished
+  // goalless draw. The page never polls either, so a live score would be stale
+  // the moment it was painted.
+  if (isInProgress(match.status)) {
+    return <Badge label="Live" classes={LIVE_BADGE} />
+  }
+
   // Null goals means no result recorded, not a goalless draw — so the kickoff
   // time stands in, which is `FixtureCard`'s reading and the thing a reader of
   // an unplayed fixture wants.
@@ -114,13 +124,19 @@ export function ScorelineCard({
   match: MatchWithSquads
   back: { href: string; label: string }
 }) {
+  const live = isInProgress(match.status)
   const played = match.homeGoals !== null && match.awayGoals !== null
 
   // The one name for a match anywhere in this app — the same helper the diary
-  // and the player profile use, so all three say it the same way.
-  const name = played
-    ? scoreline(match)
-    : `${scoreline(match)}, kick-off ${kickoffTime(match.kickoff)}`
+  // and the player profile use, so all three say it the same way. A live match
+  // takes the clubs without a score, because the heading is the only place the
+  // score is announced and stating one the page has chosen not to draw would
+  // put a number in the accessibility tree that is nowhere on the screen.
+  const name = live
+    ? `${fixtureName(match)}, live`
+    : played
+      ? scoreline(match)
+      : `${scoreline(match)}, kick-off ${kickoffTime(match.kickoff)}`
 
   return (
     <header className="mb-8">

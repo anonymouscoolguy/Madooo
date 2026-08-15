@@ -68,8 +68,18 @@ The inks are darkened versions of the raw accents so the label passes contrast o
 | `--flop` / `--flop-bg` | `#c5372c` / `#fbe6e4` | `#f28b82` / `#3a1c19` |
 | `--mvp` / `--mvp-bg` | `#a17400` / `#fdf3d9` | `#fdd663` / `#3a2f0d` |
 | `--info` / `--info-bg` | `#1155cc` / `#e6effd` | `#8ab4f8` / `#16243d` |
+| `--live` / `--live-bg` | `#c5372c` / `#fbe6e4` | `#f28b82` / `#3a1c19` |
 
 `--standout-mark #0f9d58`, `--flop-mark #db4437`, `--mvp-mark #f4b400` are the same in both themes.
+
+**`--live` resolves to the same values as `--flop` and is still its own token.** A
+match being played is not a verdict, and a token named for one of the three
+verdicts would be lying about why the colour is there — the next person to
+retune FLOP's red would silently retune the live badge with it. Red for a match
+in play is the broadcast convention rather than a borrowing from the verdict
+vocabulary, and the two never appear side by side: verdict words live on player
+rows, `LIVE` on a scoreline. This is the only pair in the table that duplicates
+another's values, and the duplication is the point.
 
 ### Club colours are the one sanctioned exception to the no-hex rule
 

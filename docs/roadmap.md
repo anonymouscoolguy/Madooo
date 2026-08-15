@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (the sync runs on a timer in GitHub Actions —
-step 10.2, which closes the second non-negotiable)
+**Last updated:** 2026-08-15 (step 10.3 — a match is openable before it kicks
+off, which finishes step 10)
 
 ---
 
@@ -167,6 +167,17 @@ because that is the one Vercel reads. The season and the leagues are repository
 *variables* there rather than secrets, so a fourth league is still a field in a
 form and no commit; the price is that both now have two homes, `.env.local` and
 GitHub, which can disagree.
+
+**And a match no longer waits for full time to become readable.** The scheduled
+run asks for a team sheet from about three quarters of an hour before kickoff,
+so a fixture becomes openable and judgeable while it is still unplayed — its
+card carrying the kickoff time where a score will go, its page carrying both
+elevens and both benches with nobody rated yet. A match being played says
+**LIVE** rather than showing a score, because these pages never poll and a
+scoreline drawn at kick-off plus ten would sit there going stale; the score
+arrives when the match is over and the number stops moving. Those three states —
+unplayed, in play, finished — are now distinguishable at a glance on the
+fixtures page, which they were not.
 
 Auth is no longer provisional. `madooo.app` runs Clerk's production instance,
 signing in through Madooo's own Google OAuth client and sending mail from
@@ -508,13 +519,13 @@ what gives that a deadline rather than an ordering.
       real kickoff times, the rest sitting at a placeholder Saturday 14:00 until
       broadcast selections move them. See
       [`architecture.md`](architecture.md#a-live-seasons-calendar-is-provisional-and-a-closed-ones-is-not).
-- [ ] **10 — Schedule the sync.** The app's second non-negotiable assumes a
-      scheduled job writes into Postgres. It did not exist — `npm run sync` was a
-      CLI the author ran by hand, so the deployed app's data was only ever as
-      fresh as the last time a laptop was open — and **the season starting on 21
-      August turned it from the largest piece of unbuilt work into the one with a
-      date on it.** 10.1 and 10.2 have since closed it for played matches; what
-      is left is 10.3, which is about matches that have not kicked off.
+- [x] **10 — Schedule the sync.** Done, and with a fortnight to spare on the
+      season it was racing. The app's second non-negotiable assumes a scheduled
+      job writes into Postgres. It did not exist — `npm run sync` was a CLI the
+      author ran by hand, so the deployed app's data was only ever as fresh as
+      the last time a laptop was open — and **the season starting on 21 August
+      turned it from the largest piece of unbuilt work into the one with a date
+      on it.**
 
       Four things were settled in planning, and the first of them settles the
       question the step was stuck on. **The schedule fetches a lineup when it is
@@ -575,13 +586,40 @@ what gives that a deadline rather than an ordering.
         `workflow_dispatch` takes `round`, `league` and `dry_run`, putting the
         `--round N` repair tool on a button. Deliberately absent: any narrower
         fixtures fetch, and any keepalive for the 60-day inactivity disable.
-  - [ ] **10.3 — Announced lineups.** A second predicate for fixtures kicking
-        off within ninety minutes with no squad rows, fetching
-        `/fixtures/lineups` alone. It makes a match openable and judgeable
-        before kickoff, which no reference drawing shows, so the "team sheet, no
-        score" states are part of the slice. Probe what both per-fixture
-        endpoints return before kickoff first — this project has been caught
-        twice expecting API-Football to behave.
+  - [x] **10.3 — Announced lineups.** Done, and verified against real football:
+        Academico Viseu v Santa Clara was openable with both team sheets fifteen
+        minutes before it kicked off. `isLineupDue` sits beside `isDue` as a
+        second predicate — pending status, fewer than two `MatchLineup` rows,
+        inside a window that opens before kickoff and closes at **full time**
+        rather than at kickoff, which is what covers a sheet published late. It
+        fetches `/fixtures/lineups` alone, so it writes no provisional
+        statistics, which is the only reason it is safe to run mid-match.
+
+        **The probe changed the design, which is what it was for.** The lead was
+        going to be 90 minutes; timed probes found the sheet absent at T−29 and
+        complete at T−18, so it is **45**, and the old number would have spent
+        five empty requests per fixture. The author's recollection of the
+        provider's own 20-40 minute claim is what prompted the extra reading
+        that caught it — the scheduled probes jumped straight over the window.
+        Also settled: `/fixtures/players` is empty pre-kickoff, so one endpoint
+        is right; sheets arrive complete for both clubs at once, so counting
+        lineups is sufficient; and nothing in the fixture payload flags that a
+        sheet exists, so a time window is the only trigger available.
+
+        **Two bugs only live data could find.** A real team sheet named a player
+        with a **null id**, which failed the whole fixture — `buildSquad` now
+        drops that slot. And the partial write left two lineup rows with no
+        players, which marked the fixture complete to its own predicate and made
+        it permanently unopenable; the team sheets are now written **last**, as
+        the completion marker. Both are in
+        [`architecture.md`](architecture.md#sync-and-the-provider-boundary) and
+        [`api-football-findings.md`](api-football-findings.md).
+
+        Rendering needed almost nothing — `FixtureCard` already keyed openable
+        off squad rows, and both scorelines already fell back to the kickoff
+        time. What it did surface is that opening a match *in progress* was
+        newly reachable and drew a live 0-0 as a finished draw, which is what
+        the live badge below fixes.
 - [x] **11 — A second league.** Done, and deliberately **before** step 10 rather
       than after it. The Primeira Liga's season was already under way while the
       Premier League's had not started, so it was the only way to put played

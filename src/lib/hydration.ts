@@ -12,43 +12,26 @@
  * Prisma. `sync.ts` does the coarse Prisma query and hands the rows here.
  */
 
-/**
- * The provider's whole `status.short` vocabulary, split three ways.
- *
- * Taken from API-Football's own documentation rather than from the captured
- * payloads, which contain only `FT` and `NS` — a season is either finished or
- * not yet played, and every interesting status exists for a few hours on one
- * afternoon. `hydration.test.ts` asserts that every status the payloads *do*
- * contain is classified here, which is the part recollection could get wrong.
- */
-
-/** Played to a result. The squad is final and worth reading. */
-export const FINISHED_STATUSES = ['FT', 'AET', 'PEN'] as const
+import { isFinished, isPending } from './match-status'
 
 /**
- * Over, and there is nothing to read. A match awarded 3–0 or walked over never
- * had a team sheet, and an abandoned one's is not what happened.
- *
- * These are the ones it would be easy to fold into FINISHED by mistake: they
- * satisfy every plain-English reading of "the match is over" and would put a
- * permanently unhydratable row in the queue for the length of the window.
+ * The status vocabulary itself lives in [`match-status.ts`](./match-status.ts),
+ * because the pages need it too and may not import this file — the same split
+ * `rounds.ts` exists for. It is re-exported here so the sync and its tests keep
+ * one import site for everything about selection.
  */
-export const ABANDONED_STATUSES = ['PST', 'CANC', 'ABD', 'AWD', 'WO'] as const
-
-/** Not yet, or in progress. Hydrating here writes partial minutes and no rating. */
-export const PENDING_STATUSES = [
-  'TBD',
-  'NS',
-  '1H',
-  'HT',
-  '2H',
-  'ET',
-  'BT',
-  'P',
-  'SUSP',
-  'INT',
-  'LIVE',
-] as const
+export {
+  ABANDONED_STATUSES,
+  FINISHED_STATUSES,
+  IN_PROGRESS_STATUSES,
+  isAbandoned,
+  isFinished,
+  isInProgress,
+  isKnownStatus,
+  isPending,
+  NOT_STARTED_STATUSES,
+  PENDING_STATUSES,
+} from './match-status'
 
 /**
  * How far back a run will look. Three jobs at once: it bounds the queue so the
@@ -75,6 +58,34 @@ export const SETTLE_HOURS = 6
 /** `syncFixtureDetail` costs two: `/fixtures/lineups` and `/fixtures/players`. */
 export const REQUESTS_PER_FIXTURE = 2
 
+/** `syncFixtureLineups` costs one. It never calls `/fixtures/players`. */
+export const REQUESTS_PER_LINEUP = 1
+
+/**
+ * How long before kickoff a team sheet becomes worth asking for.
+ *
+ * **Measured, not assumed.** API-Football documents 20 to 40 minutes, and timed
+ * probes across two leagues found a fixture empty at 29 minutes and complete at
+ * 18 — the late edge of that band. 45 covers the documented earliest with a
+ * small margin; the numbers and the method are in
+ * [`api-football-findings.md`](../../docs/api-football-findings.md).
+ *
+ * It was 90 before those probes ran, which at a quarter-hour cadence spent five
+ * requests per fixture on a response that could not exist yet. Being wrong in
+ * the other direction is far cheaper: the window runs to full time, so a lead
+ * that is too short delays a team sheet by one run rather than losing it.
+ */
+export const LINEUP_LEAD_MINUTES = 45
+
+/**
+ * A fixture wants one lineup per club, and fewer means it is still incomplete.
+ *
+ * The count is what makes this terminate on its own *and* survive the two clubs
+ * announcing minutes apart. "Has any squad row" would retire the fixture on the
+ * first club's team sheet and leave the second side blank until full time.
+ */
+export const LINEUPS_PER_FIXTURE = 2
+
 /**
  * How much of the reported daily remainder a single run will spend. The counter
  * is documented as non-monotonic — observed going 77, 75, 78, 76 within one run
@@ -83,7 +94,8 @@ export const REQUESTS_PER_FIXTURE = 2
  */
 const QUOTA_SHARE = 0.5
 
-const HOUR_MS = 60 * 60 * 1000
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
 
 /** The shape `selectDue` needs. Rows may carry anything else besides. */
@@ -92,32 +104,6 @@ export interface HydrationCandidate {
   status: string
   /** When the detail endpoints were last read for this fixture. */
   hydratedAt: Date | null
-}
-
-function isMember(statuses: readonly string[], status: string): boolean {
-  return statuses.includes(status)
-}
-
-export function isFinished(status: string): boolean {
-  return isMember(FINISHED_STATUSES, status)
-}
-
-export function isAbandoned(status: string): boolean {
-  return isMember(ABANDONED_STATUSES, status)
-}
-
-export function isPending(status: string): boolean {
-  return isMember(PENDING_STATUSES, status)
-}
-
-/**
- * Whether the provider's vocabulary still matches ours. A status classified by
- * none of the three is one API-Football has added since this was written, and
- * the honest response is to notice rather than to guess which group it belongs
- * in — an unclassified status is simply never hydrated.
- */
-export function isKnownStatus(status: string): boolean {
-  return isFinished(status) || isAbandoned(status) || isPending(status)
 }
 
 /** The oldest kickoff a run will consider. */
@@ -167,19 +153,120 @@ export function selectDue<T extends HydrationCandidate>(rows: T[], now: Date): T
     })
 }
 
+/** The shape `selectLineupDue` needs. Rows may carry anything else besides. */
+export interface LineupCandidate {
+  kickoff: Date
+  status: string
+  /** `MatchLineup` rows this fixture already has: 0, 1 or 2. */
+  lineupCount: number
+}
+
+/** The earliest a run will ask for a team sheet. */
+export function lineupWindowOpens(kickoff: Date): Date {
+  return new Date(kickoff.getTime() - LINEUP_LEAD_MINUTES * MINUTE_MS)
+}
+
 /**
- * How many fixtures this run can afford.
- *
- * The CLI used to throw here and tell the author to pass `--limit`. A scheduled
- * run has nobody to read that, and refusing to run means hydrating nothing
- * where hydrating some would have been right — so it clamps and says so.
- *
- * A null remainder means the header was missing or unreadable, which is not
- * evidence of a generous plan; but it is also not evidence of a tight one, and
- * the client already paces itself slowly in that case. Leave the count alone.
+ * The latest. A fixture the provider leaves sitting at `NS` long past its
+ * kickoff would otherwise be asked for forever, so this is the give-up rule the
+ * fortnight window is for the other predicate — and it reuses `SETTLE_HOURS`
+ * rather than inventing a number, because it is the same judgement: past that
+ * point the provider is not going to say anything new about this match.
  */
-export function clampToQuota(wanted: number, remaining: number | null): number {
-  if (remaining === null) return wanted
-  const affordable = Math.floor((remaining * QUOTA_SHARE) / REQUESTS_PER_FIXTURE)
-  return Math.max(0, Math.min(wanted, affordable))
+export function lineupWindowCloses(kickoff: Date): Date {
+  return new Date(kickoff.getTime() + SETTLE_HOURS * HOUR_MS)
+}
+
+/**
+ * The kickoffs a run will consider for team sheets, as a range Postgres can
+ * take. The inverse of the two window functions above: a fixture is in play when
+ * its window has opened and not yet closed, which read from `now` rather than
+ * from the kickoff is simply a band of kickoff times either side of it.
+ *
+ * It exists so the coarse Prisma filter and the policy cannot drift apart —
+ * `windowStart` does the same job for the other predicate.
+ */
+export function lineupKickoffRange(now: Date): { from: Date; to: Date } {
+  return {
+    from: new Date(now.getTime() - SETTLE_HOURS * HOUR_MS),
+    to: new Date(now.getTime() + LINEUP_LEAD_MINUTES * MINUTE_MS),
+  }
+}
+
+/**
+ * Whether one fixture still wants a team sheet.
+ *
+ * The counterpart to `isDue`, and deliberately a separate predicate rather than
+ * a widening of it: that one insists on `FT` precisely so a run never writes
+ * partial minutes and missing ratings, while this one runs when there are no
+ * statistics at all and is safe only because its caller fetches
+ * `/fixtures/lineups` alone.
+ *
+ * The window runs to full time rather than to kickoff, which is what covers a
+ * team sheet published late — so the status test is *not finished* rather than
+ * *not started*, and `1H`, `HT` and `2H` all still qualify. A lineup is complete
+ * and final once a match is under way; it is only the statistics that are
+ * provisional, and those are never read here.
+ */
+export function isLineupDue(row: LineupCandidate, now: Date): boolean {
+  if (!isPending(row.status)) return false
+  if (row.lineupCount >= LINEUPS_PER_FIXTURE) return false
+  return now >= lineupWindowOpens(row.kickoff) && now <= lineupWindowCloses(row.kickoff)
+}
+
+/**
+ * The fixtures wanting a team sheet, soonest kickoff first.
+ *
+ * Ordered the opposite way to `selectDue`, and for the opposite reason: that
+ * queue is a fortnight wide and can afford to wait, while this one closes at
+ * full time. The match kicking off next is the one a delay actually costs.
+ */
+export function selectLineupDue<T extends LineupCandidate>(rows: T[], now: Date): T[] {
+  return rows
+    .filter((row) => isLineupDue(row, now))
+    .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime())
+}
+
+/**
+ * The share of the day's remaining quota one run will spend, in requests.
+ *
+ * Null when the header was missing or unreadable, which is not evidence of a
+ * generous plan but is not evidence of a tight one either — the client already
+ * paces itself slowly in that case, which is where the caution belongs.
+ */
+export function affordableRequests(remaining: number | null): number | null {
+  if (remaining === null) return null
+  return Math.max(0, Math.floor(remaining * QUOTA_SHARE))
+}
+
+/** How much of each queue a run can afford. */
+export interface RunBudget {
+  lineups: number
+  fixtures: number
+}
+
+/**
+ * How much work this run can pay for, across both queues.
+ *
+ * One budget rather than two, because the quota is one number and both queues
+ * spend it. **Lineups are taken first**: their window is ninety minutes wide and
+ * closes at full time, while a fixture waiting to be hydrated has a fortnight —
+ * so when something has to wait, it should be the queue that can.
+ *
+ * It clamps and never refuses. The CLI used to throw here and advise passing
+ * `--limit`, which has no reader in a scheduled run, and refusing outright reads
+ * nothing where reading some would have been right.
+ */
+export function planRun(
+  wantedLineups: number,
+  wantedFixtures: number,
+  remaining: number | null,
+): RunBudget {
+  const budget = affordableRequests(remaining)
+  if (budget === null) return { lineups: wantedLineups, fixtures: wantedFixtures }
+
+  const lineups = Math.min(wantedLineups, Math.floor(budget / REQUESTS_PER_LINEUP))
+  const left = budget - lineups * REQUESTS_PER_LINEUP
+  const fixtures = Math.min(wantedFixtures, Math.floor(left / REQUESTS_PER_FIXTURE))
+  return { lineups, fixtures }
 }

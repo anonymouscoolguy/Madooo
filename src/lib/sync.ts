@@ -24,7 +24,14 @@ import {
   type MappedTeam,
 } from './api-football/map'
 import type { RawFixture, RawLineup, RawPlayerStats } from './api-football/types'
-import { FINISHED_STATUSES, selectDue, windowStart } from './hydration'
+import {
+  FINISHED_STATUSES,
+  lineupKickoffRange,
+  PENDING_STATUSES,
+  selectDue,
+  selectLineupDue,
+  windowStart,
+} from './hydration'
 import { prisma } from './prisma'
 
 // Re-exported so `scripts/sync.ts` keeps its single import site. The definition
@@ -220,26 +227,8 @@ async function upsertSquadEntry(
   })
 }
 
-export interface FixtureDetailResult {
-  fixtureApiFootballId: number
-  lineups: number
-  squadEntries: number
-  remaining: number | null
-}
-
-/**
- * Two requests: the lineups and the player statistics for one fixture. Both are
- * needed — only the first carries formation, pitch grid and kit colours, and
- * only the second carries full names and minutes.
- *
- * Not wrapped in a transaction, deliberately. Since every write is an idempotent
- * upsert and nothing is ever deleted, an interrupted run leaves a partially
- * hydrated fixture that re-running repairs exactly — which is the same guarantee
- * a transaction would buy, without holding one open across ~40 statements.
- */
-export async function syncFixtureDetail(
-  fixtureApiFootballId: number,
-): Promise<FixtureDetailResult> {
+/** Our own `Match.id` for a provider fixture id, or a refusal naming it. */
+async function matchIdFor(fixtureApiFootballId: number): Promise<number> {
   const match = await prisma.match.findUnique({
     where: { apiFootballId: fixtureApiFootballId },
     select: { id: true },
@@ -249,17 +238,40 @@ export async function syncFixtureDetail(
       `Fixture ${fixtureApiFootballId} is not in the database — sync fixtures first`,
     )
   }
+  return match.id
+}
 
-  const lineups = await apiGet<RawLineup>('fixtures/lineups', {
-    fixture: fixtureApiFootballId,
-  })
-  const stats = await apiGet<RawPlayerStats>('fixtures/players', {
-    fixture: fixtureApiFootballId,
-  })
+/**
+ * Write one fixture's team sheets and squad rows.
+ *
+ * Shared by both readers, and the whole of what makes a lineup-only fetch cost
+ * nothing extra: `mapSquadTeams` and `buildSquad` already accept an empty
+ * statistics response, seeding entries from `startXI` and `substitutes` with
+ * null minutes. The `null` photo those entries carry is what tells
+ * `upsertSquadEntry` not to overwrite a full name with an abbreviation later.
+ */
+async function writeFixtureSquads(
+  matchId: number,
+  lineups: RawLineup[],
+  stats: RawPlayerStats[],
+): Promise<{ lineups: number; squadEntries: number }> {
+  const teamIds = await upsertTeams(mapSquadTeams(lineups, stats))
 
-  const teamIds = await upsertTeams(mapSquadTeams(lineups.response, stats.response))
+  // Players first, team sheets second, and the order is load-bearing.
+  //
+  // `lineupDueFixtures` treats two `MatchLineup` rows as "this fixture is done",
+  // so writing them first means a run that dies part way through marks the
+  // fixture complete with no players in it — and the predicate never looks at it
+  // again. That is not hypothetical: it happened the first time a real team
+  // sheet arrived carrying a player with a null id, and left the match
+  // unopenable until full time.
+  //
+  // Writing them last makes the marker mean what the predicate reads it as. The
+  // same shape as `hydratedAt`, which is stamped only after the squad is in.
+  const squad = buildSquad(lineups, stats)
+  await inChunks(squad, 10, (entry) => upsertSquadEntry(entry, matchId, teamIds))
 
-  for (const raw of lineups.response) {
+  for (const raw of lineups) {
     const lineup = mapLineup(raw)
     const teamId = teamIds.get(lineup.teamApiFootballId)
     if (teamId === undefined) continue
@@ -277,32 +289,85 @@ export async function syncFixtureDetail(
     }
 
     await prisma.matchLineup.upsert({
-      where: { matchId_teamId: { matchId: match.id, teamId } },
-      create: { matchId: match.id, teamId, ...data },
+      where: { matchId_teamId: { matchId, teamId } },
+      create: { matchId, teamId, ...data },
       update: data,
     })
   }
 
-  const squad = buildSquad(lineups.response, stats.response)
-  await inChunks(squad, 10, (entry) => upsertSquadEntry(entry, match.id, teamIds))
+  return { lineups: lineups.length, squadEntries: squad.length }
+}
+
+export interface FixtureDetailResult {
+  fixtureApiFootballId: number
+  lineups: number
+  squadEntries: number
+  remaining: number | null
+}
+
+/**
+ * One request: the team sheets for a fixture that has not been played out yet.
+ *
+ * The counterpart to `syncFixtureDetail`, and the reason it is a separate
+ * function rather than a flag is what it must *not* do. `/fixtures/players`
+ * before full time returns partial minutes and no ratings, so this never asks
+ * for it — which is also what makes the predicate behind it safe to run while a
+ * match is being played.
+ *
+ * **It does not stamp `hydratedAt`.** That column records when *both* detail
+ * endpoints were last read, and only one was; leaving it null is also what keeps
+ * the fixture queued for the full hydration after full time, which is where
+ * minutes and ratings come from.
+ */
+export async function syncFixtureLineups(
+  fixtureApiFootballId: number,
+): Promise<FixtureDetailResult> {
+  const matchId = await matchIdFor(fixtureApiFootballId)
+
+  const lineups = await apiGet<RawLineup>('fixtures/lineups', {
+    fixture: fixtureApiFootballId,
+  })
+  const written = await writeFixtureSquads(matchId, lineups.response, [])
+
+  return { fixtureApiFootballId, ...written, remaining: lineups.remaining }
+}
+
+/**
+ * Two requests: the lineups and the player statistics for one fixture. Both are
+ * needed — only the first carries formation, pitch grid and kit colours, and
+ * only the second carries full names and minutes.
+ *
+ * Not wrapped in a transaction, deliberately. Since every write is an idempotent
+ * upsert and nothing is ever deleted, an interrupted run leaves a partially
+ * hydrated fixture that re-running repairs exactly — which is the same guarantee
+ * a transaction would buy, without holding one open across ~40 statements.
+ */
+export async function syncFixtureDetail(
+  fixtureApiFootballId: number,
+): Promise<FixtureDetailResult> {
+  const matchId = await matchIdFor(fixtureApiFootballId)
+
+  const lineups = await apiGet<RawLineup>('fixtures/lineups', {
+    fixture: fixtureApiFootballId,
+  })
+  const stats = await apiGet<RawPlayerStats>('fixtures/players', {
+    fixture: fixtureApiFootballId,
+  })
+
+  const written = await writeFixtureSquads(matchId, lineups.response, stats.response)
 
   // Stamped only when something came back. A fixture whose lineup the provider
   // has not published yet must stay in the queue: stamping it here would retire
   // it from every future run and leave its card reading "No squad yet" forever.
   // Two wasted requests is the correct price for that.
-  if (squad.length > 0) {
+  if (written.squadEntries > 0) {
     await prisma.match.update({
-      where: { id: match.id },
+      where: { id: matchId },
       data: { hydratedAt: new Date() },
     })
   }
 
-  return {
-    fixtureApiFootballId,
-    lineups: lineups.response.length,
-    squadEntries: squad.length,
-    remaining: stats.remaining,
-  }
+  return { fixtureApiFootballId, ...written, remaining: stats.remaining }
 }
 
 export interface DueFixture {
@@ -364,6 +429,62 @@ export async function dueFixtures(
   }))
 
   return selectDue(candidates, now)
+}
+
+export interface DueLineup {
+  apiFootballId: number
+  kickoff: Date
+  status: string
+  lineupCount: number
+  league: string
+  label: string
+}
+
+/**
+ * Which fixtures a scheduled run should ask for a team sheet.
+ *
+ * The same split as `dueFixtures` — coarse filter in Postgres, policy in
+ * `hydration.ts` — and here the fold is not a preference: Prisma's `where` can
+ * ask whether a relation has *no* rows but not whether it has *fewer than two*,
+ * and two is the number that matters, because the clubs announce minutes apart.
+ * The kickoff band the query is given is narrow enough that the candidate set is
+ * a handful of rows.
+ */
+export async function lineupDueFixtures(
+  season: number,
+  now: Date,
+  leagueIds: number[],
+): Promise<DueLineup[]> {
+  const { from, to } = lineupKickoffRange(now)
+
+  const rows = await prisma.match.findMany({
+    where: {
+      season,
+      leagueId: { in: leagueIds },
+      status: { in: [...PENDING_STATUSES] },
+      kickoff: { gte: from, lte: to },
+    },
+    select: {
+      apiFootballId: true,
+      kickoff: true,
+      status: true,
+      league: { select: { name: true } },
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+      _count: { select: { lineups: true } },
+    },
+  })
+
+  const candidates = rows.map((row) => ({
+    apiFootballId: row.apiFootballId,
+    kickoff: row.kickoff,
+    status: row.status,
+    lineupCount: row._count.lineups,
+    league: row.league.name,
+    label: `${row.homeTeam.name} vs ${row.awayTeam.name}`,
+  }))
+
+  return selectLineupDue(candidates, now)
 }
 
 /** Our own league ids for the configured provider ids, with their names. */

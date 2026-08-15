@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { Badge, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
 import { kickoffDate, kickoffTime } from '@/lib/dates'
+import { isInProgress } from '@/lib/match-status'
 import { plural } from '@/lib/text'
 import { countNotes, countVerdicts } from '@/lib/verdicts'
 import type { Fixture } from '@/lib/fixtures'
@@ -18,6 +20,15 @@ import type { Fixture } from '@/lib/fixtures'
  */
 
 function Score({ match }: { match: Fixture }) {
+  // Before the goals check, and that order is the whole of it: a match kicks off
+  // with a 0–0 recorded against it, so asking about goals first draws a live
+  // match as a finished goalless draw. This page never polls, so a live score
+  // would also be stale the moment it was painted — the badge is what the page
+  // actually knows.
+  if (isInProgress(match.status)) {
+    return <Badge label="Live" classes={LIVE_BADGE} />
+  }
+
   // Null goals means no result recorded, not a goalless draw — so the kickoff
   // time stands in, which is the thing a reader of an unplayed fixture wants.
   if (match.homeGoals === null || match.awayGoals === null) {

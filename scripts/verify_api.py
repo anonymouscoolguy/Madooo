@@ -18,8 +18,17 @@ actual payload shape rather than guessing. Every dump is qualified by league,
 because leagues share a season number and an unqualified name would have one
 silently overwrite another.
 
+`--fixture` answers a different question, and it is the reason this script grew
+a second mode: **what do the two per-fixture endpoints return before a match has
+kicked off?** The sync fetches a lineup when it is announced rather than only
+after full time, and that policy rests on when the provider actually publishes
+one — which no documentation states and only a match day can answer. Every dump
+is stamped with the minutes to kickoff, so a series of runs across one afternoon
+reads as a timeline rather than as four unrelated files.
+
 Usage:  python3 scripts/verify_api.py            every league in LEAGUES
         python3 scripts/verify_api.py --league 94   one league, whatever LEAGUES says
+        python3 scripts/verify_api.py --fixture 1390824   one fixture, right now
 """
 
 import json
@@ -28,6 +37,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 BASE_URL = "https://v3.football.api-sports.io"
@@ -89,6 +99,19 @@ def parse_leagues(raw: str, source: str) -> list[int]:
     if not ids:
         sys.exit(f"{source} is empty — nothing to probe.")
     return ids
+
+
+def target_fixture(argv: list[str]) -> int | None:
+    """The fixture id for --fixture, or None for the ordinary league probe."""
+    for index, arg in enumerate(argv):
+        if arg == "--fixture":
+            if index + 1 >= len(argv):
+                sys.exit("--fixture takes a fixture id, e.g. --fixture 1390824")
+            value = argv[index + 1]
+            if not value.isdigit() or int(value) < 1:
+                sys.exit(f"--fixture takes a fixture id, got {value!r}")
+            return int(value)
+    return None
 
 
 def target_leagues(argv: list[str]) -> list[int]:
@@ -295,8 +318,82 @@ def probe_league(key: str, league_id: int) -> int | None:
     return season
 
 
+def minutes_to_kickoff(fixture: dict) -> int:
+    """Signed minutes from now to kickoff: negative once the match has started."""
+    kickoff = datetime.fromisoformat(fixture["fixture"]["date"])
+    now = datetime.now(timezone.utc)
+    return round((kickoff - now).total_seconds() / 60)
+
+
+def probe_fixture(key: str, fixture_id: int) -> None:
+    """What both per-fixture endpoints return for one fixture, right now.
+
+    Costs three requests. The point is the *timing*, so every dump is stamped
+    with the minutes to kickoff and the run prints where in the timeline it sat.
+    """
+    print(f"\n[1] Fixture {fixture_id}: where it is in its own timeline")
+    calendar = api_get(key, "fixtures", id=fixture_id)
+    entries = calendar.get("response", [])
+    if not entries:
+        sys.exit(f"Fixture {fixture_id} is not in any fixture list this key can read.")
+
+    fixture = entries[0]
+    teams = fixture.get("teams", {})
+    status = fixture["fixture"]["status"]
+    delta = minutes_to_kickoff(fixture)
+    # Negative reads as "after kickoff", so the sign is the information and the
+    # stamp sorts a series of probes in the order they were taken.
+    stamp = f"t{delta:+d}"
+
+    print(f"      {teams.get('home', {}).get('name')} v {teams.get('away', {}).get('name')}")
+    print(f"      kickoff   : {fixture['fixture']['date']}")
+    print(f"      now       : {delta:+d} minutes from kickoff")
+    print(f"      status    : {status.get('short')} ({status.get('long')}), elapsed={status.get('elapsed')}")
+    dump(f"prematch_fixture_{fixture_id}_{stamp}", calendar)
+
+    print(f"\n[2] Fixture {fixture_id}: /fixtures/lineups at {stamp}")
+    lineups = api_get(key, "fixtures/lineups", fixture=fixture_id)
+    dump(f"prematch_lineup_{fixture_id}_{stamp}", lineups)
+
+    published = lineups.get("response", [])
+    if not published:
+        print("      EMPTY — no lineup published yet at this point.")
+    for team in published:
+        starters = team.get("startXI", [])
+        subs = team.get("substitutes", [])
+        print(
+            f"      {team['team']['name']}: {len(starters)} starters, {len(subs)} subs, "
+            f"formation={team.get('formation')}"
+        )
+        if starters:
+            print(f"        first player object -> {json.dumps(starters[0]['player'])}")
+
+    print(f"\n[3] Fixture {fixture_id}: /fixtures/players at {stamp}")
+    stats = api_get(key, "fixtures/players", fixture=fixture_id)
+    dump(f"prematch_players_{fixture_id}_{stamp}", stats)
+
+    listed = stats.get("response", [])
+    if not listed:
+        print("      EMPTY — nothing from the statistics endpoint at this point.")
+    for team in listed:
+        print(f"      {team['team']['name']}: {len(team.get('players', []))} listed")
+
+    # The one line the whole probe exists for.
+    print(
+        f"\n  VERDICT at {delta:+d} min: "
+        f"lineups={len(published)} team(s), players={len(listed)} team(s), status={status.get('short')}"
+    )
+
+
 def main() -> None:
     key = load_key()
+
+    fixture_id = target_fixture(sys.argv[1:])
+    if fixture_id is not None:
+        probe_fixture(key, fixture_id)
+        print("\nDone. Inspect scratch/ for the full payloads.")
+        return
+
     leagues = target_leagues(sys.argv[1:])
 
     print("\n[1] Account status")

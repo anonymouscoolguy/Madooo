@@ -48,9 +48,20 @@ export interface Scored {
  * An en dash between the goals, not a hyphen, and the same character the match
  * page's own heading uses.
  */
-export function scoreline(match: Scored): string {
-  const { homeTeam, awayTeam, homeGoals, awayGoals } = match
+/**
+ * The two clubs and nothing between them.
+ *
+ * Its own function because two callers want it for reasons that are not "there
+ * is no score yet": a match being played has a score the page deliberately does
+ * not state, and one that never kicked off has none to state.
+ */
+export function fixtureName(match: Pick<Scored, 'homeTeam' | 'awayTeam'>): string {
+  return `${match.homeTeam.name} v ${match.awayTeam.name}`
+}
 
-  if (homeGoals === null || awayGoals === null) return `${homeTeam.name} v ${awayTeam.name}`
-  return `${homeTeam.name} ${homeGoals}–${awayGoals} ${awayTeam.name}`
+export function scoreline(match: Scored): string {
+  const { homeGoals, awayGoals } = match
+
+  if (homeGoals === null || awayGoals === null) return fixtureName(match)
+  return `${match.homeTeam.name} ${homeGoals}–${awayGoals} ${match.awayTeam.name}`
 }

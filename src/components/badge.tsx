@@ -41,6 +41,19 @@ export const VERDICT_BADGE: Record<BadgeKey, { icon: IconName; classes: string }
   NOTE: { icon: 'edit_note', classes: 'border-info bg-info-bg text-info' },
 }
 
+/**
+ * A match being played, drawn where its score would go.
+ *
+ * Deliberately outside `VERDICT_BADGE`: that table is what a real judgement can
+ * be, and this is a fact about the fixture rather than anything the reader said.
+ * It takes `--live`, which resolves to the same red as `--flop` and is still its
+ * own token — `foundations.md` states why.
+ *
+ * No icon, for the reason the unrated badge has none: Material Symbols has no
+ * glyph for "in play", and foundations' answer to a missing glyph is a word.
+ */
+export const LIVE_BADGE = 'border-live bg-live-bg text-live'
+
 type Props = {
   /**
    * Optional, because a badge saying *no* verdict was given has no glyph to

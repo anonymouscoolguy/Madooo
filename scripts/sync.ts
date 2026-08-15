@@ -9,14 +9,23 @@
  *   npm run sync -- --fixtures-only            the calendars alone, 1 per league
  *
  * Costs one request per league for its whole season of fixtures, then two per
- * hydrated fixture. A Premier League round is 1 + 20 = 21 of the day's 7,500.
+ * hydrated fixture and one per team sheet. A Premier League round is
+ * 1 + 20 = 21 of the day's 7,500.
  *
  * **`--due` is the mode the scheduler runs and `--round` is the one a person
  * runs.** `--round` names a matchday and asks for it; `--due` names nothing and
- * asks our own table which finished matches have not been read yet, which is
- * why it needs no answer to "which round is current" in three leagues that are
- * at three different points of their seasons. `--round` stays because it is the
- * repair tool: it reaches a match the fortnight window has already dropped.
+ * asks our own table what wants reading, which is why it needs no answer to
+ * "which round is current" in three leagues that are at three different points
+ * of their seasons. `--round` stays because it is the repair tool: it reaches a
+ * match the fortnight window has already dropped.
+ *
+ * `--due` reads **two** queues, and they are selected by different predicates
+ * for opposite reasons. Finished matches want both detail endpoints, once the
+ * result has settled. Matches about to kick off want `/fixtures/lineups` alone,
+ * which carries no statistics to be provisional about — that is what makes a
+ * fixture openable and judgeable before it is played. Team sheets are fetched
+ * first: their window closes at full time, where a fixture waiting to be
+ * hydrated has a fortnight.
  *
  * Which leagues is configuration, `LEAGUES` — never a literal here, the same
  * rule the season follows. `--league` narrows that list for one run; it cannot
@@ -118,9 +127,18 @@ async function main() {
   // instant it is imported. The same trick as scripts/db-check.ts.
   const { databaseBranch, season, syncLeagues } = await import('../src/lib/env')
   const { prisma } = await import('../src/lib/prisma')
-  const { clampToQuota } = await import('../src/lib/hydration')
-  const { dueFixtures, leagueRows, roundLabel, syncFixtureDetail, syncSeasonFixtures } =
-    await import('../src/lib/sync')
+  const { planRun, REQUESTS_PER_FIXTURE, REQUESTS_PER_LINEUP } = await import(
+    '../src/lib/hydration'
+  )
+  const {
+    dueFixtures,
+    leagueRows,
+    lineupDueFixtures,
+    roundLabel,
+    syncFixtureDetail,
+    syncFixtureLineups,
+    syncSeasonFixtures,
+  } = await import('../src/lib/sync')
 
   const target = season()
   const configured = syncLeagues()
@@ -181,6 +199,9 @@ async function main() {
 
   const skipped: string[] = []
   let due: Target[]
+  // Fixtures wanting a team sheet before they have been played out. Only `--due`
+  // fills this: `--round` is the post-match repair tool and always has been.
+  let lineupsDue: Target[] = []
 
   // No round means `--due`: `--fixtures-only` has returned already, and
   // `parseArgs` allows no third possibility.
@@ -192,11 +213,12 @@ async function main() {
       // nothing of it to read. Worth saying rather than presenting as zero due.
       skipped.push(`${plural(missing, 'league')} not in the database yet`)
     }
-    due = await dueFixtures(
-      target,
-      new Date(),
-      rows.map((row) => row.id),
-    )
+    const leagueIds = rows.map((row) => row.id)
+    const now = new Date()
+    // Both selections resolved before either is fetched, so the heading below
+    // can state the whole run rather than one queue at a time.
+    lineupsDue = await lineupDueFixtures(target, now, leagueIds)
+    due = await dueFixtures(target, now, leagueIds)
   } else {
     due = results.flatMap((result) => {
       const inRound = result.fixtures.filter((fixture) => fixture.round === round)
@@ -220,28 +242,67 @@ async function main() {
   // Clamped, never refused. This used to throw and tell the author to pass
   // --limit, which has no reader in a scheduled run — and refusing outright
   // hydrates nothing where hydrating some would have been right.
+  //
+  // `--limit` caps the hydration queue alone. It is the tool for a person
+  // running `--round` against a whole matchday; the lineup queue is bounded to
+  // whatever kicks off in the next ninety minutes and never needs capping.
   const wanted = options.limit === null ? due.length : Math.min(due.length, options.limit)
-  const budget = clampToQuota(wanted, budgetSource?.remaining ?? null)
-  const selected = due.slice(0, budget)
-  const unread = due.length - selected.length
+  const budget = planRun(lineupsDue.length, wanted, budgetSource?.remaining ?? null)
+
+  const lineupsSelected = lineupsDue.slice(0, budget.lineups)
+  const selected = due.slice(0, budget.fixtures)
+  const unread = due.length - selected.length + (lineupsDue.length - lineupsSelected.length)
+
+  const requests =
+    lineupsSelected.length * REQUESTS_PER_LINEUP + selected.length * REQUESTS_PER_FIXTURE
 
   const heading = round ?? 'due'
-  console.log(
-    `\n${heading} — ${plural(due.length, 'fixture')}, ` +
-      `${selected.length} this run, ${selected.length * 2} requests`,
-  )
+  const work = [
+    // The lineup queue is named only when it has something in it: on most runs
+    // of the day it is empty, and a permanent "0 lineups" would be noise in a
+    // log whose whole job is to be skimmed.
+    lineupsSelected.length > 0 ? plural(lineupsSelected.length, 'lineup') : null,
+    `${plural(due.length, 'fixture')}, ${selected.length} this run`,
+  ].filter((part) => part !== null)
+
+  console.log(`\n${heading} — ${work.join(', ')}, ${plural(requests, 'request')}`)
   for (const note of skipped) console.log(`  skip  ${note}`)
-  if (budget < wanted) {
-    console.log(`  note  clamped to ${budget} by the day's remaining quota`)
+  if (budget.fixtures < wanted || budget.lineups < lineupsDue.length) {
+    console.log(`  note  clamped by the day's remaining quota`)
   }
 
   if (options.dryRun) {
+    for (const fixture of lineupsSelected) {
+      console.log(`  would  lineup · ${fixture.league} · ${fixture.label}`)
+    }
     for (const fixture of selected) {
       console.log(`  would  ${fixture.league} · ${fixture.label}`)
     }
     await prisma.$disconnect()
-    console.log(`\ndry run — nothing fetched, ${plural(selected.length, 'fixture')} due\n`)
+    console.log(
+      `\ndry run — nothing fetched, ${plural(lineupsSelected.length, 'lineup')} and ` +
+        `${plural(selected.length, 'fixture')} due\n`,
+    )
     return
+  }
+
+  // Team sheets first. Their window closes at full time where the hydration
+  // queue's is a fortnight wide, so if the run dies part way through it should
+  // die having done the work that could not have waited.
+  let sheets = 0
+  for (const fixture of lineupsSelected) {
+    try {
+      const detail = await syncFixtureLineups(fixture.apiFootballId)
+      sheets += 1
+      console.log(
+        `  ok    lineup · ${fixture.league} · ${fixture.label} — ${detail.lineups} lineups, ` +
+          `${detail.squadEntries} squad entries (${quota(detail.remaining, quotaLimit)})`,
+      )
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      failures.push(`lineup ${fixture.apiFootballId}: ${reason}`)
+      console.log(`  FAIL  lineup · ${fixture.league} · ${fixture.label} — ${reason}`)
+    }
   }
 
   let hydrated = 0
@@ -267,6 +328,7 @@ async function main() {
   // "ran out of room" — the two states a run of zero could otherwise mean.
   console.log(
     `\nsummary: calendars ${results.length}/${leagues.length}, ` +
+      `lineups ${sheets}/${lineupsSelected.length}, ` +
       `hydrated ${hydrated}/${selected.length}, still due ${unread}, ` +
       `failed ${failures.length}\n`,
   )

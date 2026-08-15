@@ -265,4 +265,35 @@ describe('buildSquad', () => {
     expect(withoutLineups.length).toBe(rawPlayers.length)
     expect(withoutLineups.every((entry) => entry.grid === null)).toBe(true)
   })
+
+  it('builds a whole squad from the team sheet alone', () => {
+    // The mirror case, and the one the pre-match read depends on entirely:
+    // `syncFixtureLineups` never calls /fixtures/players, so this is the shape
+    // it writes. Nothing in the mapper had to change for it — this asserts that
+    // rather than assuming it.
+    const withoutStats = buildSquad(lineups.response, [])
+
+    const named = lineups.response.reduce(
+      (total, team) => total + team.startXI.length + team.substitutes.length,
+      0,
+    )
+    expect(withoutStats.length).toBe(named)
+    expect(named).toBeGreaterThan(0)
+
+    // Absent, not zero. An unused substitute did not play zero minutes and was
+    // not rated 0.0, and a page must be able to tell the two apart.
+    expect(withoutStats.every((entry) => entry.minutes === null)).toBe(true)
+    expect(withoutStats.every((entry) => entry.rating === null)).toBe(true)
+    expect(withoutStats.every((entry) => entry.goals === null)).toBe(true)
+
+    // The null photo is load-bearing rather than incidental: it is what tells
+    // `upsertSquadEntry` this name is the abbreviated "A. Onana" and must not
+    // overwrite a full one already in the database.
+    expect(withoutStats.every((entry) => entry.player.photo === null)).toBe(true)
+
+    // The team sheet's own contribution — a starter keeps its pitch grid, and
+    // the starter/substitute split survives with no statistics to confirm it.
+    expect(withoutStats.some((entry) => entry.isStarter && entry.grid !== null)).toBe(true)
+    expect(withoutStats.some((entry) => !entry.isStarter)).toBe(true)
+  })
 })

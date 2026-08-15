@@ -95,7 +95,14 @@ export interface RawKit {
 
 export interface RawLineupSlot {
   player: {
-    id: number
+    /**
+     * **Nullable, and observed null in a real payload.** A pre-match team sheet
+     * can name a player API-Football has no record for — Santa Clara's bench on
+     * 2026-08-15 carried `{"id": null, "name": "Afonso Duarte", "number": 18}`.
+     * Post-match captures had never shown one, so this said `number` until a
+     * live team sheet proved otherwise.
+     */
+    id: number | null
     /** Abbreviated here — "A. Onana". The full name is on /fixtures/players. */
     name: string
     number: number | null
