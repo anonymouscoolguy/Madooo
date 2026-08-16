@@ -222,7 +222,7 @@ that Next withholds from dynamic routes without one.
 - Prisma 7.9.1 against Neon Postgres, via the `@prisma/adapter-pg` driver adapter
 - Clerk 7.x for auth, with Google and email/password enabled, on a production
   instance bound to `madooo.app`
-- Pushed to `github.com:anonymouscoolguy/Madooo`, now on a `slice/*` branch flow
+- Pushed to `github.com:miguelcfernandes/Madooo`, now on a `slice/*` branch flow
   squash-merged into `main`
 - Deployed on Vercel from `main`, built with `prisma generate && next build`;
   Production reads the production Neon branch, Preview the development one.

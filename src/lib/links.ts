@@ -8,4 +8,4 @@
  * screen. A URL spelled out in two files is a broken link waiting for the second
  * one to be edited.
  */
-export const GITHUB_URL = 'https://github.com/anonymouscoolguy/Madooo'
+export const GITHUB_URL = 'https://github.com/miguelcfernandes/Madooo'
