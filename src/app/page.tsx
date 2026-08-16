@@ -3,6 +3,7 @@ import { SignInButton, SignUpButton } from '@clerk/nextjs'
 import { Badge, VERDICT_BADGE } from '@/components/badge'
 import { Icon } from '@/components/icon'
 import { LandingPreview } from '@/components/landing-preview'
+import { GITHUB_URL } from '@/lib/links'
 
 /**
  * The landing page: what a signed-out visitor sees, and the only public screen
@@ -33,13 +34,6 @@ import { LandingPreview } from '@/components/landing-preview'
  * choice made inside the app, because that choice is an attribute on <html>
  * and these are the same semantic tokens every other screen uses.
  */
-
-/**
- * What the footer, the GitHub button and the page's own claim all point at. One
- * constant, because a marketing page with two spellings of its own repository
- * URL is a broken link waiting for the second one to be edited.
- */
-const GITHUB_URL = 'https://github.com/anonymouscoolguy/Madooo'
 
 /**
  * The filled button, with foundations' complete state set for one: the inverse

@@ -311,7 +311,7 @@ Nothing else animates. No bounce, no spring, no scale-in, no page transitions, n
 
 Sizes: 14 in badges and micro-labels, 16 in chips, 18 in buttons and fields, 20 default, 22 for large icon buttons. Icons inherit `currentColor` and are never given their own colour except through the element holding them.
 
-Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `view_list` and `grid_view` (the layout toggle), `menu` (the drawer), `lock` and `code` (the landing page's open-source tag and its GitHub button), `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
+Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `view_list` and `grid_view` (the layout toggle), `menu` (the drawer), `lock_open` and `code` (the landing page's open-source tag and its GitHub button), `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
 (the referee's whistle).
 
 The list that binds is `ICON_NAMES` in `src/components/icon-names.ts`, which is both the type `<Icon>` accepts and the subset request the font is fetched with. This paragraph is its prose companion and can fall behind it; the array cannot.
@@ -330,6 +330,21 @@ So a flag answers to the club-mark rule rather than to this one, and takes the s
 4. **It sits beside the name it marks, never instead of it**, and is `aria-hidden`. The accessible name is the league's name, which is already there.
 
 The files are three 4:3 SVGs in `public/flags/`, vendored from flag-icons under MIT, drawn as a `background-image` at 16×12 with a 1px inset ring in `--border`. The ring is not decoration: England is a white field, so it has no edge on `--surface`, and none on a selected pill in dark either, which is a white fill.
+
+### GitHub's mark is a second identity mark, and the only one
+
+The same reasoning, one step further. The octocat is not a hand-drawn SVG and competes for no slot in the vocabulary: it says *which* site the link goes to, exactly as a flag says which country. Material Symbols has no glyph for GitHub and could not have one. `code` still means source and is unaffected — the landing page's button keeps it, because there the mark sits next to five words of explanation and the Symbol is the quieter choice.
+
+What forced the exception is that "use a word" had already been tried and failed. The link first sat at the sidebar's foot as a labelled row, and borrowing `NavItem`'s row height, icon column and hover fill made it read as a fifth destination. The mark is what lets it be recognised without being read, which is what lets it stop being a row at all.
+
+It takes a bar of its own:
+
+1. **One mark, one place.** The top bar of the app shell, beside the theme toggle. A second non-Symbol glyph anywhere is a new decision, not a precedent this section already granted.
+2. **It is inline SVG, not a file in `public/`** — the one way it differs from the flags, and not a preference. An `<img>` cannot inherit `currentColor`, and the mark has to take `--text-muted` from the control holding it, go to `--text` on hover, and invert with the theme.
+3. **It is `aria-hidden`, and the anchor carries the name.** "Source on GitHub". The mark stands alone with no visible label, so the accessible name lives on the control, exactly as it does on the menu button and inside the theme toggle.
+4. **20px, not the 22px its neighbours use.** A solid silhouette at the same nominal size as a 2px outline puts far more ink on screen; matching the boxes rather than the weights made it the loudest thing in a bar meant to be quiet.
+
+GitHub's brand guidelines permit the mark for linking to a repository, which is the whole of what it does here. **This is not the licence club crests have** — `Team.logo` and `League.logo` still render nowhere, and this section grants them nothing.
 
 Emoji flags remain out, and doubly. The first list on this page bans emoji outright, and Windows ships no regional-indicator glyphs, so a large share of readers would get two letters in a box — with England worse still, since it needs a subdivision tag sequence and 🇬🇧 would be wrong.
 

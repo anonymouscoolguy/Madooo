@@ -298,8 +298,13 @@ than a build.
         `/players` and `/teams` each carry their own box in their filter row,
         where it sits beside the filters it works with and can say what it is
         searching. The top bar keeps the theme toggle and, below `md`, the menu
-        button; nothing further is coming to it. A knowing departure from the
-        reference images.
+        button; nothing further is coming to it — except one thing that has
+        since arrived: a **GitHub mark** beside the toggle, linking to the
+        repository, because the landing page could be read as open source and
+        the signed-in app could not. It was built at the sidebar's foot first
+        and rejected there: as a labelled row it read as a fifth destination.
+        The bar is where it belongs precisely because nothing in the bar
+        navigates. A knowing departure from the reference images.
   - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
         drawer below `md`. Nothing at `md` and above changed. The rules it was
         written against are now a `### Responsive` section in `foundations.md`,
@@ -518,7 +523,9 @@ than a build.
         landing page's fifth key, `UNRATED`, stays in its own file, because the
         app has no such state.
 
-        It cost the icon subset two glyphs, `lock` and `code`, and
+        It cost the icon subset two glyphs, `lock` — since replaced by
+        `lock_open`, an open padlock being the truer mark for a tag reading
+        "Free and open source" — and `code`, and
         `foundations.md` a description of the Tag — a 24px pill it had listed a
         height for and never defined. The header wraps to two lines below ~360px
         rather than shrinking its buttons, which is the narrow decision the

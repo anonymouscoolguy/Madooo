@@ -1724,6 +1724,19 @@ item.
   letting `AppFrame` import it, which is what keeps the sidebar and its Clerk
   `<UserButton>` off the client bundle. The same move is available whenever a
   later slice needs client state wrapped around server-rendered UI.
+- **A link that leaves the app belongs in the top bar, not the sidebar.** The
+  source link is an `<a target="_blank" rel="noreferrer">` beside the theme
+  toggle, and it was tried at the sidebar's foot first. Built there as a row
+  borrowing `NavItem`'s height, icon column and hover fill, it read as a fifth
+  destination — which is what `<nav>` is for, and this is not one. The bar holds
+  the app's other non-navigating controls, so it is where anything chrome-like
+  goes. `ml-auto` moved off `ThemeToggle` onto a wrapping group at the same time:
+  with two controls pinned right, the arrangement is the bar's to make rather
+  than something either control asserts about itself. The URL lives in
+  [`src/lib/links.ts`](../src/lib/links.ts), shared with the landing page,
+  because a repository URL spelled out twice is a broken link waiting for the
+  second copy to be edited. The mark itself is the one non-Material-Symbol glyph
+  in the app — see `foundations.md` for the exception and its bar.
 - **The theme toggle holds no React state**, and that is what keeps it free of
   the usual persisted-preference problems. `data-theme` on `<html>` is the
   state, CSS is the only reader, and the click handler reads the current theme

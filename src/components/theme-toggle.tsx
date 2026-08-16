@@ -55,7 +55,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="t-hover ml-auto flex size-(--control-h-lg) items-center justify-center rounded-md text-muted hover:bg-surface-alt hover:text-text focus-visible:focus-ring"
+      className="t-hover flex size-(--control-h-lg) items-center justify-center rounded-md text-muted hover:bg-surface-alt hover:text-text focus-visible:focus-ring"
     >
       <span className="theme-icon-light">
         <Icon name="dark_mode" size="lg" />
