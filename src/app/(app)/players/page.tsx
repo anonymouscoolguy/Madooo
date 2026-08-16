@@ -63,7 +63,18 @@ export default async function Players() {
   return (
     <>
       <PageHeader title="Players">
-        Here you can find all the players in the leagues we cover.
+        {/*
+          The second sentence answers the question the search box provokes: a
+          reader who types a name and finds nothing has to be able to tell "not
+          in our leagues" from "not named yet". `playersInSeason` reads
+          `MatchSquad`, so a signing with no squad row is genuinely absent until
+          a round he is named in has been synced — and "named in a squad" rather
+          than "played" is the accurate line, because an unused substitute is
+          listed here and can be judged.
+        */}
+        Here you can find all the players in the leagues we cover. A player
+        appears once they have been named in a matchday squad, unused
+        substitutes included.
       </PageHeader>
 
       {/* Drawn on the empty branch too, the same as `/fixtures`: a page that hid
