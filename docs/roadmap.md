@@ -525,7 +525,8 @@ than a build.
 
         It cost the icon subset two glyphs, `lock` — since replaced by
         `lock_open`, an open padlock being the truer mark for a tag reading
-        "Free and open source" — and `code`, and
+        "Free and open source" — and `code`, since dropped when the GitHub
+        button took the octocat, and
         `foundations.md` a description of the Tag — a 24px pill it had listed a
         height for and never defined. The header wraps to two lines below ~360px
         rather than shrinking its buttons, which is the narrow decision the

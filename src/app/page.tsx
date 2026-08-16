@@ -1,6 +1,7 @@
 import { SignInButton, SignUpButton } from '@clerk/nextjs'
 
 import { Badge, VERDICT_BADGE } from '@/components/badge'
+import { GithubMark } from '@/components/github-mark'
 import { Icon } from '@/components/icon'
 import { LandingPreview } from '@/components/landing-preview'
 import { GITHUB_URL } from '@/lib/links'
@@ -281,14 +282,24 @@ function OpenSource() {
             A new tab, like the footer's link: this is the only page a visitor
             has, and sending them off it to read the source loses the two ways
             in. `rel="noreferrer"` because `target="_blank"` otherwise hands the
-            opened page a handle on this one through `window.opener`. */}
+            opened page a handle on this one through `window.opener`.
+
+            The octocat rather than `code`, matching the top bar: a visitor
+            reads the destination off the mark before reading the label, and
+            the two entrances to the repository now look like each other.
+
+            16px against the button's 18px Material Symbol, the same 2px the
+            top bar takes off for the same reason — the mark is a solid
+            silhouette where a Symbol is a 2px outline, so an equal box puts
+            more ink on screen. It inherits `text-inverse` from the anchor
+            through `currentColor`, which is why it has no colour of its own. */}
         <a
           href={GITHUB_URL}
           target="_blank"
           rel="noreferrer"
           className={`${FILLED} self-start text-inverse no-underline hover:text-inverse hover:no-underline md:shrink-0 md:self-center`}
         >
-          <Icon name="code" size="md" />
+          <GithubMark className="size-4" />
           View on GitHub
         </a>
       </div>
