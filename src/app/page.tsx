@@ -147,7 +147,7 @@ function Hero() {
           pill tabs and to nothing else. The app's first one.
         */}
         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-caps text-muted">
-          <Icon name="lock" size="xs" />
+          <Icon name="lock_open" size="xs" />
           Free and open source
         </span>
 
@@ -282,9 +282,16 @@ function OpenSource() {
         </div>
 
         {/* `no-underline` in both states: the base stylesheet styles every <a>
-            as prose, which is right for a sentence and wrong for a button. */}
+            as prose, which is right for a sentence and wrong for a button.
+
+            A new tab, like the footer's link: this is the only page a visitor
+            has, and sending them off it to read the source loses the two ways
+            in. `rel="noreferrer"` because `target="_blank"` otherwise hands the
+            opened page a handle on this one through `window.opener`. */}
         <a
           href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
           className={`${FILLED} self-start text-inverse no-underline hover:text-inverse hover:no-underline md:shrink-0 md:self-center`}
         >
           <Icon name="code" size="md" />
@@ -311,7 +318,12 @@ function SiteFooter() {
     <footer>
       <div className="mx-auto flex max-w-(--container) flex-col gap-2 px-4 pb-6 text-caption text-muted sm:flex-row sm:items-center sm:justify-between md:px-6">
         <p>Madooo, a personal football database. Free and open source.</p>
-        <a href={GITHUB_URL} className="text-muted hover:text-text">
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-muted hover:text-text"
+        >
           GitHub
         </a>
       </div>
