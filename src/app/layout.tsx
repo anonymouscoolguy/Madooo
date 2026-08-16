@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Madooo",
-  description: "A private match diary for football fans.",
+  description: "A personal database for the football you watched.",
 };
 
 export default function RootLayout({
