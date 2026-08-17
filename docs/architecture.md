@@ -433,7 +433,8 @@ Three things that are easy to get wrong here:
 - **`AWD` and `WO` are not finished.** A match awarded 3–0 satisfies every plain
   reading of "the match is over" and never had a team sheet, so counting it
   would put a permanently unhydratable row in the queue for a fortnight.
-  `hydration.ts` splits the provider's whole status vocabulary three ways, and
+  [`match-status.ts`](../src/lib/match-status.ts) splits the provider's whole
+  status vocabulary three ways and `hydration.ts` re-exports it, and
   `hydration.test.ts` asserts that every status the captured payloads contain is
   classified — the payloads only ever hold `FT` and `NS`, which is exactly why
   the rest is documented rather than trusted to memory.
@@ -557,10 +558,15 @@ against:
   so this is cheap; what it is not is optional.
 - **A round is a poor unit of work.** It is not atomic in time — a selected round
   spans several days — and beyond round 5 its dates are not even the real ones.
-- **Anything that groups or orders by date is standing on provisional data.**
-  The matchday pager is safe, since it groups by the round label, which does not
-  move. A screen that grouped by week or by date would reshuffle itself as
-  selections land.
+- **Anything that groups or orders by date is standing on provisional data.** The
+  matchday pager's *grouping* is safe, since it groups by the round label, which
+  does not move. **The date range it prints under the matchday number is not**:
+  that is `_min`/`_max` over `kickoff` in `listRounds`, so one rescheduled fixture
+  drags the whole range. Primeira Liga Matchday 3 reads "22 Aug – 10 Sep" today
+  because one of its fixtures was moved to September, while Matchday 4 reads
+  "28–31 Aug" — the ranges run backwards against each other. What a matchday's
+  dates should mean in that case is an open decision in the roadmap. A screen that
+  grouped by week or by date would reshuffle itself outright as selections land.
 
 ### What is deliberately unmapped
 
@@ -603,6 +609,18 @@ module; nothing ever points out of the sync.
 
 The provider's vocabulary still stops at the boundary in the place that counts —
 URLs carry `?matchday=6`, not the label.
+
+[`match-status.ts`](../src/lib/match-status.ts) is the second module of that
+shape, and it carries a wrinkle `rounds.ts` does not: **one of its groups is the
+sync's and one is the pages', and the names are the whole of the difference.**
+`ABANDONED_STATUSES` is about fetching — "over, and there is nothing to read" —
+and its job is keeping `PST`, `CANC`, `ABD`, `AWD` and `WO` out of both hydration
+queues. `CALLED_OFF_STATUSES` is `PST` and `CANC` alone, a documented subset, and
+is what a card asks to draw POSTPONED or CANCELLED where a kickoff time would go.
+A component reaching for `isAbandoned` instead would be borrowing a name that lies
+about why the badge is there, and would badge two statuses that carry a real
+score. `match-status.test.ts` asserts the subset holds, which is what keeps a
+status added for rendering out of the sync's queues.
 
 ### The tests read `scratch/`, which is gitignored
 

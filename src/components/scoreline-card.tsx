@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { BackLink } from './back-link'
-import { Badge, LIVE_BADGE } from './badge'
+import { Badge, CALLED_OFF_BADGE, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
 import { KickoffTime } from './kickoff-time'
 import { teamHref } from '@/lib/back'
 import { kickoffDate } from '@/lib/dates'
-import { isInProgress } from '@/lib/match-status'
+import { calledOffLabel, isInProgress } from '@/lib/match-status'
 import { fixtureName, scoreline } from '@/lib/text'
 import type { IconName } from './icon-names'
 import type { MatchWithSquads } from '@/lib/matches'
@@ -55,12 +55,24 @@ function Fact({
   )
 }
 
-/** The result, a live badge, or the kickoff time — in that order of precedence. */
+/**
+ * A called-off badge, the result, a live badge, or the kickoff time — in that
+ * order of precedence.
+ */
 function Score({ match }: { match: MatchWithSquads }) {
-  // First, and `FixtureCard`'s reading: a match kicks off with a 0–0 recorded
-  // against it, so asking about goals first draws a live match as a finished
-  // goalless draw. The page never polls either, so a live score would be stale
-  // the moment it was painted.
+  // First, as it is on `FixtureCard`: whether the match is happening at all comes
+  // before whether it is happening now, and it has to come before the goals check
+  // below — a called-off fixture has no goals recorded, so it used to draw a
+  // kickoff time for a match that will not be played then.
+  const calledOff = calledOffLabel(match.status)
+  if (calledOff !== null) {
+    return <Badge label={calledOff} classes={CALLED_OFF_BADGE} />
+  }
+
+  // Still before the goals check, and `FixtureCard`'s reading: a match kicks off
+  // with a 0–0 recorded against it, so asking about goals first draws a live
+  // match as a finished goalless draw. The page never polls either, so a live
+  // score would be stale the moment it was painted.
   if (isInProgress(match.status)) {
     return <Badge label="Live" classes={LIVE_BADGE} />
   }
@@ -126,6 +138,7 @@ export function ScorelineCard({
   match: MatchWithSquads
   back: { href: string; label: string }
 }) {
+  const calledOff = calledOffLabel(match.status)
   const live = isInProgress(match.status)
   const played = match.homeGoals !== null && match.awayGoals !== null
 
@@ -135,20 +148,28 @@ export function ScorelineCard({
   // score is announced and stating one the page has chosen not to draw would
   // put a number in the accessibility tree that is nowhere on the screen.
   //
+  // A called-off match takes the clubs and its word for the same reason, and it
+  // has to be tested before the unplayed branch or it would land there and
+  // announce a kick-off the badge beside it says will not happen. The word is
+  // lowercased because this is the middle of a sentence where the badge is the
+  // start of a label; `calledOffLabel` is the single source of it either way.
+  //
   // The unplayed case is a node rather than a string, and that is the whole
   // reason: it announces the kickoff time, and the time on screen is the
   // reader's. Left as a server-formatted string it would say 15:00 into a screen
   // reader while the scoreline beside it drew 23:00 — a contradiction that lands
   // hardest on someone using magnification and a screen reader together.
-  const name: React.ReactNode = live
-    ? `${fixtureName(match)}, live`
-    : played
-      ? scoreline(match)
-      : (
-          <>
-            {scoreline(match)}, kick-off <KickoffTime kickoff={match.kickoff} />
-          </>
-        )
+  const name: React.ReactNode = calledOff !== null
+    ? `${fixtureName(match)}, ${calledOff.toLowerCase()}`
+    : live
+      ? `${fixtureName(match)}, live`
+      : played
+        ? scoreline(match)
+        : (
+            <>
+              {scoreline(match)}, kick-off <KickoffTime kickoff={match.kickoff} />
+            </>
+          )
 
   return (
     <header className="mb-8">

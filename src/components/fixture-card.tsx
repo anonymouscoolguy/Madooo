@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { Badge, LIVE_BADGE } from './badge'
+import { Badge, CALLED_OFF_BADGE, LIVE_BADGE } from './badge'
 import { CrestChip } from './crest-chip'
 import { Icon } from './icon'
 import { KickoffTime } from './kickoff-time'
 import { kickoffDate } from '@/lib/dates'
-import { isInProgress } from '@/lib/match-status'
+import { calledOffLabel, isInProgress } from '@/lib/match-status'
 import { plural } from '@/lib/text'
 import { countNotes, countVerdicts } from '@/lib/verdicts'
 import type { Fixture } from '@/lib/fixtures'
@@ -21,6 +21,17 @@ import type { Fixture } from '@/lib/fixtures'
  */
 
 function Score({ match }: { match: Fixture }) {
+  // First of all three, and the order reads as a question: whether this match is
+  // happening at all comes before whether it is happening right now. The two
+  // statuses are disjoint so nothing turns on it, but the third check below is
+  // the one this has to precede — a postponed fixture has no goals recorded, so
+  // it used to fall through to a kickoff time and draw as a match about to be
+  // played.
+  const calledOff = calledOffLabel(match.status)
+  if (calledOff !== null) {
+    return <Badge label={calledOff} classes={CALLED_OFF_BADGE} />
+  }
+
   // Before the goals check, and that order is the whole of it: a match kicks off
   // with a 0–0 recorded against it, so asking about goals first draws a live
   // match as a finished goalless draw. This page never polls, so a live score

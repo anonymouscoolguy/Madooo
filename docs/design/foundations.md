@@ -81,6 +81,16 @@ vocabulary, and the two never appear side by side: verdict words live on player
 rows, `LIVE` on a scoreline. This is the only pair in the table that duplicates
 another's values, and the duplication is the point.
 
+**A match that was called off takes no token at all.** POSTPONED and CANCELLED are
+drawn as the resting chip — `--border` and `--text-muted` on `--surface`, the
+treatment an unpressed verdict chip already has. The reasoning runs the opposite
+way to `--live`'s: that fact earned a token of its own because it needed a colour,
+and this one needs the absence of one. Grey is what absence looks like here, and
+the word carries the weight. Not `--live`, which states the opposite fact, and not
+`--info`, which this system has spent on a note. No glyph either — Material
+Symbols has none for "did not happen", and the answer to a missing glyph is a
+word, as it is for the unrated chip.
+
 ### Club colours are the one sanctioned exception to the no-hex rule
 
 A club's colour is a fact about the club, not a decision about the interface, so no semantic token could ever express it — there is no "Chelsea blue" in this system and there must not be. Club colours therefore live in the database, on `Team.colour`, and reach the DOM through an inline `style` on **a club mark**: the crest chip, and a player's shirt tile. Product code still holds no hex.

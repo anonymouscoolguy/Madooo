@@ -54,6 +54,23 @@ export const VERDICT_BADGE: Record<BadgeKey, { icon: IconName; classes: string }
  */
 export const LIVE_BADGE = 'border-live bg-live-bg text-live'
 
+/**
+ * A match that will not be played as scheduled, drawn where its kickoff time
+ * would go.
+ *
+ * **No token of its own, and that is the decision rather than an omission.** This
+ * is foundations' resting chip exactly — the string `verdict-controls.tsx` gives
+ * an unpressed verdict chip, minus its hover, and the same one the landing page's
+ * `UNRATED` badge reuses. Grey is what absence looks like in this system, and a
+ * called-off match is an absence; the word carries the weight.
+ *
+ * Deliberately not `--live`, which is a match in play — the opposite fact — and
+ * not `--info`, which this app has already spent on a note. No icon, for the
+ * reason the unrated badge has none: Material Symbols has no glyph for "did not
+ * happen", and foundations' answer to a missing glyph is a word.
+ */
+export const CALLED_OFF_BADGE = 'border-border bg-surface text-muted'
+
 type Props = {
   /**
    * Optional, because a badge saying *no* verdict was given has no glyph to

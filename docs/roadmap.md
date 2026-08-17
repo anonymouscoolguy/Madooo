@@ -8,8 +8,8 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-15 (step 16 — the app runs beside its database, reads
-the signed-in user instead of rebuilding it, and answers a click at once)
+**Last updated:** 2026-08-17 (step 17 — a fixture the provider has called off says
+so, instead of drawing a kickoff time it will not be played at)
 
 ---
 
@@ -35,6 +35,12 @@ weekend with no commit — La Liga's first squads were written by the 17:55 UTC 
 on 15 August, 45 minutes after the window for Alaves v Getafe opened and on the
 second ask, the first having found the sheet unpublished. Read the current state
 from the database rather than from this paragraph.
+
+**A fixture the provider has called off says so.** A postponed or cancelled match
+draws POSTPONED or CANCELLED where its kickoff time would go, on the fixture card
+and on the match page, and keeps its place in its own matchday — the calendar pass
+already follows the provider's new date and hour once one is published. SC Braga
+vs GIL Vicente, postponed on 16 August, is the fixture that found it.
 
 The 2024 judgements are still in the database and no longer on any screen, since
 every read filters by season; they were the author's own test data.
@@ -836,6 +842,45 @@ than a build.
 
       Deliberately not done: `use cache`, and Neon's scale-to-zero. Both are in
       Open decisions.
+- [x] **17 — A postponed fixture says so.** Found by running a sync rather than by
+      looking for it: SC Braga vs GIL Vicente had been `PST` since 16 August, and
+      both screens drew it as a match about to be played. Neither did so on
+      purpose — both reached the kickoff time by way of "no goals recorded", which
+      is as true of a postponement as of an unplayed fixture.
+
+      **Two thirds of what was wanted already existed**, which is why this was a
+      rendering change and nothing else. The calendar pass writes `kickoff` and
+      `status` on every `--due` run, so a new date and hour land within ten minutes
+      of the provider publishing them; and grouping is by `round`, so a fixture
+      keeps its matchday however far its date moves. Only the badge was missing.
+
+      **`PST` and `CANC` only.** They are the two that mean *not played at all*.
+      `ABD` has a team sheet and a partial result, and `AWD` and `WO` carry a real
+      score, so badging those three would put a word where a result belongs — a
+      decision rather than a tidy-up, if it is ever wanted.
+
+      **The naming is the part worth keeping.** `PST` sits in
+      `ABANDONED_STATUSES`, which is the sync's group and is named for fetching, so
+      a card asking `isAbandoned` in order to decide what to draw would borrow a
+      name that lies about why the badge is there — the mistake `foundations.md`
+      already refuses to make with `--live` and `--flop`. The read side therefore
+      got `CALLED_OFF_STATUSES`, a documented subset with a word per status, and
+      `match-status.test.ts` asserts it stays inside the sync's group so that a
+      status added for rendering can never enter a hydration queue.
+
+      The badge itself cost no token: it is foundations' resting chip, on the
+      argument that a called-off match is an absence and grey is what absence looks
+      like here. And the match page's `sr-only` heading took the word too, or it
+      would have announced a kick-off while the screen said the match was off.
+
+      No schema change, no sync change, no request cost — `isDue` wants
+      `isFinished` and `isLineupDue` wants `isPending`, so a called-off fixture
+      sits in neither queue while it waits and rejoins the lineup queue by itself
+      at its new kickoff.
+
+      Deliberately not done: anything to what `--due` prints, so a postponement
+      still passes through a run silently; and the matchday pager's date range,
+      which this found and which is now an open decision.
 
 ## Long-term remarks
 
@@ -1040,6 +1085,16 @@ must stay out of the Vercel build, are in
   because a job whose purpose is to keep another job running is worth choosing on
   purpose rather than adding by reflex. *Resolved by deciding either way once the
   first quiet month has actually happened.*
+
+- **A matchday's printed date range is stretched by one rescheduled fixture.**
+  `listRounds` derives it from `_min`/`_max` over `kickoff` and `MatchdayPager`
+  prints it under the matchday number, so a single moved fixture drags the whole
+  span. Primeira Liga Matchday 3 reads "22 Aug – 10 Sep" while Matchday 4 reads
+  "28–31 Aug", so the ranges also run backwards against one another. It is live
+  today and rescheduling is what causes it, not calling off — step 17 only found
+  it. *Resolved by deciding what a matchday's dates mean when one of its fixtures
+  is a month from the rest: the honest span, the weekend the rest of the round is
+  played, or no range at all.*
 
 The paid API tier and the Clerk production instance used to sit here. Neither was
 a decision — nothing about them was unsettled but the date — so both moved into

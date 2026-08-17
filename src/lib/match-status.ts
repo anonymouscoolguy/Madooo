@@ -30,6 +30,31 @@ export const FINISHED_STATUSES = ['FT', 'AET', 'PEN'] as const
  */
 export const ABANDONED_STATUSES = ['PST', 'CANC', 'ABD', 'AWD', 'WO'] as const
 
+/**
+ * Called off — **a subset of the group above, kept apart because the pages ask a
+ * different question of it.**
+ *
+ * That group is the sync's, and its name is about fetching: "over, and there is
+ * nothing to read". `PST` is in it because a postponed match will never have a
+ * team sheet *at that date*, not because anyone thinks it was abandoned. A card
+ * calling `isAbandoned` to decide what to draw would be borrowing a name that
+ * lies about why the badge is there — the mistake `foundations.md` refuses to
+ * make with `--live` and `--flop`.
+ *
+ * The two sets are different in substance as well as in name. `AWD` and `WO`
+ * carry a real score, and `ABD` has a team sheet and a partial one, so none of
+ * the three renders like a postponement. These two are the ones that mean *not
+ * played at all*.
+ *
+ * Deliberately **not** a fourth group beside the other three: those partition the
+ * vocabulary and `hydration.test.ts` asserts they stay disjoint. This is a view
+ * over one of them, and `match-status.test.ts` asserts it stays inside it — which
+ * is what keeps a status added here out of both hydration queues.
+ */
+export const CALLED_OFF_STATUSES = ['PST', 'CANC'] as const
+
+type CalledOffStatus = (typeof CALLED_OFF_STATUSES)[number]
+
 /** Named but not yet under way. */
 export const NOT_STARTED_STATUSES = ['TBD', 'NS'] as const
 
@@ -88,6 +113,41 @@ export function isPending(status: string): boolean {
  */
 export function isInProgress(status: string): boolean {
   return isMember(IN_PROGRESS_STATUSES, status)
+}
+
+/**
+ * The word a called-off match is drawn with. A table rather than a formatter, so
+ * that a status added to the group without a word is a compile error rather than
+ * a badge with nothing in it.
+ *
+ * Written in the case it is read in, which is `Badge`'s own convention for a
+ * label — `text-caps` does the uppercasing, and the match page's heading
+ * lowercases it back for the middle of a sentence.
+ */
+const CALLED_OFF_LABELS: Record<CalledOffStatus, string> = {
+  PST: 'Postponed',
+  CANC: 'Cancelled',
+}
+
+function isCalledOff(status: string): status is CalledOffStatus {
+  return isMember(CALLED_OFF_STATUSES, status)
+}
+
+/**
+ * The word for a match that will not be played as scheduled, or null for one
+ * that will.
+ *
+ * The page side's second question, after `isInProgress`, and it exists for the
+ * same kind of bug: every screen reaches the kickoff time by way of "no goals
+ * recorded", which draws a postponed fixture as one about to be played, and
+ * announces a kick-off that will not happen to a screen reader.
+ *
+ * A word rather than a boolean, because the caller has to say *which* — and
+ * because a boolean would put the provider's vocabulary back inside the
+ * component, which is what this module exists to prevent.
+ */
+export function calledOffLabel(status: string): string | null {
+  return isCalledOff(status) ? CALLED_OFF_LABELS[status] : null
 }
 
 /**
