@@ -1,9 +1,10 @@
 Flags in this directory are vendored from flag-icons 7.5.0
 https://github.com/lipis/flag-icons
 
-gb-eng.svg and pt.svg are unmodified. es.svg keeps only the two stripe paths of
-flag-icons' own file, with the coat of arms removed -- that is the Spanish civil
-flag, and the arms are 81 kB of path data that render as a smudge at 12px.
+gb-eng.svg, pt.svg and it.svg are unmodified. es.svg keeps only the two stripe
+paths of flag-icons' own file, with the coat of arms removed -- that is the
+Spanish civil flag, and the arms are 81 kB of path data that render as a smudge
+at 12px.
 
 The MIT License (MIT)
 

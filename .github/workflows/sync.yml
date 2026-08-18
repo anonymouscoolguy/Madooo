@@ -12,20 +12,20 @@
 #
 # Needs four repository settings, under Settings → Secrets and variables →
 # Actions. SEASON and LEAGUES are variables rather than secrets because they are
-# configuration and nothing about them is sensitive — which also means a fourth
+# configuration and nothing about them is sensitive — which also means a fifth
 # league costs a field in a web form and no commit.
 #
 #   secret    DATABASE_URL        pooled Neon connection string, production branch
 #   secret    API_FOOTBALL_KEY    the Pro key
 #   variable  SEASON              2026
-#   variable  LEAGUES             39,94,140
+#   variable  LEAGUES             39,94,140,135
 
 name: sync
 
 on:
   schedule:
     # Every 10 minutes from 09:00 to 01:00 UTC — the last run is 00:57 and the
-    # next is 09:07, a gap when nothing in three European leagues is finishing.
+    # next is 09:07, a gap when nothing in four European leagues is finishing.
     # GitHub's cron is always UTC, and fires late under load — a run is not a
     # clock. The minutes are an offset list rather than */10 because the top of
     # the hour is when the most workflows on the platform come due at once, and

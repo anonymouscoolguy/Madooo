@@ -36,8 +36,9 @@ interface Identity {
  * overwrites `Team.name`.
  *
  * The ids for the 2024/25 clubs were read out of `scratch/fixtures_39_2024.json`,
- * the Primeira Liga's out of `scratch/fixtures_94_2026.json` and La Liga's out of
- * `scratch/fixtures_140_2026.json` — read, never transcribed, which is what makes
+ * the Primeira Liga's out of `scratch/fixtures_94_2026.json`, La Liga's out of
+ * `scratch/fixtures_140_2026.json` and Serie A's out of
+ * `scratch/fixtures_135_2026.json` — read, never transcribed, which is what makes
  * the guard below meaningful. The promoted clubs are included so that changing
  * `SEASON` does not silently blank a chip; if an id is wrong the guard will say
  * so.
@@ -150,6 +151,47 @@ const IDENTITIES: Record<number, Identity> = {
   728: { name: 'Rayo Vallecano', code: 'RAY', colour: '#e53027' },
   797: { name: 'Elche', code: 'ELC', colour: '#00913f' },
   4665: { name: 'Racing Santander', code: 'RAC', colour: '#009b48' },
+
+  // Serie A, 2026/27. Codes are Lega Serie A's own three-letter abbreviations,
+  // the rule the three blocks above follow — and the competition that needs it
+  // most: first-three-letters gives both Milan clubs MIL, says nothing at all
+  // for "Inter", and hands Sassuolo and AS Roma initials off the wrong word.
+  //
+  // Eighteen of the twenty colours were checked by the author against the clubs
+  // themselves, so this block is sourced like the Primeira Liga's and La Liga's
+  // rather than like the Premier League's. Thirteen of the eighteen moved off
+  // the published primary they were drafted from, which is the same rate that
+  // block found and the reason the check is not a formality: Lecce is the
+  // clearest, drafted yellow off its shirt and corrected to the blue the club
+  // is actually identified by.
+  //
+  // The two exceptions are the two the check cannot settle. Juventus and Udinese
+  // both play in black and white, which no crest chip can draw, so both hold
+  // flat black and are indistinguishable from each other — the problem Real
+  // Madrid and Valencia posed in La Liga, unresolved here because neither club
+  // has a second colour to move to. Venezia is the near miss: its shirt is black
+  // too, and it takes the orange of its trim rather than being a third black
+  // chip.
+  487: { name: 'Lazio', code: 'LAZ', colour: '#87d8f7' },
+  488: { name: 'Sassuolo', code: 'SAS', colour: '#00a752' },
+  489: { name: 'AC Milan', code: 'MIL', colour: '#fb090b' },
+  490: { name: 'Cagliari', code: 'CAG', colour: '#ad002a' },
+  492: { name: 'Napoli', code: 'NAP', colour: '#12a0d7' },
+  494: { name: 'Udinese', code: 'UDI', colour: '#000000' },
+  495: { name: 'Genoa', code: 'GEN', colour: '#ad1919' },
+  496: { name: 'Juventus', code: 'JUV', colour: '#000000' },
+  497: { name: 'AS Roma', code: 'ROM', colour: '#8e1f2f' },
+  499: { name: 'Atalanta', code: 'ATA', colour: '#1e71b8' },
+  500: { name: 'Bologna', code: 'BOL', colour: '#a21c26' },
+  502: { name: 'Fiorentina', code: 'FIO', colour: '#482e92' },
+  503: { name: 'Torino', code: 'TOR', colour: '#8a1e03' },
+  505: { name: 'Inter', code: 'INT', colour: '#010e80' },
+  512: { name: 'Frosinone', code: 'FRO', colour: '#ffdd00' },
+  517: { name: 'Venezia', code: 'VEN', colour: '#ef7d00' },
+  523: { name: 'Parma', code: 'PAR', colour: '#ffd200' },
+  867: { name: 'Lecce', code: 'LEC', colour: '#006086' },
+  895: { name: 'Como', code: 'COM', colour: '#10416a' },
+  1579: { name: 'Monza', code: 'MON', colour: '#e4022e' },
 }
 
 async function main() {

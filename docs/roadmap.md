@@ -8,21 +8,21 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-17 (step 17 — a fixture the provider has called off says
-so, instead of drawing a kickoff time it will not be played at)
+**Last updated:** 2026-08-18 (step 18 — Serie A, the fourth league)
 
 ---
 
 ## Current state
 
-**There are three leagues, and two of them are being played.** The app runs on
-API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94,140`: the
+**There are four leagues, and two of them are being played.** The app runs on
+API-Football's Pro tier against `SEASON=2026` with `LEAGUES=39,94,140,135`: the
 2026-27 Premier League, which kicks off on 21 August, the Primeira Liga, which
-started in August, and La Liga, whose opening weekend is 15 August. All three
-calendars are in the database — 380 matches, 306 and 380 — and the fixtures with
-squads are clickable, with lineups, squads and player statistics. The Premier
-League's are not, and will not be until its own opening weekend: 6.2 decided a
-card with no squad does not navigate.
+started in August, La Liga, whose opening weekend is 15 August, and Serie A,
+whose first round is played over 22–24 August. All four calendars are in the
+database — 380 matches, 306, 380 and 380 — and the fixtures with squads are
+clickable, with lineups, squads and player statistics. The Premier League's and
+Serie A's are not, and will not be until their own opening weekends: 6.2 decided
+a card with no squad does not navigate.
 
 That asymmetry is the reason the second league was added before the sync was
 scheduled. Until it landed nothing on any screen had been played, so nothing past
@@ -51,7 +51,7 @@ fixture with venue, crest chips, score and date, under a league row and a
 matchday pager, server-rendered out of Neon on every request. The league row is
 a working control now rather than the drawing of one: each pill scopes the whole
 page to a competition, carries the national flag of the country that competition
-is played in, and the matchday travels beside it in the URL. The flags are three
+is played in, and the matchday travels beside it in the URL. The flags are four
 4:3 SVGs in `public/flags/`, the first thing in the app to use that directory,
 and a league whose country has no file draws the pill exactly as before. **The
 page also remembers which pill was last pressed**: an address with no `?league=`
@@ -163,7 +163,7 @@ landing page had a drawing; two arrived afterwards and 8.4 built it. What remain
 between here and launch is data, scheduling and a checklist.
 
 **And the sync now knows what to read without being told.** `npm run sync --
---due` refreshes all three calendars and then asks our own table which finished
+--due` refreshes all four calendars and then asks our own table which finished
 matches have not been read yet, which is why the leagues playing different
 weekends and different numbers of rounds costs no code at all — the question is
 asked per fixture, so the competitions never have to be told apart. A new column
@@ -176,9 +176,9 @@ this has nobody watching it.
 **And that thing now exists.** A GitHub Actions workflow runs `--due` every
 ten minutes from 09:00 to 01:00 UTC, so the deployed app's data no longer
 depends on a laptop being open — which is the app's second non-negotiable
-finally being true rather than assumed. It writes the development branch,
-because that is the one Vercel reads. The season and the leagues are repository
-*variables* there rather than secrets, so a fourth league is still a field in a
+finally being true rather than assumed. It writes the production branch,
+because that is the one the deployment reads. The season and the leagues are
+repository *variables* there rather than secrets, so a fifth league is a field in a
 form and no commit; the price is that both now have two homes, `.env.local` and
 GitHub, which can disagree.
 
@@ -882,6 +882,38 @@ than a build.
       still passes through a run silently; and the matchday pager's date range,
       which this found and which is now an open decision.
 
+- [x] **18 — A fourth league, Serie A.** Done. `LEAGUES=39,94,140,135`, a probe,
+      a sync run, and no product code — the read sides discover leagues from the
+      `League` table, so no page and no Vercel environment was told, and there
+      was no migration. What it cost beyond the variable is the part worth
+      recording, because step 13 said the third league cost the variable alone
+      and that stops being the whole story here: the variable has two homes and
+      both had to move, the Italian flag is a file, a CSS rule and a map entry,
+      and twenty clubs needed a code and a colour that API-Football does not
+      publish. None of that is the league. All of it is decoration on a league,
+      and it is separable — the pill draws correctly with no flag and grey chips,
+      which is exactly what `foundations.md`'s third flag clause exists to
+      guarantee.
+
+      The probe settled four things before a file was touched: 135 is entitled on
+      Pro for 2026 as every other league is, its coverage flags are false for
+      2026 and it fetches anyway, its rounds are labelled `Regular Season - N` so
+      `rounds.ts` parses them unchanged, and the provider calls it "Serie A" in a
+      country it calls "Italy".
+
+      **The name is the find.** `leagues.test.ts` had been using `'serie-a'` as
+      its "a league we do not hold" fixture in four places, which this made false;
+      they now name the Bundesliga. Underneath that is a real one: the provider's
+      league 71 is Brazil's "Serie A", and the URL slug is derived from the name
+      alone, so configuring both would make `serie-a` open the wrong competition
+      silently. Asking `/leagues` for the whole catalogue put a number on it —
+      1,239 competitions, 1,002 distinct names, 53 names shared by more than one
+      country, and "Premier League" belongs to 35 of them.
+
+      Serie A landed with its calendar and nothing hydrated, as La Liga did: its
+      first round is played over 22–24 August, and the schedule will fill it with
+      no commit.
+
 ## Long-term remarks
 
 Standing constraints that were agreed explicitly, cannot be read off the code,
@@ -1028,18 +1060,22 @@ must stay out of the Vercel build, are in
   block with no authority behind them.** Settled in 6.2: codes and colours are
   columns on `Team`, seeded by `npm run db:seed-teams`. The codes are the
   league's own abbreviations, which is a defensible external standard. The
-  colours are not. The Primeira Liga's and La Liga's were checked by the author
-  against the clubs themselves and are confirmed; the Premier League's are each
-  club's commonly published primary, entered by hand and never checked against
-  anything. That block is what is left of the original problem, it is meant to
-  be edited on sight, and a wrong one is wrong quietly.
+  colours are not. The Primeira Liga's, La Liga's and eighteen of Serie A's were
+  checked by the author against the clubs themselves and are confirmed; the
+  Premier League's are each club's commonly published primary, entered by hand
+  and never checked against anything. That block is what is left of the original
+  problem, it is meant to be edited on sight, and a wrong one is wrong quietly.
 
   **A club that plays in white is the case the check exists for.** Real Madrid
   and Valencia have no drawable shirt colour, so each holds what the club is
   identified by off it — Madrid's crest blue, Valencia's black. Both were wrong
   on published primaries before the author corrected them, as were Levante,
   Deportivo and Barcelona, which is five of twenty in a block that looked
-  plausible throughout.
+  plausible throughout. Serie A repeated the rate almost exactly — thirteen of
+  the eighteen checked colours moved off the drafted primary — and left the same
+  residue: Juventus and Udinese play in black and white, both hold flat black,
+  and no check can tell them apart, which is the one case in four leagues that
+  has no answer rather than an unchecked one.
 - **The demoted MVP's chip waits for the round trip.** Each squad row is its own
   client island holding its own optimistic state, so nothing tells one row that
   another has just taken the MVP: the player losing it keeps a filled star until

@@ -15,7 +15,7 @@
  * **`--due` is the mode the scheduler runs and `--round` is the one a person
  * runs.** `--round` names a matchday and asks for it; `--due` names nothing and
  * asks our own table what wants reading, which is why it needs no answer to
- * "which round is current" in three leagues that are at three different points
+ * "which round is current" in four leagues that are at four different points
  * of their seasons. `--round` stays because it is the repair tool: it reaches a
  * match the fortnight window has already dropped.
  *

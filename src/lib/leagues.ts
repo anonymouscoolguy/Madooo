@@ -131,7 +131,10 @@ export function parseLeagueScope(
  * so.
  */
 export interface LeagueIdentity {
-  /** `League.country`, as API-Football spells it: "England", "Portugal", "Spain". */
+  /**
+   * `League.country`, as API-Football spells it: "England", "Portugal",
+   * "Spain", "Italy".
+   */
   country: string
 }
 
@@ -152,6 +155,7 @@ const FLAGS = new Map([
   ['england', 'flag-gb-eng'],
   ['portugal', 'flag-pt'],
   ['spain', 'flag-es'],
+  ['italy', 'flag-it'],
 ])
 
 /**
@@ -160,10 +164,11 @@ const FLAGS = new Map([
  * **`null` is the whole reason this is legal against `AGENTS.md`'s first
  * constraint.** The map above names no league, no id and no season — it is
  * indexed by a value that came out of the `League` table, so it cannot be
- * consulted without a row. A fourth league needs no edit here to work: it draws
- * the pill exactly as one is drawn today. The moment the fallback became an
- * invented flag or a reserved gap, the map would be part of the price of a
- * league and the constraint would be broken.
+ * consulted without a row. A fifth league needs no edit here to work: it draws
+ * the pill exactly as one is drawn today, which is what the Premier League, the
+ * Primeira Liga, La Liga and Serie A each did before their file was vendored.
+ * The moment the fallback became an invented flag or a reserved gap, the map
+ * would be part of the price of a league and the constraint would be broken.
  *
  * The unmapped case is not hypothetical. API-Football's country for the
  * Champions League is "World".

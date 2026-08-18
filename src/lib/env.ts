@@ -68,7 +68,7 @@ export function season(): number {
 }
 
 /**
- * Which leagues the sync fetches — API-Football's own ids, `LEAGUES=39,94,140`.
+ * Which leagues the sync fetches — API-Football's own ids, `LEAGUES=39,94,140,135`.
  *
  * **Only the sync reads this, and nothing under `src/app/` ever may.** The sync
  * writes `League` rows; every read side discovers leagues from Postgres instead

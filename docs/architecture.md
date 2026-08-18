@@ -40,7 +40,7 @@ binding rules are in [`AGENTS.md`](../AGENTS.md) and, for anything that renders,
   - [Things the toolchain does that the source does not show](#things-the-toolchain-does-that-the-source-does-not-show)
   - [The season's calendar is pinned to London; a kickoff time is the reader's](#the-seasons-calendar-is-pinned-to-london-a-kickoff-time-is-the-readers)
   - [The icon font is a subset, fetched by script](#the-icon-font-is-a-subset-fetched-by-script)
-  - [The three flags are vendored files under `public/`, not a dependency](#the-three-flags-are-vendored-files-under-public-not-a-dependency)
+  - [The flags are vendored files under `public/`, not a dependency](#the-flags-are-vendored-files-under-public-not-a-dependency)
 - [The app shell](#the-app-shell)
   - [Every route has a `loading.tsx`, and two separate things depend on it](#every-route-has-a-loadingtsx-and-two-separate-things-depend-on-it)
 - [Build and deploy](#build-and-deploy)
@@ -359,7 +359,7 @@ raw types, a thin client, and a pure mapper. [`src/lib/sync.ts`](../src/lib/sync
 turns mapped objects into rows, and [`scripts/sync.ts`](../scripts/sync.ts) is
 the CLI. Nothing under `src/app/` imports any of it.
 
-**Which leagues to sync is configuration, `LEAGUES=39,94,140`, and only the sync
+**Which leagues to sync is configuration, `LEAGUES=39,94,140,135`, and only the sync
 reads it.** The asymmetry is the point: the sync *writes* `League` rows, while
 every read side *discovers* leagues from Postgres — `leaguesWithMatches`,
 `leaguesInSeason`, `parseLeague`. A page reading the variable would have two
@@ -386,9 +386,9 @@ a second reading of the same fixture routine rather than exceptional.
 ### A scheduled run asks our own table, not the provider, what to read
 
 `--due` never asks which round is current. It asks Postgres which *fixtures* are
-finished and not yet read, which is why three leagues at three different points
-of their seasons — 38 rounds, 34 and 38, played on different weekends — produce
-no branch anywhere. The question is asked per fixture, so the competitions never
+finished and not yet read, which is why four leagues at four different points
+of their seasons — 38 rounds, 34, 38 and 38, played on different weekends —
+produce no branch anywhere. The question is asked per fixture, so the competitions never
 have to be told apart. A round would have needed three answers and a rule for
 combining them.
 
@@ -675,7 +675,7 @@ all.
 Four repository settings under `Settings → Secrets and variables → Actions`
 carry the configuration. `DATABASE_URL` and `API_FOOTBALL_KEY` are secrets;
 `SEASON` and `LEAGUES` are **variables**, because they are configuration and
-nothing about them is sensitive. That is what makes the fourth league a field in
+nothing about them is sensitive. That is what makes the fifth league a field in
 a web form rather than a commit. The consequence: **`LEAGUES` and `SEASON` have
 two homes**, `.env.local` and the repository variables, and they can disagree —
 the laptop's copy governs a hand-run sync, the variables govern every scheduled
@@ -725,7 +725,7 @@ tighter cadence and offset minutes rather than a retry.
 the `--round N` repair tool on a button rather than requiring a laptop.
 
 Anything narrower than a whole-season calendar read is deliberately not built.
-Ninety-six runs a day at three calendar requests each is 288 of 7,500, and re-reading
+Ninety-six runs a day at four calendar requests each is 384 of 7,500, and re-reading
 is how a kickoff moved by a broadcaster reaches the app. `/fixtures?from=&to=`
 and `?ids=` are the escape hatches if a run ever needs to be cheaper, and the
 thing that would force it is a cadence below five minutes — at which point
@@ -972,9 +972,19 @@ the existing conventions ruled out two:
 The slug is derived from `League.name` and never written down, which is the rule
 `leaguesInSeason` and `parseLeague` already state for league identity. It is
 built on `searchKey`, the app's one name-flattening rule, so a competition with
-diacritics comes out typeable. Its risks — a provider rename, two leagues sharing
-a name — degrade to the default league rather than to an error, exactly as
-`parseFilter` and `backLink` treat unrecognised input.
+diacritics comes out typeable. A provider rename degrades to the default league
+rather than to an error, exactly as `parseFilter` and `backLink` treat
+unrecognised input.
+
+**Two leagues sharing a name is the risk that does not degrade, and it is no
+longer hypothetical.** `serie-a` is Serie A's slug, and the provider's id 71 is
+Brazil's Serie A: configure both and `parseLeagueScope` returns whichever the
+query yielded first — the wrong competition, silently, rather than a fallback.
+Nothing is wrong today because 71 is not configured. What would fix it is a
+tiebreak the slug does not currently carry, most obviously the country; what
+would force it is adding a league whose name another configured league already
+holds. `api-football-findings.md` records the collision as a fact about the
+provider's catalogue.
 
 `src/lib/leagues.ts` owns league identity beyond the URL: `flagClass` sits beside
 the slug there and maps `League.country` onto a flag class, on the same
@@ -1682,12 +1692,12 @@ been seen to get *smaller* while gaining a glyph.
   `Material Icons` font to clients it does not recognise, and that font silently
   has no FILL axis.
 
-### The three flags are vendored files under `public/`, not a dependency
+### The flags are vendored files under `public/`, not a dependency
 
 `flag-icons` is the obvious package and the wrong one here. Its CSS is only
 27 kB, but it names 542 SVGs totalling some 3.8 MiB through `url()`, every one
 of which a bundler resolves and emits into the build — a 4.13 MB dependency to
-draw three of 271 flags. The three files are copied out of it instead, under its
+draw four of 271 flags. The four files are copied out of it instead, under its
 MIT licence, with the notice in `public/flags/LICENSE`. `es.svg` keeps only the
 two stripe paths: the coat of arms is 81 kB of the file and renders as a smudge
 at 12px, and what is left is the Spanish civil flag rather than an invention.

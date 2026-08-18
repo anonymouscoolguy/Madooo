@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Claude Code personal overrides (project skills/settings are committed)
 .claude/settings.local.json
+
+# Python bytecode, from running scripts/verify_api.py
+__pycache__/

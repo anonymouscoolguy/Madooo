@@ -529,9 +529,9 @@
      interface glyphs — so Iconography's "if a glyph does not exist, use a word"
      is not the rule that governs this. `trophy` still means competition.
 
-     Three 4:3 files under public/flags/, vendored from flag-icons rather than
+     Four 4:3 files under public/flags/, vendored from flag-icons rather than
      depended on: that package's CSS is 27 kB but names 542 SVGs of some 3.8 MiB,
-     every one of which a bundler emits into the build, in order to draw three.
+     every one of which a bundler emits into the build, in order to draw four.
 
      A background-image rather than an inline <svg> or an <img>. Inline would put
      the path data into the payload of every page drawing a pill; a background
@@ -543,8 +543,9 @@
      edge of its own on --surface, and none on a *selected* pill in dark either,
      which is a white fill. An inset shadow draws one without a border changing
      the box — the trick `focus-field` already uses on a field. --border in both
-     themes covers both cases, and on Spain's and Portugal's own edges it is
-     invisible, so one rule beats three. */
+     themes covers both cases, and Italy needs the same along the top and bottom
+     of its white centre band. On Spain's and Portugal's own edges it is
+     invisible, so one rule beats four. */
   .flag {
     background-position: center;
     background-repeat: no-repeat;
@@ -568,6 +569,10 @@
 
   .flag-es {
     background-image: url("/flags/es.svg");
+  }
+
+  .flag-it {
+    background-image: url("/flags/it.svg");
   }
 
   /* The entrance of a modal <dialog>, and the whole of what CSS has to say about

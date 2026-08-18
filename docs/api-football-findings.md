@@ -1,6 +1,6 @@
 # API-Football: what we verified before building
 
-**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro, leagues 94 and 140 added 2026-08-12 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
+**Verified:** 2026-08-01 on the free tier, re-verified 2026-08-11 on Pro, leagues 94 and 140 added 2026-08-12, league 135 added 2026-08-18 · **Script:** [`scripts/verify_api.py`](../scripts/verify_api.py) · **Raw payloads:** `scratch/` (gitignored)
 
 Madooo cannot exist without knowing which matches happened and who played in
 them. That makes API-Football a single point of failure, so we probed it before
@@ -106,11 +106,14 @@ protect, and it cost exactly one variable in two places.
 | 39 | Premier League | 20 | 38 | 380 | `Regular Season - N` |
 | 94 | **Primeira Liga** | 18 | 34 | 306 | `Regular Season - N` |
 | 140 | **La Liga** | 20 | 38 | 380 | `Regular Season - N` |
+| 135 | Serie A | 20 | 38 | 380 | `Regular Season - N` |
 
-All three are entitled on Pro for every season 2010–2026. Coverage is flagged
-true throughout for 39 and 94; league 140 has every flag **false for 2026** and
-true for 2010–2025, and fetches 2026 perfectly anyway — the clearest single
-instance of the coverage-is-not-entitlement rule in this document.
+All four are entitled on Pro for every season 2010–2026. Coverage is flagged
+true throughout for 39 and 94; leagues 140 and 135 have every flag **false for
+2026** and true for 2010–2025, and fetch 2026 perfectly anyway — the clearest
+instances of the coverage-is-not-entitlement rule in this document, and 135
+repeated it exactly, which makes it the pattern for an unstarted season rather
+than one league's quirk.
 
 **The provider's name for a competition is not the one a person would say, in
 either direction.** League 94 is "Primeira Liga", not Liga Portugal, which is how
@@ -119,7 +122,21 @@ own formal name. Since `League.name` is stored from the payload, that string is
 what every label and the URL slug are built from — so neither can be written down
 from memory, and both were read out of the dumps.
 
-**All three label rounds identically**, which is what lets
+**And a name that does match is still not safe, because it need not be unique.**
+League 135 is "Serie A", which is exactly what a person would say — and league 71
+is Brazil's "Serie A". Only `league.country` separates them, so any code keyed on
+the name alone answers for whichever it meets first. That is live in the app: the
+URL slug is derived from the name, so configuring 71 alongside 135 would make
+`serie-a` name the wrong competition.
+
+Not a curiosity of one pair, either. `/leagues` with no parameters returns
+**1,239 competitions under 1,002 distinct names, and 53 of those names are used
+by more than one country** (checked 2026-08-18, one request). The worst of them
+is the one already held: **"Premier League" belongs to 35 countries**, "Primera
+División" to six, "Ligue 1" to nine. A league id is the only identifier of a
+competition that is actually unique.
+
+**All four label rounds identically**, which is what lets
 [`rounds.ts`](../src/lib/rounds.ts) parse them with no change; a cup competition
 would not, and is the thing to re-check before adding one.
 
@@ -331,7 +348,7 @@ shaped the CLI's round-at-a-time discipline is gone.
 day and re-reads each league's calendar every time, which is 288 requests of
 7,500 before a single fixture is hydrated — the price of catching a kickoff a
 broadcaster has moved. Hydration adds two per finished fixture, so a full
-gameweek of three leagues is another 60-odd. Adding a league multiplies the
+gameweek of four leagues is another 80-odd. Adding a league multiplies the
 backfill and the calendar floor, not the weekly load, and at 7,500/day there is
 room for several. The
 Primeira Liga measured it rather than predicted it: **613 requests** for its full

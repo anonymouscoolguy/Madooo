@@ -3,7 +3,7 @@
  *
  * The scheduled sync does not ask API-Football which round is current. It asks
  * our own table which *fixtures* are finished and not yet read, which is why
- * three leagues at three different points of their seasons — 38 rounds, 34 and
+ * four leagues at four different points of their seasons — 38 rounds, 34, 38 and
  * 38, played on different weekends — produce no branch anywhere below. The
  * question is asked per fixture, so the leagues never have to be told apart.
  *
@@ -136,7 +136,7 @@ export function isDue(row: HydrationCandidate, now: Date): boolean {
  *
  * Never-read first, then oldest first within each tier. A match nobody has ever
  * read is a permanent hole in a diary; a confirming re-read is a few hours'
- * wait. At three leagues the ordering never actually bites — the heaviest
+ * wait. At four leagues the ordering never actually bites — the heaviest
  * realistic day drains in one run — but it decides who waits when it does.
  *
  * Uncapped on purpose. The caller needs the full count in order to say how many

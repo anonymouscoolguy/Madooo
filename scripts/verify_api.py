@@ -86,7 +86,7 @@ def load_key() -> str:
 
 
 def parse_leagues(raw: str, source: str) -> list[int]:
-    """Parse "39,94,140" into [39, 94, 140]. Order is preserved and meaningful."""
+    """Parse "39,94,140,135" into [39, 94, 140, 135]. Order is preserved."""
     ids: list[int] = []
     for token in raw.split(","):
         token = token.strip()

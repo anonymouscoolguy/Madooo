@@ -336,10 +336,10 @@ So a flag answers to the club-mark rule rather than to this one, and takes the s
 
 1. **It is data, not a decision.** It renders `League.country` as the sync stored it. Nothing at a call site chooses which flag appears.
 2. **It goes through one function** — `flagClass` in [`src/lib/leagues.ts`](../../src/lib/leagues.ts) — so the fallback exists once, the way `crest` holds the club mark's.
-3. **Its fallback is nothing at all.** A country the map does not know draws no mark and no gap, and the row is exactly what it was before flags existed. This is the clause that makes the map legal against `AGENTS.md`'s first non-negotiable: a fourth league still costs one environment variable, and its flag is an afterthought rather than part of the price.
+3. **Its fallback is nothing at all.** A country the map does not know draws no mark and no gap, and the row is exactly what it was before flags existed. This is the clause that makes the map legal against `AGENTS.md`'s first non-negotiable: a fifth league still costs one environment variable, and its flag is an afterthought rather than part of the price.
 4. **It sits beside the name it marks, never instead of it**, and is `aria-hidden`. The accessible name is the league's name, which is already there.
 
-The files are three 4:3 SVGs in `public/flags/`, vendored from flag-icons under MIT, drawn as a `background-image` at 16×12 with a 1px inset ring in `--border`. The ring is not decoration: England is a white field, so it has no edge on `--surface`, and none on a selected pill in dark either, which is a white fill.
+The files are four 4:3 SVGs in `public/flags/`, vendored from flag-icons under MIT, drawn as a `background-image` at 16×12 with a 1px inset ring in `--border`. The ring is not decoration: England is a white field, so it has no edge on `--surface`, and none on a selected pill in dark either, which is a white fill. Italy needs the same along the top and bottom of its white centre band.
 
 ### GitHub's mark is a second identity mark, and the only one
 
