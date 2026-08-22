@@ -125,6 +125,13 @@ data was a variable. The failure surfaced at runtime as "Unknown argument
 `npm run db:check` is the fastest way to confirm the database still works end to
 end. It refuses to run against production and cleans up after itself.
 
+**`npm run suggestions` is the exception to that refusal, and deliberately so.**
+It is the only read side the `Suggestion` table has, and the suggestions worth
+reading are production's, so it takes `DATABASE_TARGET=production` in front of it
+like the migration does. It is safe to point there because it only ever
+`findMany`s — `db:check` refuses because it writes. Like the sync, it prints the
+branch it read, so a run that comes back empty says which database it asked.
+
 ### Two columns are seeded by hand and never synced
 
 `Team.code` and `Team.colour` — the three-letter abbreviation and the club colour
@@ -1159,6 +1166,27 @@ the others, so for the length of one round trip two chips read as MVP. Making
 that instant would mean lifting the whole match's verdicts into shared client
 state, which is a much larger thing than the lag is worth.
 
+**`sendSuggestion` is the one action that does not `refresh()`, and the one that
+returns a value.** Both follow from the same fact: nothing on any screen reads
+the `Suggestion` table, so there is no re-render to carry the answer. A
+`refresh()` would re-run the current page's queries to produce identical HTML,
+and without a return value the dialog could not tell "sent" from "refused". The
+refusal is a returned value rather than a thrown error because throwing out of a
+Server Action gives the client a redacted message in production — "you have sent
+too many of these" would arrive as "an error occurred". `SuggestionResult` lives
+in [`suggestions.ts`](../src/lib/suggestions.ts), since `actions.ts` may export
+nothing but actions.
+
+**It is also the only write with a rate limit**, and that is not politeness. The
+other actions are bounded by the rows they can touch — a user has one judgement
+per player per match, and re-tapping overwrites it. A suggestion is an insert
+with no unique constraint and free text, invited from a control anyone signed in
+can see, so without a limit one account fills the table at the speed of the
+network. The guard is a `count()` of this user's rows inside the window, in the
+same request as the write. It is not exact under concurrency — two simultaneous
+sends can both see four — which is fine, because what it defends against is a
+loop rather than an off-by-one.
+
 **A `CHECK` constraint in Postgres is non-deferrable**, and no transaction
 changes that. Only `UNIQUE`, foreign keys and `EXCLUDE` can be declared
 `DEFERRABLE`; a `CHECK` is evaluated as each statement runs. Writing the pair in
@@ -1516,11 +1544,22 @@ identically in the markup.
 
 ### The dialog is the platform's, and so are the fields
 
-The note dialog in [`player-controls.tsx`](../src/components/player-controls.tsx)
-is a native `<dialog>` opened with `showModal()`, not a hand-rolled overlay: the
-focus trap, Escape, the inert background and the top layer all come for free.
-The top layer is the one that earns it — `<main>` is `position: relative`, so
-anything fixed inside it would resolve against `<main>` rather than the viewport.
+There are two — the note dialog in
+[`player-controls.tsx`](../src/components/player-controls.tsx) and the suggestion
+box in [`suggestion-box.tsx`](../src/components/suggestion-box.tsx) — and both
+are a native `<dialog>` opened with `showModal()` rather than a hand-rolled
+overlay: the focus trap, Escape, the inert background and the top layer all come
+for free. The top layer is the one that earns it — `<main>` is
+`position: relative`, so anything fixed inside it would resolve against `<main>`
+rather than the viewport.
+
+**The shared part is the `.dialog` class in `globals.css`, not a React
+component.** It carries the entrance and the backdrop; everything below is a rule
+each dialog follows for itself. Nothing was extracted when the second one
+arrived, because what the two have in common is a surface and eight lines of CSS,
+while what differs — what they own, when they unmount, whether they have an
+outcome to report — is all of the logic. A `<Dialog>` wrapper would have had to
+take the whole of that as props.
 
 - **It is mounted only while it is open**, which is what makes the draft
   disposable — Cancel discards by unmounting, and there is no stale text to
@@ -1541,10 +1580,18 @@ anything fixed inside it would resolve against `<main>` rather than the viewport
   throw the draft away. The test — `event.target === event.currentTarget` — also
   only holds because the dialog itself carries no padding; the three sections
   inside it carry their own.
-- **`showModal()` focuses the first focusable descendant**, which here is the
-  close button. The dialog's callback ref moves focus to the textarea after it
-  and puts the caret at the end, and it can reach the textarea from there because
-  React attaches a child's ref before its parent's.
+- **`showModal()` focuses the first focusable descendant**, which in both is the
+  close button. Each dialog's callback ref moves focus to the textarea after it,
+  and can reach the textarea from there because React attaches a child's ref
+  before its parent's. The note dialog also puts the caret at the end, so editing
+  an existing note appends rather than prepends; the suggestion box always opens
+  empty and has no caret to place.
+- **Only one of the two has an outcome to report.** Saving a note is visible on
+  the row underneath, so the dialog can simply close. A suggestion goes somewhere
+  the reader cannot see, so `suggestion-box.tsx` holds a `sent` state and swaps
+  its body for a confirmation. That is also why a refusal there keeps the draft
+  in the box rather than closing: the text is the thing that must survive being
+  told "not now".
 - **A field's focus state is not the ring.** `foundations.md` gives fields
   `--border-focus` plus an inset 1px of it, which reads as a 2px border without
   the element changing size and shifting the layout. That is the `focus-field`
@@ -1765,6 +1812,40 @@ item.
   because a repository URL spelled out twice is a broken link waiting for the
   second copy to be edited. The mark itself is the one non-Material-Symbol glyph
   in the app — see `foundations.md` for the exception and its bar.
+- **The bar's one labelled control is the suggestion box.** Everything else in
+  there is a bare glyph, because a reader who wants the theme or the repository
+  goes looking for it. A suggestion box has the opposite job — it has to be found
+  by someone who was not looking — and a box nobody notices collects nothing. The
+  label is the whole of that: it is the only run of words in a strip that is
+  otherwise four glyphs, which is loud enough on its own. It takes the left, so
+  the bar has an occupant at both ends at every width, which is what `ml-auto` on
+  the right-hand group keeps apart. **This spends the bar's left-hand space**,
+  which was the standing candidate for the wordmark below `md`; see the roadmap's
+  open decisions.
+- **An outline was tried on it and taken back out**, and the reason generalises
+  to anything else the bar ever holds. `foundations.md` opens with "the border is
+  the primary separator", so in this system a border marks off a region rather
+  than dressing a control — and a bordered button inside a bordered strip reads
+  as a box inside a box, competing with the bar's own bottom edge. If the control
+  ever needs more presence than its label gives it, the in-system move is a
+  resting `--surface-alt` fill hovering to `--surface-sunken`, which is the "one
+  step along the ramp" foundations already sanctions, and not an outline.
+- **The label survives at phone width, and that was measured rather than
+  assumed.** It was hidden below `md` at first, on the assumption that five words
+  would not fit beside a menu button on a 320px screen. They do: the button
+  renders 153px wide, and the whole narrow bar — 8px of padding either side, a
+  40px menu button, the button, and the two 40px controls with their 2px gap —
+  comes to 291px. The button is `whitespace-nowrap` because the real failure mode
+  is the label wrapping to two lines inside a 56px rail, not the label being
+  absent. Nothing separates the menu button from it, and nothing needs to: the
+  menu glyph is centred in a 40px box, so its own padding already leaves 8px of
+  clear space before the border starts.
+- **It carries no `aria-label`, and that is a consequence of the label being
+  permanent.** The button's text is its accessible name, and `<Icon>` is
+  `aria-hidden`, so the glyph's ligature text — the literal word `inbox` — is
+  excluded from the name rather than read out in front of it. Hiding the label at
+  any breakpoint again means putting the `aria-label` back, because a control
+  whose only content is an `aria-hidden` glyph has no accessible name at all.
 - **The theme toggle holds no React state**, and that is what keeps it free of
   the usual persisted-preference problems. `data-theme` on `<html>` is the
   state, CSS is the only reader, and the click handler reads the current theme

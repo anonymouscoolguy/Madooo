@@ -3,6 +3,7 @@
 import { GITHUB_URL } from '@/lib/links'
 import { GithubMark } from './github-mark'
 import { Icon } from './icon'
+import { SuggestionBox } from './suggestion-box'
 import { ThemeToggle } from './theme-toggle'
 
 type Props = {
@@ -18,7 +19,8 @@ type Props = {
 }
 
 /**
- * The top bar: the theme toggle, and below `md` a menu button.
+ * The top bar: the suggestion box, the source link and the theme toggle, and
+ * below `md` a menu button.
  *
  * The design puts a search field in here too, and it is deliberately not here:
  * search belongs to the screen that has something to search, next to the filters
@@ -38,6 +40,14 @@ type Props = {
  * first, borrowing `NavItem`'s row height, icon column and hover fill, and
  * read as a fifth place to go. Up here it is chrome among chrome, beside the
  * only other control that leaves the page alone.
+ *
+ * **The suggestion box is the fourth, and it is the only one carrying a label.**
+ * The same argument puts it here — it opens a dialog, so it navigates nowhere —
+ * but not the same treatment, because it is the one control in the bar that has
+ * to be found by someone who was not looking for it. It also takes the left, so
+ * the bar now has an occupant at both ends at every width; `ml-auto` on the
+ * right-hand group, which existed for the menu button's sake below `md`, is
+ * what keeps the two apart.
  */
 export function TopBar({ menuOpen, onMenuClick, ref }: Props) {
   return (
@@ -56,6 +66,8 @@ export function TopBar({ menuOpen, onMenuClick, ref }: Props) {
       >
         <Icon name={menuOpen ? 'close' : 'menu'} size="lg" />
       </button>
+
+      <SuggestionBox />
 
       {/*
         `ml-auto` moved off the toggle and onto this group when the source link

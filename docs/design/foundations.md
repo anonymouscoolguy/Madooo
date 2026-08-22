@@ -322,7 +322,7 @@ Nothing else animates. No bounce, no spring, no scale-in, no page transitions, n
 Sizes: 14 in badges and micro-labels, 16 in chips, 18 in buttons and fields, 20 default, 22 for large icon buttons. Icons inherit `currentColor` and are never given their own colour except through the element holding them.
 
 Working vocabulary: `trending_up` (STANDOUT), `trending_down` (FLOP), `star` (MVP), `sports_soccer`, `edit_note`, `add_comment`, `visibility`, `how_to_reg`, `groups`, `view_agenda`, `view_list` and `grid_view` (the layout toggle), `menu` (the drawer), `lock_open` (the landing page's open-source tag), `stadium`, `two_pager`, `calendar_today`, `search`, `settings`, `notifications`, `check`, `close`, `expand_more`, `chevron_left`, `chevron_right`, `more_horiz`, `delete`, `share`, `arrow_forward`, `light_mode`, `dark_mode`, `trophy` (competition), `sports`
-(the referee's whistle).
+(the referee's whistle), `inbox` (the top bar's suggestion box).
 
 The list that binds is `ICON_NAMES` in `src/components/icon-names.ts`, which is both the type `<Icon>` accepts and the subset request the font is fetched with. This paragraph is its prose companion and can fall behind it; the array cannot.
 

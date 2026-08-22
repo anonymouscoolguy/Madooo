@@ -21,6 +21,12 @@ import { refresh } from 'next/cache'
 
 import { requireDbUser } from './auth'
 import { prisma } from './prisma'
+import {
+  normaliseSuggestion,
+  SUGGESTION_LIMIT_PER_WINDOW,
+  SUGGESTION_WINDOW_MS,
+  type SuggestionResult,
+} from './suggestions'
 import { isJudgementTag, NOTE_MAX_LENGTH, type JudgementTag } from './verdicts'
 import type { Prisma } from '@/generated/prisma/client'
 
@@ -211,4 +217,43 @@ export async function setNote(matchSquadId: number, note: string) {
   }
 
   refresh()
+}
+
+/**
+ * Record a suggestion from the signed-in user.
+ *
+ * The two rules at the top of this file apply here as much as anywhere, and
+ * more visibly: this action is reachable by POST from any session, it takes free
+ * text, and it is the only write in the app whose UI a user is *invited* to
+ * open. So it authenticates itself, validates its own argument through
+ * `normaliseSuggestion`, and rate-limits per account.
+ *
+ * **The rate limit is a count, not a library.** One indexed read against this
+ * user's recent rows, in the same request as the write. It is not exact under
+ * concurrency — two simultaneous sends can both see four — and that is fine:
+ * what it is defending against is a loop, not an off-by-one.
+ *
+ * **It does not call `refresh()`, and that is the one thing here worth
+ * remembering.** Every other action does, because it changed something the
+ * current route draws. Nothing draws suggestions, so a re-render would re-run
+ * the page's queries to produce identical HTML.
+ */
+export async function sendSuggestion(body: unknown): Promise<SuggestionResult> {
+  const user = await requireDbUser()
+
+  // Untrusted — `unknown` rather than `string` because the annotation is not a
+  // runtime guarantee, and this arrives as JSON from a POST that need not have
+  // come from our dialog. `normaliseSuggestion` is the whole of the rule.
+  const text = normaliseSuggestion(body)
+  if (text === null) return { ok: false, reason: 'invalid' }
+
+  const since = new Date(Date.now() - SUGGESTION_WINDOW_MS)
+  const recent = await prisma.suggestion.count({
+    where: { userId: user.id, createdAt: { gte: since } },
+  })
+  if (recent >= SUGGESTION_LIMIT_PER_WINDOW) return { ok: false, reason: 'rate-limited' }
+
+  await prisma.suggestion.create({ data: { userId: user.id, body: text } })
+
+  return { ok: true }
 }

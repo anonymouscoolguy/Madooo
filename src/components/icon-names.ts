@@ -27,6 +27,7 @@ export const ICON_NAMES = [
   'grid_view',
   'groups',
   'how_to_reg',
+  'inbox',
   'light_mode',
   'lock_open',
   'menu',

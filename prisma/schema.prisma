@@ -203,7 +203,31 @@ model User {
   email     String?
   createdAt DateTime @default(now())
 
-  judgements Judgement[]
+  judgements  Judgement[]
+  suggestions Suggestion[]
+}
+
+/// Something a user asked us to build or change, sent from the top bar.
+///
+/// The only table in the schema that nothing in the app reads back. It is
+/// written by `sendSuggestion` and read by `npm run suggestions` from a laptop,
+/// which is deliberate: a suggestion is addressed to the author, not to the
+/// other users, so there is no screen for it and no moderation problem to have.
+model Suggestion {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Unbounded `text`. The length limit is `SUGGESTION_MAX_LENGTH`, enforced by
+  /// the action — a product rule rather than a schema one, the same split
+  /// `Judgement.note` makes. A hand-added CHECK does insist it is not blank.
+  body String
+
+  createdAt DateTime @default(now())
+
+  /// The script reads newest-first across every user, which is the only query
+  /// anything makes against this table.
+  @@index([createdAt])
 }
 
 model Judgement {

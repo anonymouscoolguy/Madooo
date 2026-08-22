@@ -8,7 +8,7 @@ How the system *works* is not here. That is
 [`architecture.md`](architecture.md), organised by subsystem: read the section
 you are about to touch before writing code in it.
 
-**Last updated:** 2026-08-18 (step 18 — Serie A, the fourth league)
+**Last updated:** 2026-08-22 (step 19 — the suggestion box)
 
 ---
 
@@ -41,6 +41,13 @@ draws POSTPONED or CANCELLED where its kickoff time would go, on the fixture car
 and on the match page, and keeps its place in its own matchday — the calendar pass
 already follows the provider's new date and hour once one is published. SC Braga
 vs GIL Vicente, postponed on 16 August, is the fixture that found it.
+
+**And users can now ask for things.** The top bar carries a labelled "Suggest a
+feature" button, opening a dialog with one message box; what is typed there is
+stored against the sender's account and read back with `npm run suggestions` from
+a laptop. There is no screen for it and no reply — it is a channel to the author,
+not a forum — which is what keeps a private, single-user app free of anything to
+moderate.
 
 The 2024 judgements are still in the database and no longer on any screen, since
 every read filters by season; they were the author's own test data.
@@ -303,14 +310,16 @@ than a build.
         other way: it belongs to the screens that have something to search.**
         `/players` and `/teams` each carry their own box in their filter row,
         where it sits beside the filters it works with and can say what it is
-        searching. The top bar keeps the theme toggle and, below `md`, the menu
-        button; nothing further is coming to it — except one thing that has
-        since arrived: a **GitHub mark** beside the toggle, linking to the
-        repository, because the landing page could be read as open source and
-        the signed-in app could not. It was built at the sidebar's foot first
-        and rejected there: as a labelled row it read as a fifth destination.
-        The bar is where it belongs precisely because nothing in the bar
-        navigates. A knowing departure from the reference images.
+        searching. The top bar shipped with the theme toggle and, below `md`,
+        the menu button, and this entry used to say nothing further was coming
+        to it. Two things since have: a **GitHub mark** beside the toggle in
+        8.1, linking to the repository, because the landing page could be read
+        as open source and the signed-in app could not; and the **suggestion
+        box** on the left in 19. Both were argued the same way — the bar is
+        where they belong precisely because nothing in it navigates — and the
+        mark was built at the sidebar's foot first and rejected there, since as
+        a labelled row it read as a fifth destination. A knowing departure from
+        the reference images, twice.
   - [x] **6.1b — Responsive shell.** Done. The sidebar becomes an off-canvas
         drawer below `md`. Nothing at `md` and above changed. The rules it was
         written against are now a `### Responsive` section in `foundations.md`,
@@ -914,6 +923,44 @@ than a build.
       first round is played over 22–24 August, and the schedule will fill it with
       no commit.
 
+- [x] **19 — The suggestion box.** Done. A labelled "Suggest a feature" button on
+      the left of the top bar opens a dialog with one message field; the message
+      is stored against the sender's account and read back by
+      `npm run suggestions`. The app has users now, and no way for any of them to
+      say what they want built was the gap this closes.
+
+      **How loud the button is was the design decision, and it was taken twice.**
+      Every other control in that bar is a bare glyph; this one is labelled and
+      bordered, because it is the only one whose job is to be found by somebody
+      who was not looking for it. It shipped as a label that dropped below `md`
+      and an unbordered glyph, and the author asked for both to go further: the
+      label at every width including the phone, and `inbox` in place of
+      `lightbulb`, so the control reads as a suggestion box rather than as a
+      hint. The narrow case was then measured rather than argued — 291px of the
+      320px worst case, so it fits. An outline was tried in the same pass and
+      taken back out: nothing else in that bar has one, and a bordered control
+      inside a bordered strip reads as a box inside a box. It also spends the bar's left-hand space,
+      which had been the standing candidate for the wordmark below `md` — see the
+      open decision, now amended rather than closed.
+
+      **Where a suggestion goes was the other decision**, and it went to our own
+      Postgres rather than to an email or a GitHub issue. No new dependency, no
+      new secret, and nothing that can be lost in transit; a notification can be
+      layered on the same table later if the volume ever asks for one. A GitHub
+      issue was rejected outright: the repository is public, and a user's words
+      would become public writing they never agreed to publish.
+
+      Deliberately not built: any screen that reads suggestions, any reply path,
+      any category field, and any capture of which page the reader was on — the
+      last because a path like `/matches/123` quietly records what somebody was
+      looking at, in an app whose whole promise is that nobody sees your diary.
+
+      What it cost beyond the feature is worth recording: one hand-added CHECK,
+      one new glyph and no exception to anything (`inbox` is an ordinary Material
+      Symbol), and a rate limit — the first write in the app to need one, because
+      it is the first insert with no unique constraint behind a control anyone
+      signed in is invited to press.
+
 ## Long-term remarks
 
 Standing constraints that were agreed explicitly, cannot be read off the code,
@@ -1095,14 +1142,37 @@ must stay out of the Vercel build, are in
   restyling Clerk's internals or rendering our own chip and finding somewhere
   else for sign-out. Not urgent, but it is a knowing breach rather than an
   oversight.
-- **Nothing identifies the app below `md`.** The "Madooo" wordmark lives at the
-  head of the sidebar, so on a narrow screen it is inside the closed drawer and
-  the top bar is a menu button on an otherwise empty 56px rail. Putting the
-  wordmark in the top bar below `md` is the obvious answer and was deliberately
-  left out of 6.1b, which was scoped to the drawer. 8.1 has since put the theme
-  toggle in that bar, and with search settled onto the screens themselves rather
-  than the bar, the wordmark is the only thing left that a narrow top bar might
-  hold. *Resolved by putting it there, or by deciding the menu button is enough.*
+- **Nothing identifies the app below `md`, and the space it would have taken is
+  now spent.** The "Madooo" wordmark lives at the head of the sidebar, so on a
+  narrow screen it is inside the closed drawer and the top bar identifies
+  nothing. Putting the wordmark in that bar was the obvious answer while the bar
+  was a menu button on an otherwise empty rail; 19 has since put the suggestion
+  box on the left, so below `md` the bar reads menu button, a bordered "Suggest
+  a feature" button, and the two icons pinned right. A wordmark would now be a
+  fifth thing rather than the only thing, and it is the one of the five that does
+  nothing when pressed — and the bar already says the app's name in words, just
+  not its own.
+
+  So the question has changed rather than been answered. It is no longer "should
+  the wordmark go there" but "does a narrow top bar need identifying at all, now
+  that it is visibly full of this app's controls". *Resolved by deciding the bar
+  is identification enough, or by finding the wordmark a place that is not the
+  bar.*
+
+- **A suggestion records who sent it, and the dialog does not say so.** 19 stores
+  `Suggestion.userId` — which is what makes a reply possible, tells one
+  enthusiast from ten users apart, and gives the rate limit something to count —
+  and the dialog says only "Read by the person who builds this. There is no
+  reply." It does not claim anonymity, and attributing a form submission from a
+  signed-in account is what nearly every feedback box does. But it does not
+  disclose it either, and the author asked for it that way explicitly, for now.
+
+  The reason it is written down rather than settled: this is the app's one place
+  where a user's words leave their own diary, and *whether they know their name
+  is on them* is exactly the sort of thing that is cheap to decide now and
+  awkward to change after a few hundred rows exist. Three ways out, all small:
+  say so in the hint line; add a "send anonymously" box and make the column
+  nullable; or drop the column. *Resolved by picking one.*
 - **Clerk's `colorNeutral` and `colorShadow` are unbound.** Every other
   appearance variable is a `var(--…)` pointing at our tokens, but Clerk derives
   alpha shades from those two in JavaScript and cannot interpolate a `var()`.
